@@ -343,7 +343,7 @@
       async function pauseTreadmill() {
           if (!ftmsControlCharacteristic) return;
           try {
-              clearAllIntervals(); 
+              clearAllIntervals(); // Freezes the JS clock ticker instantly
               const pauseBuffer = new Uint8Array([0x08]);
               await ftmsControlCharacteristic.writeValue(pauseBuffer);
               updateStatus("Paused (Timer frozen).");
@@ -351,7 +351,7 @@
               updateStatus("Failed to pause: " + error.message);
           }
       }
-
+      
       async function resumeTreadmill() {
           if (!ftmsControlCharacteristic) return;
           try {
@@ -359,12 +359,14 @@
               const resumeBuffer = new Uint8Array([0x07]);
               await ftmsControlCharacteristic.writeValue(resumeBuffer);
               
+              // Wait for the motor to physically initialize before starting any logic clocks
               await new Promise(resolve => setTimeout(resolve, spinUpTime));
 
               if (currentTargetSpeed > 0) {
                   await sendSpeed(currentTargetSpeed, false);
               }
-
+              
+              // CRITICAL FIX: Only restart the countdown clock AFTER the motor spin-up delay has fully resolved
               if (isRoutineActive && !routineInterval) {
                   startClockLoop();
               }
@@ -372,33 +374,31 @@
               updateStatus("Failed to resume: " + error.message);
           }
       }
-
+      
       async function stopTreadmill() {
           if (!ftmsControlCharacteristic) return;
           try {
               resetRoutineState(); 
               updateStatus("Stopping treadmill...");
-
+              
               const buffer = new ArrayBuffer(3);
               const dataView = new DataView(buffer);
               dataView.setUint8(0, 0x02); 
               dataView.setUint16(1, 0, true); 
               await ftmsControlCharacteristic.writeValue(buffer);
-
+              
               await new Promise(resolve => setTimeout(resolve, 200));
-
+              
               const pauseBuffer = new Uint8Array([0x08]);
               await ftmsControlCharacteristic.writeValue(pauseBuffer);
-              updateStatus("Stopped.");
-              // re-allow screen blanking
-              resetRoutineState(); 
+              
               releaseWakeLock(); // Let the phone sleep naturally again
-              updateStatus("Stopping treadmill...");
+              updateStatus("Stopped.");
           } catch (error) {
               updateStatus("Failed to stop: " + error.message);
           }
       }
-
+        
       // URL Routine Entry Engine
       document.getElementById('routineBtn').addEventListener('click', async () => {
           resetRoutineState(); 
