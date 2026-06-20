@@ -147,7 +147,8 @@
       const FTMS_CONTROL_POINT_UUID = 0x2AD9;
       const FTMS_DATA_UUID = 0x2ACD;
       const spinUpTime = 5000; // time for the motor to spin up
-
+      
+      let wakeLock = null; // avoid screen blanking
       let ftmsControlCharacteristic = null;
       let bluetoothDevice = null;
       let currentTargetSpeed = 0.0;
@@ -263,6 +264,11 @@
                   const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
                   await dataChar.startNotifications();
                   dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
+                  updateStatus("Connected & Ready!");
+                  document.getElementById('controls').style.display = 'block';
+                  document.getElementById('connectBtn').style.display = 'none';
+                  // Lock the screen on
+                  await requestWakeLock();
               } catch (dataErr) {
                   console.warn("Metrics channel initialization skipped: ", dataErr.message);
               }
@@ -384,6 +390,10 @@
               const pauseBuffer = new Uint8Array([0x08]);
               await ftmsControlCharacteristic.writeValue(pauseBuffer);
               updateStatus("Stopped.");
+              // re-allow screen blanking
+              resetRoutineState(); 
+              releaseWakeLock(); // Let the phone sleep naturally again
+              updateStatus("Stopping treadmill...");
           } catch (error) {
               updateStatus("Failed to stop: " + error.message);
           }
@@ -492,6 +502,37 @@
       function updateStatus(msg) {
           document.getElementById('status').innerText = "Status: " + msg;
       }
+
+      // avoid screen blanking
+      async function requestWakeLock() {
+          try {
+              if ('wakeLock' in navigator) {
+                  wakeLock = await navigator.wakeLock.request('screen');
+                  console.log("Screen Wake Lock is active.");
+                  
+                  // Re-acquire if the app is minimized and restored
+                  wakeLock.addEventListener('release', () => {
+                      console.log("Screen Wake Lock was released.");
+                  });
+              }
+          } catch (err) {
+              console.warn(`Wake Lock failed: ${err.name}, ${err.message}`);
+          }
+      }
+
+      function releaseWakeLock() {
+          if (wakeLock !== null) {
+              wakeLock.release();
+              wakeLock = null;
+          }
+      }
+
+      // re-prevent screen blank after de-iconification
+      document.addEventListener('visibilitychange', async () => {
+          if (wakeLock !== null && document.visibilityState === 'visible') {
+              await requestWakeLock();
+          }
+      });
     </script>
 </body>
 </html>
