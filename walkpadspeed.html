@@ -102,7 +102,7 @@
 </head>
 <body>
 
-    <h1>walkpadspeed</h1>
+    <h1><href='https://github.com/ColasNahaboo/walkpadspeed'>walkpadspeed</a></h1>
     <button class="connect-btn" id="connectBtn">Connect to Treadmill</button>
     
     <div id="controls" style="display:none; margin-top: 20px;">
@@ -229,13 +229,13 @@
           if (flags & 0x0004) offset += 3; // uint24
           if (flags & 0x0008) offset += 4; // incl + ramp
 
-          // Flag bit 5 check: Elapsed Time present
-          if (flags & 0x0020) {
-              const elapsedSeconds = data.getUint16(offset, true);
-              const mins = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
-              const secs = (elapsedSeconds % 60).toString().padStart(2, '0');
-              document.getElementById('liveTime').innerText = `${mins}:${secs}`;
-          }
+          // Flag bit 5 check: Elapsed Time present (Obsolete: unreliable, we track in the js)
+          //if (flags & 0x0020) {
+          //    const elapsedSeconds = data.getUint16(offset, true);
+          //    const mins = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+          //    const secs = (elapsedSeconds % 60).toString().padStart(2, '0');
+          //    document.getElementById('liveTime').innerText = `${mins}:${secs}`;
+          //}
       }
 
       document.getElementById('connectBtn').addEventListener('click', async () => {
