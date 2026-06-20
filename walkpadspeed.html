@@ -174,7 +174,7 @@
       // Update button text on initial DOM Load
       window.addEventListener('DOMContentLoaded', () => {
           const urlParams = new URLSearchParams(window.location.search);
-          const routineName = urlParams.get('n') || "Test routine";
+          const routineName = urlParams.get('n') || "Test";
           const routineRaw = urlParams.get('r');
           const button = document.getElementById('routineBtn');
           
