@@ -143,341 +143,355 @@
     <p id="status">Status: Disconnected</p>
 
     <script>
-        const FTMS_SERVICE_UUID = 0x1826;
-        const FTMS_CONTROL_POINT_UUID = 0x2AD9;
-        const FTMS_DATA_UUID = 0x2ACD;
-        const spinUpTime = 5000; // time for the motor to spin up
+      const FTMS_SERVICE_UUID = 0x1826;
+      const FTMS_CONTROL_POINT_UUID = 0x2AD9;
+      const FTMS_DATA_UUID = 0x2ACD;
+      const spinUpTime = 5000; // time for the motor to spin up
 
-        let ftmsControlCharacteristic = null;
-        let bluetoothDevice = null;
-        let currentTargetSpeed = 0.0;
-        let audioCtx = null;
+      let ftmsControlCharacteristic = null;
+      let bluetoothDevice = null;
+      let currentTargetSpeed = 0.0;
+      let audioCtx = null;
 
-        // Routine State Variables
-        let routineInterval = null; 
-        let currentRoutineSteps = []; 
-        let currentStepIndex = 0;
-        let secondsLeftInStep = 0;
-        let totalStepDuration = 0;
-        let isRoutineActive = false; 
+      // Routine State Variables
+      let routineInterval = null; 
+      let currentRoutineSteps = []; 
+      let currentStepIndex = 0;
+      let secondsLeftInStep = 0;
+      let totalStepDuration = 0;
+      let isRoutineActive = false; 
+      let totalElapsedSeconds = 0;
 
-        function loadDefaultRoutine(name) {
-            currentRoutineSteps = [
-                { speed: 2.0, duration: 10, name: `${name} [1/3]` },
-                { speed: 4.0, duration: 9, name: `${name} [2/3]` },
-                { speed: 6.0, duration: 8, name: `${name} [3/3]` }
-            ];
-        }
+      function loadDefaultRoutine(name) {
+          currentRoutineSteps = [
+              { speed: 2.0, duration: 10, name: `${name} [1/3]` },
+              { speed: 4.0, duration: 9, name: `${name} [2/3]` },
+              { speed: 6.0, duration: 8, name: `${name} [3/3]` }
+          ];
+      }
 
-        // Update button text on initial DOM Load
-        window.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const routineName = urlParams.get('n') || "Test routine";
-            const routineRaw = urlParams.get('r');
-            const button = document.getElementById('routineBtn');
-            
-            if (routineRaw) {
-                button.innerText = `Start "${routineName}" (${routineRaw})`;
-            } else {
-                button.innerText = `Start "${routineName}" (2.0-10,4.0-9,6.0-8)`;
-            }
-        });
+      // Update button text on initial DOM Load
+      window.addEventListener('DOMContentLoaded', () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const routineName = urlParams.get('n') || "Test routine";
+          const routineRaw = urlParams.get('r');
+          const button = document.getElementById('routineBtn');
+          
+          if (routineRaw) {
+              button.innerText = `Start "${routineName}" (${routineRaw})`;
+          } else {
+              button.innerText = `Start "${routineName}" (2.0-10,4.0-9,6.0-8)`;
+          }
+      });
 
-        // Safe client beep implementation using Web Audio API
-        function playBeep() {
-            try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5 note
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Low safe volume
-                
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.15); // Short 150ms burst
-            } catch (e) {
-                console.error("Audio cue failed: ", e);
-            }
-        }
+      // Safe client beep implementation using Web Audio API
+      function playBeep() {
+          try {
+              if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              if (audioCtx.state === 'suspended') audioCtx.resume();
+              
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5 note
+              gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Low safe volume
+              
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.15); // Short 150ms burst
+          } catch (e) {
+              console.error("Audio cue failed: ", e);
+          }
+      }
 
-        // Parse FTMS Treadmill Data characteristic flags and payloads
-        function handleTreadmillData(event) {
-            const data = event.target.value;
-            if (data.byteLength < 2) return;
+      // Parse FTMS Treadmill Data characteristic flags and payloads
+      function handleTreadmillData(event) {
+          const data = event.target.value;
+          if (data.byteLength < 2) return;
 
-            const flags = data.getUint16(0, true);
-            let offset = 2;
+          const flags = data.getUint16(0, true);
+          let offset = 2;
 
-            // Flag bit 0 check: Instantaneous Speed present
-            if ((flags & 0x0001) === 0) {
-                // If bit is 0, speed is in the packet. Measured in 1/100 km/h
-                const speedRaw = data.getUint16(offset, true);
-                const speedKmh = (speedRaw / 100).toFixed(1);
-                document.getElementById('liveSpeed').innerHTML = `${speedKmh} <span style="font-size:1rem">km/h</span>`;
-                offset += 2;
-            }
+          // Flag bit 0 check: Instantaneous Speed present
+          if ((flags & 0x0001) === 0) {
+              // If bit is 0, speed is in the packet. Measured in 1/100 km/h
+              const speedRaw = data.getUint16(offset, true);
+              const speedKmh = (speedRaw / 100).toFixed(1);
+              document.getElementById('liveSpeed').innerHTML = `${speedKmh} <span style="font-size:1rem">km/h</span>`;
+              offset += 2;
+          }
 
-            // Skip Average Speed (bit 1), Total Distance (bit 2), Inclination/Ramp (bit 3), Elevation (bit 4) if flagged
-            if (flags & 0x0002) offset += 2;
-            if (flags & 0x0004) offset += 3; // uint24
-            if (flags & 0x0008) offset += 4; // incl + ramp
+          // Skip Average Speed (bit 1), Total Distance (bit 2), Inclination/Ramp (bit 3), Elevation (bit 4) if flagged
+          if (flags & 0x0002) offset += 2;
+          if (flags & 0x0004) offset += 3; // uint24
+          if (flags & 0x0008) offset += 4; // incl + ramp
 
-            // Flag bit 5 check: Elapsed Time present
-            if (flags & 0x0020) {
-                const elapsedSeconds = data.getUint16(offset, true);
-                const mins = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
-                const secs = (elapsedSeconds % 60).toString().padStart(2, '0');
-                document.getElementById('liveTime').innerText = `${mins}:${secs}`;
-            }
-        }
+          // Flag bit 5 check: Elapsed Time present
+          if (flags & 0x0020) {
+              const elapsedSeconds = data.getUint16(offset, true);
+              const mins = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
+              const secs = (elapsedSeconds % 60).toString().padStart(2, '0');
+              document.getElementById('liveTime').innerText = `${mins}:${secs}`;
+          }
+      }
 
-        document.getElementById('connectBtn').addEventListener('click', async () => {
-            try {
-                // Initialize modern audio system context during user tap
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      document.getElementById('connectBtn').addEventListener('click', async () => {
+          try {
+              // Initialize modern audio system context during user tap
+              audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-                updateStatus("Requesting Bluetooth device...");
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    filters: [{ services: [FTMS_SERVICE_UUID] }]
-                });
+              updateStatus("Requesting Bluetooth device...");
+              bluetoothDevice = await navigator.bluetooth.requestDevice({
+                  filters: [{ services: [FTMS_SERVICE_UUID] }]
+              });
 
-                updateStatus("Connecting to GATT Server...");
-                const server = await bluetoothDevice.gatt.connect();
+              updateStatus("Connecting to GATT Server...");
+              const server = await bluetoothDevice.gatt.connect();
 
-                updateStatus("Getting Fitness Machine Service...");
-                const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+              updateStatus("Getting Fitness Machine Service...");
+              const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
 
-                updateStatus("Getting Control Point Characteristic...");
-                ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+              updateStatus("Getting Control Point Characteristic...");
+              ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
 
-                // Initialize real-time data listener connection
-                try {
-                    updateStatus("Subscribing to Treadmill Data stream...");
-                    const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
-                    await dataChar.startNotifications();
-                    dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
-                } catch (dataErr) {
-                    console.warn("Metrics channel initialization skipped: ", dataErr.message);
-                }
+              // Initialize real-time data listener connection
+              try {
+                  updateStatus("Subscribing to Treadmill Data stream...");
+                  const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
+                  await dataChar.startNotifications();
+                  dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
+              } catch (dataErr) {
+                  console.warn("Metrics channel initialization skipped: ", dataErr.message);
+              }
 
-                updateStatus("Connected & Ready!");
-                document.getElementById('controls').style.display = 'block';
-                document.getElementById('connectBtn').style.display = 'none';
+              updateStatus("Connected & Ready!");
+              document.getElementById('controls').style.display = 'block';
+              document.getElementById('connectBtn').style.display = 'none';
 
-            } catch (error) {
-                updateStatus("Error: " + error.message);
-            }
-        });
+          } catch (error) {
+              updateStatus("Error: " + error.message);
+          }
+      });
 
-        async function startTreadmill() {
-            if (!ftmsControlCharacteristic) return false;
-            try {
-                const startBuffer = new Uint8Array([0x07]);
-                await ftmsControlCharacteristic.writeValue(startBuffer);
-                return true;
-            } catch (error) {
-                updateStatus("Failed to start motor: " + error.message);
-                return false;
-            }
-        }
+      async function startTreadmill() {
+          if (!ftmsControlCharacteristic) return false;
+          try {
+              const startBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(startBuffer);
+              return true;
+          } catch (error) {
+              updateStatus("Failed to start motor: " + error.message);
+              return false;
+          }
+      }
 
-        async function sendSpeed(speedKmh, isInitialStart = false) {
-            if (!ftmsControlCharacteristic) return;
-            currentTargetSpeed = speedKmh;
+      async function sendSpeed(speedKmh, isInitialStart = false) {
+          if (!ftmsControlCharacteristic) return;
+          currentTargetSpeed = speedKmh;
 
-            try {
-                if (isInitialStart) {
-                    const started = await startTreadmill();
-                    if (!started) return;
-                    updateStatus("Waiting for motor initialization...");
-                    await new Promise(resolve => setTimeout(resolve, spinUpTime)); 
-                }
+          try {
+              if (isInitialStart) {
+                  const started = await startTreadmill();
+                  if (!started) return;
+                  updateStatus("Waiting for motor initialization...");
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime)); 
+              }
 
-                const speedRaw = Math.round(speedKmh * 100);
-                const buffer = new ArrayBuffer(3);
-                const dataView = new DataView(buffer);
+              const speedRaw = Math.round(speedKmh * 100);
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
 
-                dataView.setUint8(0, 0x02); 
-                dataView.setUint16(1, speedRaw, true); 
+              dataView.setUint8(0, 0x02); 
+              dataView.setUint16(1, speedRaw, true); 
 
-                await ftmsControlCharacteristic.writeValue(buffer);
-                updateStatus(`Speed set to ${speedKmh} km/h`);
-            } catch (error) {
-                updateStatus("Failed to set speed: " + error.message);
-            }
-        }
+              await ftmsControlCharacteristic.writeValue(buffer);
+              updateStatus(`Speed set to ${speedKmh} km/h`);
+          } catch (error) {
+              updateStatus("Failed to set speed: " + error.message);
+          }
+      }
 
-        // Ticker Control Block
-        function clearAllIntervals() {
-            if (routineInterval) {
-                clearInterval(routineInterval);
-                routineInterval = null;
-            }
-        }
+      // Ticker Control Block
+      function clearAllIntervals() {
+          if (routineInterval) {
+              clearInterval(routineInterval);
+              routineInterval = null;
+          }
+      }
 
-        function resetRoutineState() {
-            clearAllIntervals();
-            currentRoutineSteps = [];
-            currentStepIndex = 0;
-            secondsLeftInStep = 0;
-            totalStepDuration = 0;
-            isRoutineActive = false;
-            document.getElementById('timerContainer').style.display = 'none';
-        }
+      function resetRoutineState() {
+          clearAllIntervals();
+          currentRoutineSteps = [];
+          currentStepIndex = 0;
+          secondsLeftInStep = 0;
+          totalStepDuration = 0;
+          isRoutineActive = false;
+          totalElapsedSeconds = 0; // Reset back to zero on clear/stop
+          document.getElementById('liveTime').innerText = "00:00"; // Clear display
+          document.getElementById('timerContainer').style.display = 'none';
+      }
 
-        async function pauseTreadmill() {
-            if (!ftmsControlCharacteristic) return;
-            try {
-                clearAllIntervals(); 
-                const pauseBuffer = new Uint8Array([0x08]);
-                await ftmsControlCharacteristic.writeValue(pauseBuffer);
-                updateStatus("Paused (Timer frozen).");
-            } catch (error) {
-                updateStatus("Failed to pause: " + error.message);
-            }
-        }
+      async function pauseTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              clearAllIntervals(); 
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+              updateStatus("Paused (Timer frozen).");
+          } catch (error) {
+              updateStatus("Failed to pause: " + error.message);
+          }
+      }
 
-        async function resumeTreadmill() {
-            if (!ftmsControlCharacteristic) return;
-            try {
-                updateStatus("Resuming workout...");
-                const resumeBuffer = new Uint8Array([0x07]);
-                await ftmsControlCharacteristic.writeValue(resumeBuffer);
-                
-                await new Promise(resolve => setTimeout(resolve, spinUpTime));
+      async function resumeTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              updateStatus("Resuming workout...");
+              const resumeBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(resumeBuffer);
+              
+              await new Promise(resolve => setTimeout(resolve, spinUpTime));
 
-                if (currentTargetSpeed > 0) {
-                    await sendSpeed(currentTargetSpeed, false);
-                }
+              if (currentTargetSpeed > 0) {
+                  await sendSpeed(currentTargetSpeed, false);
+              }
 
-                if (isRoutineActive && !routineInterval) {
-                    startClockLoop();
-                }
-            } catch (error) {
-                updateStatus("Failed to resume: " + error.message);
-            }
-        }
+              if (isRoutineActive && !routineInterval) {
+                  startClockLoop();
+              }
+          } catch (error) {
+              updateStatus("Failed to resume: " + error.message);
+          }
+      }
 
-        async function stopTreadmill() {
-            if (!ftmsControlCharacteristic) return;
-            try {
-                resetRoutineState(); 
-                updateStatus("Stopping treadmill...");
+      async function stopTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              resetRoutineState(); 
+              updateStatus("Stopping treadmill...");
 
-                const buffer = new ArrayBuffer(3);
-                const dataView = new DataView(buffer);
-                dataView.setUint8(0, 0x02); 
-                dataView.setUint16(1, 0, true); 
-                await ftmsControlCharacteristic.writeValue(buffer);
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+              dataView.setUint8(0, 0x02); 
+              dataView.setUint16(1, 0, true); 
+              await ftmsControlCharacteristic.writeValue(buffer);
 
-                await new Promise(resolve => setTimeout(resolve, 200));
+              await new Promise(resolve => setTimeout(resolve, 200));
 
-                const pauseBuffer = new Uint8Array([0x08]);
-                await ftmsControlCharacteristic.writeValue(pauseBuffer);
-                updateStatus("Stopped.");
-            } catch (error) {
-                updateStatus("Failed to stop: " + error.message);
-            }
-        }
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+              updateStatus("Stopped.");
+          } catch (error) {
+              updateStatus("Failed to stop: " + error.message);
+          }
+      }
 
-        // URL Routine Entry Engine
-        document.getElementById('routineBtn').addEventListener('click', async () => {
-            resetRoutineState(); 
+      // URL Routine Entry Engine
+      document.getElementById('routineBtn').addEventListener('click', async () => {
+          resetRoutineState(); 
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const routineRaw = urlParams.get('r');
-            const displayName = urlParams.get('n') || "Test routine";
+          const urlParams = new URLSearchParams(window.location.search);
+          const routineRaw = urlParams.get('r');
+          const displayName = urlParams.get('n') || "Test routine";
 
-            if (routineRaw) {
-                try {
-                    currentRoutineSteps = routineRaw.split(',').map((item, index) => {
-                        const parts = item.split('-');
-                        const speed = parseFloat(parts[0]);
-                        const duration = parseInt(parts[1], 10);
-                        return {
-                            speed: speed,
-                            duration: duration,
-                            name: `${displayName} [${index + 1}/${routineRaw.split(',').length}]`
-                        };
-                    });
-                } catch (error) {
-                    alert("Parser fail! Loading fallback setup.");
-                    loadDefaultRoutine(displayName);
-                }
-            } else {
-                loadDefaultRoutine(displayName);
-            }
+          if (routineRaw) {
+              try {
+                  currentRoutineSteps = routineRaw.split(',').map((item, index) => {
+                      const parts = item.split('-');
+                      const speed = parseFloat(parts[0]);
+                      const duration = parseInt(parts[1], 10);
+                      return {
+                          speed: speed,
+                          duration: duration,
+                          name: `${displayName} [${index + 1}/${routineRaw.split(',').length}]`
+                      };
+                  });
+              } catch (error) {
+                  alert("Parser fail! Loading fallback setup.");
+                  loadDefaultRoutine(displayName);
+              }
+          } else {
+              loadDefaultRoutine(displayName);
+          }
 
-            currentStepIndex = 0;
-            secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
-            totalStepDuration = secondsLeftInStep;
-            isRoutineActive = true;
+          currentStepIndex = 0;
+          secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+          totalStepDuration = secondsLeftInStep;
+          isRoutineActive = true;
 
-            document.getElementById('timerContainer').style.display = 'block';
-            updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, 100);
-            
-            await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
-            startClockLoop();
-        });
+          document.getElementById('timerContainer').style.display = 'block';
+          updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, 100);
+          
+          await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
+          startClockLoop();
+      });
 
-        function startClockLoop() {
-            routineInterval = setInterval(async () => {
-                // Fire audio cue exactly 1 second before interval change
-                if (secondsLeftInStep === 1) {
-                    playBeep();
-                }
+      function startClockLoop() {
+          routineInterval = setInterval(async () => {
+              // Fire audio cue exactly 1 second before interval change
+              if (secondsLeftInStep === 1) {
+                  playBeep();
+              }
 
-                secondsLeftInStep--;
+              // Increment the global workout clock
+              totalElapsedSeconds++;
+              updateLiveTimeDisplay(totalElapsedSeconds);
 
-                if (secondsLeftInStep < 0) {
-                    currentStepIndex++;
-                    
-                    if (currentStepIndex >= currentRoutineSteps.length) {
-                        updateStatus("Routine Completed!");
-                        stopTreadmill(); 
-                        return;
-                    }
+              secondsLeftInStep--;
 
-                    secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
-                    totalStepDuration = secondsLeftInStep;
-                    await sendSpeed(currentRoutineSteps[currentStepIndex].speed, false);
-                }
+              if (secondsLeftInStep < 0) {
+                  currentStepIndex++;
+                  
+                  if (currentStepIndex >= currentRoutineSteps.length) {
+                      updateStatus("Routine Completed!");
+                      stopTreadmill(); 
+                      return;
+                  }
 
-                const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
-                updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, percentRemaining);
-            }, 1000);
-        }
+                  secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+                  totalStepDuration = secondsLeftInStep;
+                  await sendSpeed(currentRoutineSteps[currentStepIndex].speed, false);
+              }
 
-        function updateRoutineUI(label, seconds, percentage) {
-            document.getElementById('routineLabel').innerText = label;
-            
-            // Format layout display MM:SS
-            const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-            const secs = (seconds % 60).toString().padStart(2, '0');
-            document.getElementById('timeDisplay').innerText = `${mins}:${secs}`;
-            
-            const bar = document.getElementById('progressBar');
-            bar.style.width = `${percentage}%`;
+              const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
+              updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, percentRemaining);
+          }, 1000);
+      }
 
-            // Neon Dark-mode Adaptive Highlights
-            if (percentage > 50) {
-                bar.style.backgroundColor = '#30d158'; // iOS Dark Green
-            } else if (percentage > 20) {
-                bar.style.backgroundColor = '#ff9f0a'; // iOS Dark Orange
-            } else {
-                bar.style.backgroundColor = '#ff453a'; // iOS Dark Red
-            }
-        }
+      // Helper function to update the live UI block directly
+      function updateLiveTimeDisplay(totalSeconds) {
+          const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+          const secs = (totalSeconds % 60).toString().padStart(2, '0');
+          document.getElementById('liveTime').innerText = `${mins}:${secs}`;
+      }
 
-        function updateStatus(msg) {
-            document.getElementById('status').innerText = "Status: " + msg;
-        }
+      function updateRoutineUI(label, seconds, percentage) {
+          document.getElementById('routineLabel').innerText = label;
+          
+          // Format layout display MM:SS
+          const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+          const secs = (seconds % 60).toString().padStart(2, '0');
+          document.getElementById('timeDisplay').innerText = `${mins}:${secs}`;
+          
+          const bar = document.getElementById('progressBar');
+          bar.style.width = `${percentage}%`;
+
+          // Neon Dark-mode Adaptive Highlights
+          if (percentage > 50) {
+              bar.style.backgroundColor = '#30d158'; // iOS Dark Green
+          } else if (percentage > 20) {
+              bar.style.backgroundColor = '#ff9f0a'; // iOS Dark Orange
+          } else {
+              bar.style.backgroundColor = '#ff453a'; // iOS Dark Red
+          }
+      }
+
+      function updateStatus(msg) {
+          document.getElementById('status').innerText = "Status: " + msg;
+      }
     </script>
 </body>
 </html>
