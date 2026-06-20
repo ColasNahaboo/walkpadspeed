@@ -1,5 +1,5 @@
 # walkpadspeed
-A simple HTML page web app to program the speed intervals of walking pad workouts
+<img src="doc/walkpadspeed.svg" align="right" width="256" height="256">A simple HTML page web app to program the speed intervals of walking pad workouts
 
 A lightweight, offline-capable dark mode web dashboard to control FTMS (Fitness Machine Service) Bluetooth-enabled walking pads and treadmills. Built with plain HTML, CSS, and modern vanilla JavaScript.
 
