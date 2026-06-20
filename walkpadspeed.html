@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treadmill FTMS Controller</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 2rem; background: #f4f4f9; }
+        button { padding: 1rem 2rem; font-size: 1.2rem; margin: 10px; cursor: pointer; border-radius: 5px; border: none; }
+        .connect-btn { background: #007bff; color: white; }
+        .speed-btn { background: #28a745; color: white; }
+        #status { margin-top: 20px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1>Treadmill Interval Controller</h1>
+    <button class="connect-btn" id="connectBtn">Connect to Treadmill</button>
+    
+    <div id="controls" style="display:none; margin-top: 30px;">
+      <div id="timerContainer" style="display: none; margin: 20px auto; max-width: 400px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div id="routineLabel" style="font-size: 1.1rem; font-weight: bold; color: #333; margin-bottom: 5px;">Interval Active</div>
+        <div id="timeDisplay" style="font-size: 2.5rem; font-weight: bold; font-family: monospace; color: #222;">00:30</div>
+        
+        <div style="width: 100%; background-color: #e0e0e0; border-radius: 10px; height: 20px; margin-top: 10px; overflow: hidden;">
+          <div id="progressBar" style="width: 100%; height: 100%; background-color: #007bff; transition: width 1s linear; width: 100%;"></div>
+        </div>
+      </div>
+      <h3>Quick Speed Controls</h3>
+      <button class="speed-btn" onclick="sendSpeed(3.0)">3.0 km/h</button>
+      <button class="speed-btn" onclick="sendSpeed(4.0)">4.0 km/h</button>
+      <button class="speed-btn" onclick="sendSpeed(5.0)">5.0 km/h</button>
+      <button class="speed-btn" onclick="sendSpeed(0.0)">0.0 km/h</button>
+      <hr>
+      <h3>Safety & State Controls</h3>
+      <button style="background: #dc3545; color: white;" onclick="stopTreadmill()">STOP</button> 
+      <button style="background: #ffc107; color: black;" onclick="pauseTreadmill()">PAUSE</button> 
+      <button style="background: #28a745; color: white;" onclick="resumeTreadmill()">RESUME</button>
+      <hr>
+      <h3>Interval Routine</h3>
+      <button class="connect-btn" style="background:#17a2b8;" id="routineBtn">Start 5/8/10 Interval</button>
+    </div>
+    
+    <p id="status">Status: Disconnected</p>
+
+    <script>
+      const FTMS_SERVICE_UUID = 0x1826;
+      const FTMS_CONTROL_POINT_UUID = 0x2AD9;
+      
+      let ftmsControlCharacteristic = null;
+      let bluetoothDevice = null;
+      let spinUpTime = 5000; // time for the motor to spin up
+      let currentTargetSpeed = 0.0; // keep track of the current speed for pause/restore
+      let activeTimers = []; // Global variable to keep track of running interval timers
+      let routineInterval = null; // Holds our 1-second UI ticker
+      let currentRoutineSteps = []; // Stores the active routine array
+      let currentStepIndex = 0;
+      let secondsLeftInStep = 0;
+      let totalStepDuration = 0;
+      let isRoutineActive = false; // Tracks if a routine is initialized
+      
+      document.getElementById('connectBtn').addEventListener('click', async () => {
+          try {
+              updateStatus("Requesting Bluetooth device...");
+              bluetoothDevice = await navigator.bluetooth.requestDevice({
+                  filters: [{ services: [FTMS_SERVICE_UUID] }]
+              });
+
+              updateStatus("Connecting to GATT Server...");
+              const server = await bluetoothDevice.gatt.connect();
+
+              updateStatus("Getting Fitness Machine Service...");
+              const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+
+              updateStatus("Getting Control Point Characteristic...");
+              ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+
+              updateStatus("Connected & Ready!");
+              document.getElementById('controls').style.display = 'block';
+              document.getElementById('connectBtn').style.display = 'none';
+
+          } catch (error) {
+              updateStatus("Error: " + error.message);
+              console.error(error);
+          }
+      });
+
+      // New helper function to explicitly start the motor
+      async function startTreadmill() {
+          if (!ftmsControlCharacteristic) {
+              updateStatus("Not connected!");
+              return false;
+          }
+
+          try {
+              updateStatus("Sending Start/Resume command...");
+              // Op Code 0x07 = Start or Resume
+              const startBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(startBuffer);
+              updateStatus("Treadmill motor started.");
+              return true;
+          } catch (error) {
+              updateStatus("Failed to start motor: " + error.message);
+              return false;
+          }
+      }
+
+      // Updated sendSpeed that can optionally trigger a start
+      async function sendSpeed(speedKmh, isInitialStart = false) {
+          if (!ftmsControlCharacteristic) {
+              alert("Not connected to treadmill!");
+              return;
+          }
+          // Track the speed globally so RESUME knows what to use
+          currentTargetSpeed = speedKmh;
+          
+          try {
+              // If we are starting from a dead stop
+              if (isInitialStart) {
+                  const started = await startTreadmill();
+                  if (!started) return;
+                  // INCREASE THIS DELAY if stays at 1.0
+                  updateStatus("Waiting for motor initialization...");
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime));
+              }            
+              // Convert speed to 1/100th km/h
+              const speedRaw = Math.round(speedKmh * 100);
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+
+              // Op Code 0x02 = Set Target Speed
+              dataView.setUint8(0, 0x02); 
+              dataView.setUint16(1, speedRaw, true); 
+
+              updateStatus(`Setting speed to ${speedKmh} km/h...`);
+              await ftmsControlCharacteristic.writeValue(buffer);
+              updateStatus(`Speed successfully set to ${speedKmh} km/h`);
+          } catch (error) {
+              updateStatus("Failed to set speed: " + error.message);
+          }
+      }
+
+      function updateStatus(msg) {
+          document.getElementById('status').innerText = "Status: " + msg;
+      }
+
+      // Helper to format seconds into an MM:SS string
+      function formatTime(seconds) {
+          const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+          const secs = (seconds % 60).toString().padStart(2, '0');
+          return `${mins}:${secs}`;
+      }
+
+      // UI Rendering Engine for the Countdown Layout
+      function updateRoutineUI(label, seconds, percentage) {
+          document.getElementById('routineLabel').innerText = label;
+          document.getElementById('timeDisplay').innerText = formatTime(seconds);
+          
+          const bar = document.getElementById('progressBar');
+          bar.style.width = `${percentage}%`;
+          
+          // Adaptive Colors: Changes dynamically based on timeline stress
+          if (percentage > 50) {
+              bar.style.backgroundColor = '#28a745'; // Green (Plenty of time)
+          } else if (percentage > 20) {
+              bar.style.backgroundColor = '#ffc107'; // Yellow (Midway)
+          } else {
+              bar.style.backgroundColor = '#dc3545'; // Red (Almost done!)
+          }
+      }
+
+      // Stops the clock ticker but DOES NOT hide the UI if we are just pausing
+      function clearAllIntervals() {
+          if (routineInterval) {
+              clearInterval(routineInterval);
+              routineInterval = null;
+          }
+      }
+
+      // Completely resets the routine data and hides the UI
+      function resetRoutineState() {
+          clearAllIntervals();
+          currentRoutineSteps = [];
+          currentStepIndex = 0;
+          secondsLeftInStep = 0;
+          totalStepDuration = 0;
+          isRoutineActive = false;
+          document.getElementById('timerContainer').style.display = 'none';
+      }
+
+      // Updated PAUSE: Freezes the timer, keeps UI visible
+      async function pauseTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+
+          try {
+              clearAllIntervals(); // Freeze the UI clock countdown
+              updateStatus("Sending Pause command...");
+              
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+              
+              updateStatus("Treadmill paused (Timer frozen).");
+          } catch (error) {
+              updateStatus("Failed to pause: " + error.message);
+          }
+      }
+
+      // Updated RESUME: Restarts the motor and wakes up the frozen clock loop
+      async function resumeTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+
+          try {
+              updateStatus("Resuming workout...");
+              const resumeBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(resumeBuffer);
+              
+              updateStatus(`Waiting for motor to resume, will restore ${currentTargetSpeed} km/h...`);
+              await new Promise(resolve => setTimeout(resolve, 1500));
+
+              if (currentTargetSpeed > 0) {
+                  await sendSpeed(currentTargetSpeed, false);
+              }
+
+              // If a routine was frozen, kick the clock ticker back off
+              if (isRoutineActive && !routineInterval) {
+                  startClockLoop();
+              }
+          } catch (error) {
+              updateStatus("Failed to resume: " + error.message);
+          }
+      }
+
+      // Updated STOP: Clears everything out and hides the UI container
+      async function stopTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+
+          try {
+              resetRoutineState(); // Kill background data and hide UI completely
+              updateStatus("Stopping treadmill safely...");
+
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+              dataView.setUint8(0, 0x02); 
+              dataView.setUint16(1, 0, true); 
+              await ftmsControlCharacteristic.writeValue(buffer);
+
+              await new Promise(resolve => setTimeout(resolve, 200));
+
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+              
+              updateStatus("Treadmill fully stopped.");
+          } catch (error) {
+              updateStatus("Failed to execute stop sequence: " + error.message);
+          }
+      }
+
+      // The core countdown engine that can be started/paused/resumed
+      function startClockLoop() {
+          routineInterval = setInterval(async () => {
+              secondsLeftInStep--;
+
+              if (secondsLeftInStep < 0) {
+                  currentStepIndex++;
+                  
+                  if (currentStepIndex >= currentRoutineSteps.length) {
+                      updateStatus("Routine Completed!");
+                      stopTreadmill(); 
+                      return;
+                  }
+
+                  secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+                  totalStepDuration = secondsLeftInStep;
+                  
+                  await sendSpeed(currentRoutineSteps[currentStepIndex].speed, false);
+              }
+
+              const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
+              updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, percentRemaining);
+
+          }, 1000);
+      }
+      
+      //--------------------- Routine parameter
+      //  e.g: https://walkpadspeed.net/?r=3.0-30,4.0-15,5.5-10 
+
+      document.getElementById('routineBtn').addEventListener('click', async () => {
+          resetRoutineState(); // Clean slate
+
+          // 1. Grab the parameters from the browser window's URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const routineRaw = urlParams.get('r');
+          const displayName = new URLSearchParams(window.location.search).get('n') || "Test routine";
+          
+          if (routineRaw) {
+              try {
+                  // Parse "3.0-30,4.0-15" -> [{speed: 3.0, duration: 30, name: "Step 1"}, ...]
+                  currentRoutineSteps = routineRaw.split(',').map((item, index) => {
+                      const parts = item.split('-');
+                      const speed = parseFloat(parts[0]);
+                      const duration = parseInt(parts[1], 10);
+
+                      if (isNaN(speed) || isNaN(duration)) {
+                          throw new Error(`Invalid format at item #${index + 1}`);
+                      }
+
+                      return {
+                          speed: speed,
+                          duration: duration,
+                          name: `Interval Step ${index + 1} (${speed} km/h)`
+                      };
+                  });
+              } catch (error) {
+                  alert("URL Routine Parse Error! Falling back to default routine. Details: " + error.message);
+                  loadDefaultRoutine();
+              }
+          } else {
+              // Fallback if the URL doesn't have an "?r=" parameter
+              loadDefaultRoutine();
+          }
+
+          // 2. Initialize tracking variables
+          currentStepIndex = 0;
+          secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+          totalStepDuration = secondsLeftInStep;
+          isRoutineActive = true;
+
+          // 3. Display the visual timer and fire the motor spin-up sequence
+          document.getElementById('timerContainer').style.display = 'block';
+          updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, 100);
+          
+          await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
+
+          // 4. Start the countdown loop
+          startClockLoop();
+      });
+
+      // Helper fallback routine function
+      function loadDefaultRoutine() {
+          currentRoutineSteps = [
+              { speed: 4.0, duration: 10, name: "Warmup / Jog" },
+              { speed: 5.0, duration: 10, name: "Steady Run" },
+              { speed: 6.0, duration: 10, name: "Sprint Step" }
+          ];
+      }
+
+      // Run instantly on page load to update button text based on URL parameters
+      window.addEventListener('DOMContentLoaded', () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const routineName = urlParams.get('n');
+          const routineRaw = urlParams.get('r');
+          const button = document.getElementById('routineBtn');
+          
+          // Determine the label name (Use 'n', or fallback to "Test routine")
+          const displayName = routineName ? routineName : "Test routine";
+          
+          if (routineRaw) {
+              // Displays: Start "test" (3.0-30,4.0-15,5.5-10)
+              button.innerText = `Start "${displayName}" (${routineRaw})`;
+          } else {
+              // Displays: Start "Test routine" (5/8/10)
+              button.innerText = `Start "${displayName}" (4/5/6, 10s)`;
+          }
+      });
+      
+    </script>
+</body>
+</html>
