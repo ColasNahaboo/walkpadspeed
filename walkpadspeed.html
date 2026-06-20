@@ -238,14 +238,6 @@
           if (flags & 0x0002) offset += 2;
           if (flags & 0x0004) offset += 3; // uint24
           if (flags & 0x0008) offset += 4; // incl + ramp
-
-          // Flag bit 5 check: Elapsed Time present (Obsolete: unreliable, we track in the js)
-          //if (flags & 0x0020) {
-          //    const elapsedSeconds = data.getUint16(offset, true);
-          //    const mins = Math.floor(elapsedSeconds / 60).toString().padStart(2, '0');
-          //    const secs = (elapsedSeconds % 60).toString().padStart(2, '0');
-          //    document.getElementById('liveTime').innerText = `${mins}:${secs}`;
-          //}
       }
 
       document.getElementById('connectBtn').addEventListener('click', async () => {
@@ -418,14 +410,572 @@
 
           if (routineRaw) {
               try {
+                  const totalSteps = routineRaw.split(',').length;
                   currentRoutineSteps = routineRaw.split(',').map((item, index) => {
                       const parts = item.split('-');
                       const speed = parseFloat(parts[0]);
                       const duration = parseInt(parts[1], 10);
+                      
+                      // If there are more parts, extract the custom name, swap underscores for spaces
+                      let stepName = '';
+                      if (parts.length > 2) {
+                          stepName = parts.slice(2).join('-').replace(/_/g, ' ');
+                      }
+
+                      // Build clean display description
+                      const displayLabel = stepName ? `: ${stepName}` : '';
                       return {
                           speed: speed,
                           duration: duration,
-                          name: `${displayName} [${index + 1}/${routineRaw.split(',').length}]`
+                          name: `${displayName} [${index + 1}/${totalSteps}]${displayLabel}`
+                      };
+                  });
+              } catch (error) {
+                  alert("Parser fail! Loading fallback setup.");
+                  loadDefaultRoutine(displayName);
+              }
+          } else {
+              loadDefaultRoutine(displayName);
+          }
+
+          currentStepIndex = 0;
+          secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+          totalStepDuration = secondsLeftInStep;
+          isRoutineActive = true;
+
+          document.getElementById('timerContainer').style.display = 'block';
+          updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, 100);
+          
+          await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
+          startClockLoop();
+      });
+
+      function startClockLoop() {
+          routineInterval = setInterval(async () => {
+              // Fire audio cue exactly 1 second before interval change
+              if (secondsLeftInStep === 1) {
+                  playBeep();
+              }
+
+              // Increment the global workout clock
+              totalElapsedSeconds++;
+              updateLiveTimeDisplay(totalElapsedSeconds);
+
+              secondsLeftInStep--;
+
+              if (secondsLeftInStep < 0) {
+                  currentStepIndex++;
+                  
+                  if (currentStepIndex >= currentRoutineSteps.length) {
+                      updateStatus("Routine Completed!");
+                      stopTreadmill(); 
+                      return;
+                  }
+
+                  secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+                  totalStepDuration = secondsLeftInStep;
+                  await sendSpeed(currentRoutineSteps[currentStepIndex].speed, false);
+              }
+
+              const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
+              updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, percentRemaining);
+          }, 1000);
+      }
+
+      // Helper function to update the live UI block directly
+      function updateLiveTimeDisplay(totalSeconds) {
+          const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+          const secs = (totalSeconds % 60).toString().padStart(2, '0');
+          document.getElementById('liveTime').innerText = `${mins}:${secs}`;
+      }
+
+      function updateRoutineUI(label, seconds, percentage) {
+          document.getElementById('routineLabel').innerText = label;
+          
+          // Format layout display MM:SS
+          const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+          const secs = (seconds % 60).toString().padStart(2, '0');
+          document.getElementById('timeDisplay').innerText = `${mins}:${secs}`;
+          
+          const bar = document.getElementById('progressBar');
+          bar.style.width = `${percentage}%`;
+
+          // Neon Dark-mode Adaptive Highlights
+          if (percentage > 50) {
+              bar.style.backgroundColor = '#30d158'; // iOS Dark Green
+          } else if (percentage > 20) {
+              bar.style.backgroundColor = '#ff9f0a'; // iOS Dark Orange
+          } else {
+              bar.style.backgroundColor = '#ff453a'; // iOS Dark Red
+          }
+      }
+
+      function updateStatus(msg) {
+          document.getElementById('status').innerText = "Status: " + msg;
+      }
+
+      // avoid screen blanking
+      async function requestWakeLock() {
+          try {
+              if ('wakeLock' in navigator) {
+                  wakeLock = await navigator.wakeLock.request('screen');
+                  console.log("Screen Wake Lock is active.");
+                  
+                  // Re-acquire if the app is minimized and restored
+                  wakeLock.addEventListener('release', () => {
+                      console.log("Screen Wake Lock was released.");
+                  });
+              }
+          } catch (err) {
+              console.warn(`Wake Lock failed: ${err.name}, ${err.message}`);
+          }
+      }
+
+      function releaseWakeLock() {
+          if (wakeLock !== null) {
+              wakeLock.release();
+              wakeLock = null;
+          }
+      }
+
+      // re-prevent screen blank after de-iconification
+      document.addEventListener('visibilitychange', async () => {
+          if (wakeLock !== null && document.visibilityState === 'visible') {
+              await requestWakeLock();
+          }
+      });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>walkpadspeed</title>
+    <style>
+        /* Dark Mode Global Styles */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            text-align: center; 
+            padding: 1rem; 
+            background: #121212; 
+            color: #e0e0e0;
+        }
+        h1 { color: #ffffff; margin-bottom: 2rem; }
+        h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d; padding-bottom: 5px; }
+        
+        /* Unified Button Styles */
+        button { 
+            padding: 1.2rem 1.2rem; 
+            font-size: 1.2rem; 
+            font-weight: bold;
+            margin: 10px 5px; 
+            cursor: pointer; 
+            border-radius: 8px; 
+            border: none; 
+            transition: background 0.2s, transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        
+        /* Color Palette */
+        .connect-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
+        .speed-btn { background: #2d2d2d; color: #00fa9a; border: 1px solid #444; }
+        .routine-btn { background: #bf5af2; color: white; width: 80%; max-width: 400px; }
+        
+        /* Control Panel Buttons */
+        .stop-btn { background: #ff453a; color: white; }
+        .pause-btn { background: #ff9f0a; color: black; }
+        .resume-btn { background: #30d158; color: white; }
+        
+        #status { margin-top: 30px; font-weight: bold; color: #8e8e93; font-size: 0.9rem; }
+
+        /* Dark Mode HUD / Timer Container */
+        #timerContainer { 
+            display: none; 
+            margin: 25px auto; 
+            max-width: 400px; 
+            background: #1c1c1e; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            border: 1px solid #2c2c2e;
+        }
+        #routineLabel { font-size: 1.2rem; font-weight: 500; color: #0a84ff; margin-bottom: 8px; }
+        #timeDisplay { font-size: 3.5rem; font-weight: bold; font-family: monospace; color: #ffffff; }
+        
+        /* Progress Bar Track */
+        .progress-track { 
+            width: 100%; 
+            background-color: #2c2c2e; 
+            border-radius: 10px; 
+            height: 24px; 
+            margin-top: 15px; 
+            overflow: hidden; 
+        }
+        #progressBar { 
+            width: 100%; 
+            height: 100%; 
+            background-color: #30d158; 
+            transition: width 1s linear; 
+        }
+
+        /* Live Metrics Display Layout */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px auto;
+            max-width: 400px;
+        }
+        .metric-box {
+            background: #1c1c1e;
+            border: 1px solid #2c2c2e;
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #00fa9a;
+            margin-top: 5px;
+        }
+        .metric-title {
+            font-size: 0.85rem;
+            color: #8e8e93;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+
+<a href="https://github.com/ColasNahaboo/walkpadspeed" target="_blank" rel="noopener noreferrer" style="position: absolute; top: 15px; right: 15px; color: #e0e0e0; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+    <svg fill="white" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <g data-name="Layer 2">
+            <rect width="24" height="24" transform="rotate(180 12 12)" opacity="0"/>
+            <path d="M12 1A10.89 10.89 0 0 0 1 11.77 10.79 10.79 0 0 0 8.52 22c.55.1.75-.23.75-.52v-1.83c-3.06.65-3.71-1.44-3.71-1.44a2.86 2.86 0 0 0-1.22-1.58c-1-.66.08-.65.08-.65a2.31 2.31 0 0 1 1.68 1.11 2.37 2.37 0 0 0 3.2.89 2.33 2.33 0 0 1 .7-1.44c-2.44-.27-5-1.19-5-5.32a4.15 4.15 0 0 1 1.11-2.91 3.78 3.78 0 0 1 .11-2.84s.93-.29 3 1.1a10.68 10.68 0 0 1 5.5 0c2.1-1.39 3-1.1 3-1.1a3.78 3.78 0 0 1 .11 2.84A4.15 4.15 0 0 1 19 11.2c0 4.14-2.58 5.05-5 5.32a2.5 2.5 0 0 1 .75 2v2.95c0 .35.2.63.75.52A10.8 10.8 0 0 0 23 11.77 10.89 10.89 0 0 0 12 1" data-name="github"/>
+        </g>
+    </svg>
+</a>
+    <h1>walkpadspeed</h1>
+
+    <button class="connect-btn" id="connectBtn">Connect to Treadmill</button>
+    
+    <div id="controls" style="display:none; margin-top: 20px;">
+        <div id="timerContainer">
+            <div id="routineLabel">Active</div>
+            <div id="timeDisplay">00:00</div>
+            <div class="progress-track">
+                <div id="progressBar"></div>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-box">
+                <div class="metric-title">Current Speed</div>
+                <div class="metric-value" id="liveSpeed">0.0 <span style="font-size:1rem">km/h</span></div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-title">Elapsed Time</div>
+                <div class="metric-value" id="liveTime">00:00</div>
+            </div>
+        </div>
+
+        <h3>Routine Trigger</h3>
+        <button class="routine-btn" id="routineBtn">Start Routine</button>
+        
+        <h3>Safety & State Controls</h3>
+        <button class="stop-btn" onclick="stopTreadmill()">STOP</button> 
+        <button class="pause-btn" onclick="pauseTreadmill()">PAUSE</button> 
+        <button class="resume-btn" onclick="resumeTreadmill()">RESUME</button> 
+
+        <h3>Quick Speed Controls (km/h)</h3>
+        <button class="speed-btn" onclick="sendSpeed(3.0)">3.0</button>
+        <button class="speed-btn" onclick="sendSpeed(4.0)">4.0</button>
+        <button class="speed-btn" onclick="sendSpeed(5.0)">5.0</button>
+        <button class="speed-btn" onclick="sendSpeed(6.0)">6.0</button>
+    </div>
+
+    <p id="status">Status: Disconnected</p>
+
+    <script>
+      const FTMS_SERVICE_UUID = 0x1826;
+      const FTMS_CONTROL_POINT_UUID = 0x2AD9;
+      const FTMS_DATA_UUID = 0x2ACD;
+      const spinUpTime = 5000; // time for the motor to spin up
+      
+      let wakeLock = null; // avoid screen blanking
+      let ftmsControlCharacteristic = null;
+      let bluetoothDevice = null;
+      let currentTargetSpeed = 0.0;
+      let audioCtx = null;
+
+      // Routine State Variables
+      let routineInterval = null; 
+      let currentRoutineSteps = []; 
+      let currentStepIndex = 0;
+      let secondsLeftInStep = 0;
+      let totalStepDuration = 0;
+      let isRoutineActive = false; 
+      let totalElapsedSeconds = 0;
+
+      function loadDefaultRoutine(name) {
+          currentRoutineSteps = [
+              { speed: 2.0, duration: 10, name: `${name} [1/3]` },
+              { speed: 4.0, duration: 9, name: `${name} [2/3]` },
+              { speed: 6.0, duration: 8, name: `${name} [3/3]` }
+          ];
+      }
+
+      // Update button text on initial DOM Load
+      window.addEventListener('DOMContentLoaded', () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const routineName = urlParams.get('n') || "Test";
+          const routineRaw = urlParams.get('r');
+          const button = document.getElementById('routineBtn');
+          
+          if (routineRaw) {
+              button.innerText = `Start "${routineName}" (${routineRaw})`;
+          } else {
+              button.innerText = `Start "${routineName}" (2.0-10,4.0-9,6.0-8)`;
+          }
+      });
+
+      // Safe client beep implementation using Web Audio API
+      function playBeep() {
+          try {
+              if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              if (audioCtx.state === 'suspended') audioCtx.resume();
+              
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5 note
+              gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Low safe volume
+              
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.15); // Short 150ms burst
+          } catch (e) {
+              console.error("Audio cue failed: ", e);
+          }
+      }
+
+      // Parse FTMS Treadmill Data characteristic flags and payloads
+      function handleTreadmillData(event) {
+          const data = event.target.value;
+          if (data.byteLength < 2) return;
+
+          const flags = data.getUint16(0, true);
+          let offset = 2;
+
+          // Flag bit 0 check: Instantaneous Speed present
+          if ((flags & 0x0001) === 0) {
+              // If bit is 0, speed is in the packet. Measured in 1/100 km/h
+              const speedRaw = data.getUint16(offset, true);
+              const speedKmh = (speedRaw / 100).toFixed(1);
+              document.getElementById('liveSpeed').innerHTML = `${speedKmh} <span style="font-size:1rem">km/h</span>`;
+              offset += 2;
+          }
+
+          // Skip Average Speed (bit 1), Total Distance (bit 2), Inclination/Ramp (bit 3), Elevation (bit 4) if flagged
+          if (flags & 0x0002) offset += 2;
+          if (flags & 0x0004) offset += 3; // uint24
+          if (flags & 0x0008) offset += 4; // incl + ramp
+      }
+
+      document.getElementById('connectBtn').addEventListener('click', async () => {
+          try {
+              // Initialize modern audio system context during user tap
+              audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+              updateStatus("Requesting Bluetooth device...");
+              bluetoothDevice = await navigator.bluetooth.requestDevice({
+                  filters: [{ services: [FTMS_SERVICE_UUID] }]
+              });
+
+              updateStatus("Connecting to GATT Server...");
+              const server = await bluetoothDevice.gatt.connect();
+
+              updateStatus("Getting Fitness Machine Service...");
+              const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+
+              updateStatus("Getting Control Point Characteristic...");
+              ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+
+              // Initialize real-time data listener connection
+              try {
+                  updateStatus("Subscribing to Treadmill Data stream...");
+                  const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
+                  await dataChar.startNotifications();
+                  dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
+                  updateStatus("Connected & Ready!");
+                  document.getElementById('controls').style.display = 'block';
+                  document.getElementById('connectBtn').style.display = 'none';
+                  // Lock the screen on
+                  await requestWakeLock();
+              } catch (dataErr) {
+                  console.warn("Metrics channel initialization skipped: ", dataErr.message);
+              }
+
+              updateStatus("Connected & Ready!");
+              document.getElementById('controls').style.display = 'block';
+              document.getElementById('connectBtn').style.display = 'none';
+
+          } catch (error) {
+              updateStatus("Error: " + error.message);
+          }
+      });
+
+      async function startTreadmill() {
+          if (!ftmsControlCharacteristic) return false;
+          try {
+              const startBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(startBuffer);
+              return true;
+          } catch (error) {
+              updateStatus("Failed to start motor: " + error.message);
+              return false;
+          }
+      }
+
+      async function sendSpeed(speedKmh, isInitialStart = false) {
+          if (!ftmsControlCharacteristic) return;
+          currentTargetSpeed = speedKmh;
+
+          try {
+              if (isInitialStart) {
+                  const started = await startTreadmill();
+                  if (!started) return;
+                  updateStatus("Waiting for motor initialization...");
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime)); 
+              }
+
+              const speedRaw = Math.round(speedKmh * 100);
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+
+              dataView.setUint8(0, 0x02); 
+              dataView.setUint16(1, speedRaw, true); 
+
+              await ftmsControlCharacteristic.writeValue(buffer);
+              updateStatus(`Speed set to ${speedKmh} km/h`);
+          } catch (error) {
+              updateStatus("Failed to set speed: " + error.message);
+          }
+      }
+
+      // Ticker Control Block
+      function clearAllIntervals() {
+          if (routineInterval) {
+              clearInterval(routineInterval);
+              routineInterval = null;
+          }
+      }
+
+      function resetRoutineState() {
+          clearAllIntervals();
+          currentRoutineSteps = [];
+          currentStepIndex = 0;
+          secondsLeftInStep = 0;
+          totalStepDuration = 0;
+          isRoutineActive = false;
+          totalElapsedSeconds = 0; // Reset back to zero on clear/stop
+          document.getElementById('liveTime').innerText = "00:00"; // Clear display
+          document.getElementById('timerContainer').style.display = 'none';
+      }
+
+      async function pauseTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              clearAllIntervals(); // Freezes the JS clock ticker instantly
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+              updateStatus("Paused (Timer frozen).");
+          } catch (error) {
+              updateStatus("Failed to pause: " + error.message);
+          }
+      }
+      
+      async function resumeTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              updateStatus("Resuming workout...");
+              const resumeBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(resumeBuffer);
+              
+              // Wait for the motor to physically initialize before starting any logic clocks
+              await new Promise(resolve => setTimeout(resolve, spinUpTime));
+
+              if (currentTargetSpeed > 0) {
+                  await sendSpeed(currentTargetSpeed, false);
+              }
+              
+              // CRITICAL FIX: Only restart the countdown clock AFTER the motor spin-up delay has fully resolved
+              if (isRoutineActive && !routineInterval) {
+                  startClockLoop();
+              }
+          } catch (error) {
+              updateStatus("Failed to resume: " + error.message);
+          }
+      }
+      
+      async function stopTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              resetRoutineState(); 
+              updateStatus("Stopping treadmill...");
+              
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+              dataView.setUint8(0, 0x02); 
+              dataView.setUint16(1, 0, true); 
+              await ftmsControlCharacteristic.writeValue(buffer);
+              
+              await new Promise(resolve => setTimeout(resolve, 200));
+              
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+              
+              releaseWakeLock(); // Let the phone sleep naturally again
+              updateStatus("Stopped.");
+          } catch (error) {
+              updateStatus("Failed to stop: " + error.message);
+          }
+      }
+        
+      // URL Routine Entry Engine
+      document.getElementById('routineBtn').addEventListener('click', async () => {
+          resetRoutineState(); 
+
+          const urlParams = new URLSearchParams(window.location.search);
+          const routineRaw = urlParams.get('r');
+          const displayName = urlParams.get('n') || "Test routine";
+
+          if (routineRaw) {
+              try {
+                  const totalSteps = routineRaw.split(',').length;
+                  currentRoutineSteps = routineRaw.split(',').map((item, index) => {
+                      const parts = item.split('-');
+                      const speed = parseFloat(parts[0]);
+                      const duration = parseInt(parts[1], 10);
+                      
+                      // If there are more parts, extract the custom name, swap underscores for spaces
+                      let stepName = '';
+                      if (parts.length > 2) {
+                          stepName = parts.slice(2).join('-').replace(/_/g, ' ');
+                      }
+
+                      // Build clean display description
+                      const displayLabel = stepName ? `: ${stepName}` : '';
+                      return {
+                          speed: speed,
+                          duration: duration,
+                          name: `${displayName} [${index + 1}/${totalSteps}]${displayLabel}`
                       };
                   });
               } catch (error) {
