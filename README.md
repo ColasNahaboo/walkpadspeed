@@ -23,21 +23,13 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 - A walking pad or treadmill supporting standard BLE FTMS (most modern ones do).
 - A web server somewhere to serve the web page via https://, as Web Bluetooth cannot work by just opening a local file due to security constraints.
 
-## Installation & Deployment
-
-Since the interface is entirely self-contained inside a single file, setup is minimal:
-
-1. Clone this repository or just download the single file `walkpadspeed.html`.
-2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
-3. Access the file using your browser on your bluetooth-enabled device (your phone, tablet, computer...) over an `https://` connection.
-
 ## Usage: Programming a Routine
 
 You can just use the `walkpadspeed` file of this repository directly, without installing anything, by using its GitHub pages URL: 
 
-[https://colasnahaboo.github.io/walkpadspeed/](https://colasnahaboo.github.io/walkpadspeed/)
+[https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html)
 
-You can launch automated custom workouts by passing URL parameters (`r` for the routine blueprint and `n` for the routine name). Characters not alphanumeric nor hyphen, underscore, dot or tilde must be URL-encoded (E.g. `/` becomes `%2f`). Underscores (`_`) in names will be converted to spaces for convenience, and you can use hyphens in names, e.g: `step-2`
+You can then launch automated custom workouts by passing URL parameters (`r` for the routine blueprint and `n` for the routine name). Characters not alphanumeric nor hyphen, underscore, dot or tilde must be URL-encoded (E.g. `/` becomes `%2f`). Underscores (`_`) in names will be converted to spaces for convenience, and you can use hyphens in names, e.g: `step-2`
 - A routine is a comma-seprated list of steps.
 - A step is a hypen-separated list of
   - A speed in km/h, a number with one decimal after the dot. E.g: 2.5, 4.6, 5.0 ...
@@ -57,6 +49,14 @@ The sedcond query string above, which slao shows that you can host a walkpadspee
 3. **Last Effort**: `6.0 km/h` for 120 seconds.
 
 You can then bookmark these URLs or write them on any editable page (a wiki, a Google doc, ...) to create your library of routines.
+
+## Optional: Installation & Deployment
+
+If you do not want to use the walkpadspeed.html hosted here, and want to host it yourslef, since the interface is entirely self-contained inside a single file, setup is minimal:
+
+1. Clone this repository or just download the single file `walkpadspeed.html`.
+2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
+3. Access the file using your browser on your bluetooth-enabled device (your phone, tablet, computer...) over an `https://` connection.
 
 ## Implementation
 
