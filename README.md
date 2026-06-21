@@ -66,6 +66,7 @@ For instance, pressing the `++` modifier button on the second example routine ab
 ![](docs/Screenshot_v0.1.6-all.png) 
 
 **Test mode**: by using the  `t=1` URL parameter, you enter test mode, where walkpadspeed fakes a bluetooth connection and runs without connecting or sending anything to any walking pad. This allows to see how the UI behaves without having to install and start your walking pad.
+For instance, you can test it now at [https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?t=1](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?t=1) 
 
 ## Optional: Installation & Deployment
 
