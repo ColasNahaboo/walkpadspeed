@@ -1,9 +1,11 @@
 # walkpadspeed
 <img src="docs/walkpadspeed.svg" align="right" width="256" height="256">A simple HTML page to program the speed intervals of walking pad workouts over the standard  FTMS Bluetooth protocol.
 
+*(Quickstart: see the section "[Usage: Programming a Routine](https://github.com/ColasNahaboo/walkpadspeed#usage-programming-a-routine)")*
+
 I bought a simple, entry level walking pad, because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But they all implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
 
-I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to expereiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
+I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to experiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
 
 [MyHomeFit](https://myhomefit.de/) was the closest I could find to satisfy my needs, but writing programs in their XML format or buil-in editor was horrible, and it could not manage simply setting a speed, as speeds drifted because it was relying on data from the device and trying to perform complex computations and cumultaed rounding errors in the process.
 
