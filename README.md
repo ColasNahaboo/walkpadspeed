@@ -40,7 +40,7 @@ Examples of routines:
 1. https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=My_routine&r=2.5-120-warmup,4.6-150-light_walk,5.0-300,3.1-30
 2. https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort
 
-```
+
 The second query string above, which also shows that you can host a walkpadspeed page on a github repository, automatically creates a 3-step sequence:
 
 1. **Warm Up**: `3.0 km/h` for 10 seconds.
