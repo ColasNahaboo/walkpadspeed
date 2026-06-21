@@ -37,12 +37,11 @@ You can then launch automated custom workouts by passing URL parameters (`r` for
   - An optional label, a text that cannot contain comma. E.g: warmup, light_walk, sprint-jog ...
   
 Examples of routines: 
-```text
-https://my.server.com/walkpadspeed?n=My_routine&r=2.5-120-warmup,4.6-150-light_walk,5.0-300,3.1-30
-https://myrepo.githup.io/walkpadspeed/?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort
+1 https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=My_routine&r=2.5-120-warmup,4.6-150-light_walk,5.0-300,3.1-30
+2 https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort
 
 ```
-The sedcond query string above, which slao shows that you can host a walkpadspeed page on a github repository, automatically creates a 3-step sequence:
+The second query string above, which also shows that you can host a walkpadspeed page on a github repository, automatically creates a 3-step sequence:
 
 1. **Warm Up**: `3.0 km/h` for 10 seconds.
 2. **Interval-1**: `4.5 km/h` for 15 seconds.
@@ -60,6 +59,7 @@ If you do not want to use the walkpadspeed.html hosted here, and want to host it
 
 ## Implementation
 
+- **Pure modern Javascript** is used to interpret your routine, use the browser Web Bluetooth API and manage the timers to send the steps to drive your walking pad.
 - **Bluetooth FTMS Integration:** Connects directly via Web Bluetooth API to native Fitness Machine Service characteristics (`0x1826`).
 - **Dynamic URL Routines (`?r=`)**: Configure custom interval training profiles directly in the URL bar, complete with speeds, durations, and descriptive step names.
 - **Persistent Screen State:** Leverages the modern Browser Screen Wake Lock API to prevent devices from dimming or going blank during workouts.
