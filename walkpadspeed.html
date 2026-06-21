@@ -6,7 +6,7 @@
     <title>walkpadspeed</title>
     <style>
 
-      #version:after {content: "v1.0.0";}
+      #version:after {content: "v0.1.0";}
       
         /* Dark Mode Global Styles */
         body { 
@@ -125,7 +125,7 @@
 </span>
     <h1>walkpadspeed</h1>
 
-    <button class="connect-btn" id="connectBtn">Connect to Treadmill</button>
+    <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
     
     <div id="controls" style="display:none; margin-top: 20px;">
         <div id="timerContainer">
@@ -275,7 +275,7 @@
 
               // Initialize real-time data listener connection
               try {
-                  updateStatus("Subscribing to Treadmill Data stream...");
+                  updateStatus("Subscribing to Walkpad Data stream...");
                   const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
                   await dataChar.startNotifications();
                   dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
@@ -394,7 +394,7 @@
           if (!ftmsControlCharacteristic) return;
           try {
               resetRoutineState(); 
-              updateStatus("Stopping treadmill...");
+              updateStatus("Stopping walkpad...");
               
               const buffer = new ArrayBuffer(3);
               const dataView = new DataView(buffer);
