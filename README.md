@@ -33,6 +33,10 @@ Since the interface is entirely self-contained inside a single file, setup is mi
 
 ## Usage: Programming a Routine
 
+You can just use the `walkpadspeed` file of this repository directly, without installing anything, by using its GitHub pages URL: 
+
+[https://colasnahaboo.github.io/walkpadspeed/](https://colasnahaboo.github.io/walkpadspeed/)
+
 You can launch automated custom workouts by passing URL parameters (`r` for the routine blueprint and `n` for the routine name). Characters not alphanumeric nor hyphen, underscore, dot or tilde must be URL-encoded (E.g. `/` becomes `%2f`). Underscores (`_`) in names will be converted to spaces for convenience, and you can use hyphens in names, e.g: `step-2`
 - A routine is a comma-seprated list of steps.
 - A step is a hypen-separated list of
