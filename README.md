@@ -27,7 +27,7 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 
 ## Usage: Programming a Routine
 
-You can just use the `walkpadspeed` file of this repository directly, without installing anything, by using its GitHub pages URL: 
+You can just use the `walkpadspeed` file of this repository directly, without installing anything, by using its GitHub pages URL from Google Chrome on your phone: 
 
 [https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html)
 
@@ -50,6 +50,8 @@ The second query string above, which also shows that you can host a walkpadspeed
 3. **Last Effort**: `6.0 km/h` for 120 seconds.
 
 You can then bookmark these URLs or write them on any editable page (a wiki, a Google doc, ...) to create your library of routines.
+
+**Test mode**: by using the  `t=1` URL parameter, you enter test mode, where walkpadspeed fakes a bluetooth connection and runs without connecting or sending anything to any walking pad. This allows to see how the UI behaves without having to install and start your walking pad.
 
 ## Optional: Installation & Deployment
 
@@ -81,4 +83,5 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 © Colas Nahaboo, 2026. MIT license, that means that you can do anything with it, but expect no warranty.
 
 ## History
-- v0.1.0 2026-06-20
+
+- v0.1.0 2026-06-20 initial working version
