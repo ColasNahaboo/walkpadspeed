@@ -51,11 +51,25 @@ The second query string above, which also shows that you can host a walkpadspeed
 
 You can then bookmark these URLs or write them on any editable page (a wiki, a Google doc, ...) to create your library of routines.
 
+### The UI
+
+The left screenshot below show the application ready to start, and the right one, the routine running.
+
+The **Routine speed modifiers** dynamically changes all the programmed speeds of a routine by -20%, -10%, -5%, none, +5%, +10%, +20%. Durations are unchnaged, and they can be set before starting the routine, or during it.
+This is useful if during a routine you feel that the speeds are actually too slow or too fast for your current fitness.
+For instance, pressing the `++` modifier button on the second example routine above will transform it into:
+
+1. **Warm Up**: `3.3 km/h` for 10 seconds.
+2. **Interval-1**: `4.9 km/h` for 15 seconds.
+3. **Last Effort**: `6.6 km/h` for 120 seconds.
+
+![](docs/Screenshot_v0.1.6-all.png) 
+
 **Test mode**: by using the  `t=1` URL parameter, you enter test mode, where walkpadspeed fakes a bluetooth connection and runs without connecting or sending anything to any walking pad. This allows to see how the UI behaves without having to install and start your walking pad.
 
 ## Optional: Installation & Deployment
 
-If you do not want to use the walkpadspeed.html hosted here, and want to host it yourslef, since the interface is entirely self-contained inside a single file, setup is minimal:
+If you do not want to use the walkpadspeed.html hosted here, and want to host it yourself, since the interface is entirely self-contained inside a single file, setup is minimal:
 
 1. Clone this repository or just download the single file `walkpadspeed.html`.
 2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
