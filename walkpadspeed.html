@@ -6,7 +6,7 @@
     <title>walkpadspeed</title>
     <style>
 
-      #version:after {content: "v0.1.1";}
+      #version:after {content: "v0.1.3";}
       
         /* Dark Mode Global Styles */
         body { 
@@ -41,13 +41,17 @@
         
         /* Color Palette */
         .connect-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
-        .speed-btn { background: #2d2d2d; color: #00fa9a; border: 1px solid #444; }
-        .routine-btn { background: #bf5af2; color: white; width: 80%; max-width: 400px; }
+        .speed-btn { background: #2d2d2d; color: #bf5af2;
+                     padding: 1.2rem 0rem; min-width: 3rem; margin: 10px 2px;
+                     border: 1px solid #444; }
+        .speed-btn.active { background: #bf5af2; color: #121212;
+                            border-color: #bf5af2; }
+        .routine-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
         
         /* Control Panel Buttons */
-        .stop-btn { background: #ff453a; color: white; }
-        .pause-btn { background: #ff9f0a; color: black; }
-        .resume-btn { background: #30d158; color: white; }
+        .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
+        .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
+        .resume-btn { background: #30d158; color: white; padding: 1.5rem 2rem; }
         
         #status { margin-top: 30px; font-weight: bold; color: #8e8e93; font-size: 0.9rem; }
 
@@ -150,16 +154,18 @@
         <h3>Routine Trigger</h3>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
         
-        <h3>Safety & State Controls</h3>
+        <h3>Emergency</h3>
         <button class="stop-btn" onclick="stopTreadmill()">STOP</button> 
-        <button class="pause-btn" onclick="pauseTreadmill()">PAUSE</button> 
-        <button class="resume-btn" onclick="resumeTreadmill()">RESUME</button> 
+        <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button> 
 
-        <h3>Quick Speed Controls (km/h)</h3>
-        <button class="speed-btn" onclick="sendSpeed(3.0)">3.0</button>
-        <button class="speed-btn" onclick="sendSpeed(4.0)">4.0</button>
-        <button class="speed-btn" onclick="sendSpeed(5.0)">5.0</button>
-        <button class="speed-btn" onclick="sendSpeed(6.0)">6.0</button>
+        <h3>Routine Speed Modifier</h3>
+        <button class="speed-btn" onclick="setSpeedMod(0.8, this)">---</button>
+        <button class="speed-btn" onclick="setSpeedMod(0.9, this)">--</button>
+        <button class="speed-btn" onclick="setSpeedMod(0.95, this)">-</button>
+        <button class="speed-btn" id="mod-neutral" onclick="setSpeedMod(1, this)">=</button>
+        <button class="speed-btn" onclick="setSpeedMod(1.05, this)">+</button>
+        <button class="speed-btn" onclick="setSpeedMod(1.1, this)">++</button>
+        <button class="speed-btn" onclick="setSpeedMod(1.2, this)">+++</button>
     </div>
 
     <p id="status">Status: Disconnected</p>
@@ -175,6 +181,7 @@
       let ftmsControlCharacteristic = null;
       let bluetoothDevice = null;
       let currentTargetSpeed = 0.0;
+      let speedMod = 1;
       let audioCtx = null;
 
       // Routine State Variables
@@ -185,6 +192,7 @@
       let totalStepDuration = 0;
       let isRoutineActive = false; 
       let totalElapsedSeconds = 0;
+      let isPaused = false;
 
       function loadDefaultRoutine(name) {
           currentRoutineSteps = [
@@ -211,6 +219,12 @@
           } else {
               button.innerText = `Start "${routineName}" (2.0-10,4.0-9,6.0-8)`;
           }
+
+          // Highlight the neutral '=' modifier button initially
+          const neutralBtn = document.getElementById('mod-neutral');
+          if (neutralBtn) {
+              neutralBtn.classList.add('active');
+          }
       });
 
       // Safe client beep implementation using Web Audio API
@@ -220,7 +234,7 @@
               if (audioCtx.state === 'suspended') audioCtx.resume();
               
               const osc = audioCtx.createOscillator();
-              const gain = createGain();
+              const gain = audioCtx.createGain();
               
               osc.type = 'sine';
               osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5 note
@@ -347,7 +361,7 @@
                   await new Promise(resolve => setTimeout(resolve, spinUpTime)); 
               }
 
-              const speedRaw = Math.round(speedKmh * 100);
+              const speedRaw = Math.round(speedKmh * 100 * speedMod);
               const buffer = new ArrayBuffer(3);
               const dataView = new DataView(buffer);
 
@@ -376,43 +390,63 @@
           secondsLeftInStep = 0;
           totalStepDuration = 0;
           isRoutineActive = false;
-          totalElapsedSeconds = 0; // Reset back to zero on clear/stop
-          document.getElementById('liveTime').innerText = "00:00"; // Clear display
+          totalElapsedSeconds = 0; 
+          isPaused = false;
+          
+          // Revert button interface text and styling back to standard baseline
+          const btn = document.getElementById('pauseToggleBtn');
+          btn.innerText = "PAUSE";
+          btn.className = "pause-btn";
+
+          document.getElementById('liveTime').innerText = "00:00"; 
           document.getElementById('timerContainer').style.display = 'none';
       }
 
-      async function pauseTreadmill() {
+      // State engine managing the morphing behavior
+      async function togglePauseState() {
           if (!ftmsControlCharacteristic) return;
-          try {
-              clearAllIntervals(); // Freezes the JS clock ticker instantly
-              const pauseBuffer = new Uint8Array([0x08]);
-              await ftmsControlCharacteristic.writeValue(pauseBuffer);
-              updateStatus("Paused (Timer frozen).");
-          } catch (error) {
-              updateStatus("Failed to pause: " + error.message);
-          }
-      }
-      
-      async function resumeTreadmill() {
-          if (!ftmsControlCharacteristic) return;
-          try {
-              updateStatus("Resuming workout...");
-              const resumeBuffer = new Uint8Array([0x07]);
-              await ftmsControlCharacteristic.writeValue(resumeBuffer);
-              
-              // Wait for the motor to physically initialize before starting any logic clocks
-              await new Promise(resolve => setTimeout(resolve, spinUpTime));
+          
+          const btn = document.getElementById('pauseToggleBtn');
+          
+          if (!isPaused) {
+              // Action: Transitioning into PAUSE state
+              try {
+                  clearAllIntervals(); 
+                  const pauseBuffer = new Uint8Array([0x08]);
+                  await ftmsControlCharacteristic.writeValue(pauseBuffer);
+                  
+                  isPaused = true;
+                  btn.innerText = "RESUME";
+                  btn.className = "resume-btn";
+                  updateStatus("Paused (Timer frozen).");
+              } catch (error) {
+                  updateStatus("Failed to pause: " + error.message);
+              }
+          } else {
+              // Action: Transitioning into RESUME state
+              try {
+                  updateStatus("Resuming workout...");
+                  
+                  // Instantly flip visual state back to raw PAUSE configuration
+                  isPaused = false;
+                  btn.innerText = "PAUSE";
+                  btn.className = "pause-btn";
 
-              if (currentTargetSpeed > 0) {
-                  await sendSpeed(currentTargetSpeed, false);
+                  const resumeBuffer = new Uint8Array([0x07]);
+                  await ftmsControlCharacteristic.writeValue(resumeBuffer);
+                  
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime));
+
+                  if (currentTargetSpeed > 0) {
+                      await sendSpeed(currentTargetSpeed, false);
+                  }
+                  
+                  if (isRoutineActive && !routineInterval) {
+                      startClockLoop();
+                  }
+              } catch (error) {
+                  updateStatus("Failed to resume: " + error.message);
               }
-              
-              // CRITICAL FIX: Only restart the countdown clock AFTER the motor spin-up delay has fully resolved
-              if (isRoutineActive && !routineInterval) {
-                  startClockLoop();
-              }
-          } catch (error) {
-              updateStatus("Failed to resume: " + error.message);
           }
       }
       
@@ -433,7 +467,7 @@
               const pauseBuffer = new Uint8Array([0x08]);
               await ftmsControlCharacteristic.writeValue(pauseBuffer);
               
-              releaseWakeLock(); // Let the phone sleep naturally again
+              releaseWakeLock(); 
               updateStatus("Stopped.");
           } catch (error) {
               updateStatus("Failed to stop: " + error.message);
@@ -456,13 +490,11 @@
                       const speed = parseFloat(parts[0]);
                       const duration = parseInt(parts[1], 10);
                       
-                      // If there are more parts, extract the custom name, swap underscores for spaces
                       let stepName = '';
                       if (parts.length > 2) {
                           stepName = parts.slice(2).join('-').replace(/_/g, ' ');
                       }
 
-                      // Build clean display description
                       const displayLabel = stepName ? `: ${stepName}` : '';
                       return {
                           speed: speed,
@@ -492,12 +524,10 @@
 
       function startClockLoop() {
           routineInterval = setInterval(async () => {
-              // Fire audio cue exactly 1 second before interval change
               if (secondsLeftInStep === 1) {
                   playBeep();
               }
 
-              // Increment the global workout clock
               totalElapsedSeconds++;
               updateLiveTimeDisplay(totalElapsedSeconds);
 
@@ -522,7 +552,6 @@
           }, 1000);
       }
 
-      // Helper function to update the live UI block directly
       function updateLiveTimeDisplay(totalSeconds) {
           const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
           const secs = (totalSeconds % 60).toString().padStart(2, '0');
@@ -532,7 +561,6 @@
       function updateRoutineUI(label, seconds, percentage) {
           document.getElementById('routineLabel').innerText = label;
           
-          // Format layout display MM:SS
           const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
           const secs = (seconds % 60).toString().padStart(2, '0');
           document.getElementById('timeDisplay').innerText = `${mins}:${secs}`;
@@ -540,13 +568,12 @@
           const bar = document.getElementById('progressBar');
           bar.style.width = `${percentage}%`;
 
-          // Neon Dark-mode Adaptive Highlights
           if (percentage > 50) {
-              bar.style.backgroundColor = '#30d158'; // iOS Dark Green
+              bar.style.backgroundColor = '#30d158'; 
           } else if (percentage > 20) {
-              bar.style.backgroundColor = '#ff9f0a'; // iOS Dark Orange
+              bar.style.backgroundColor = '#ff9f0a'; 
           } else {
-              bar.style.backgroundColor = '#ff453a'; // iOS Dark Red
+              bar.style.backgroundColor = '#ff453a'; 
           }
       }
 
@@ -554,14 +581,30 @@
           document.getElementById('status').innerText = "Status: " + msg;
       }
 
-      // avoid screen blanking
+      function setSpeedMod(mod, btnElement) {
+          speedMod = mod;
+          if (mod === 1) {
+              updateStatus('No speed modifier')
+          } else {
+              updateStatus('Speed modifier set to ' + Math.round((mod - 1) * 100) +'%');
+          }
+
+          // Clear active highlight from all modifier buttons
+          const modButtons = document.querySelectorAll('.speed-btn');
+          modButtons.forEach(btn => btn.classList.remove('active'));
+
+          // Highlight the currently pressed button
+          if (btnElement) {
+              btnElement.classList.add('active');
+          }
+      }
+
       async function requestWakeLock() {
           try {
               if ('wakeLock' in navigator) {
                   wakeLock = await navigator.wakeLock.request('screen');
                   console.log("Screen Wake Lock is active.");
                   
-                  // Re-acquire if the app is minimized and restored
                   wakeLock.addEventListener('release', () => {
                       console.log("Screen Wake Lock was released.");
                   });
@@ -578,7 +621,6 @@
           }
       }
 
-      // re-prevent screen blank after de-iconification
       document.addEventListener('visibilitychange', async () => {
           if (wakeLock !== null && document.visibilityState === 'visible') {
               await requestWakeLock();
