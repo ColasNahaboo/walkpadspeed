@@ -1,0 +1,11 @@
+# Sample routines to upload to walkpadspeeds
+
+My routine
+2.5 120 warmup
+4.6 150 light walk
+5.0 300
+
+Fat Burn
+3.0 10 Warm_Up
+4.5 15 Interval-1
+6.0 120 Last_Effort

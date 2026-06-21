@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>walkpadspeeds - Routine Manager</title>
+    <style>
+        #version:after {content: "v0.2.0";}
+      
+        /* Dark Mode Global Styles - Preserving Main Application Theme */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            text-align: center; 
+            padding: 1rem; 
+            background: #121212; 
+            color: #e0e0e0;
+        }
+        h1 { color: #ffffff; margin-bottom: 0.5rem; }
+        .subtitle { color: #8e8e93; font-size: 1rem; margin-bottom: 2rem; }
+        h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d; padding-bottom: 5px; margin-top: 25px; }
+        
+        a {
+            text-decoration: none;
+            color: #aab;
+            box-shadow: inset 0 -0.1em 0 0 #667;
+            transition: box-shadow 0.2s ease-in-out;
+            border-bottom: none;
+        }
+        a:hover { box-shadow: inset 0 -1.2em 0 0 #3a3a3c; color: #ffffff; }
+
+        /* File Upload Control Area */
+        .file-zone {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 30px 20px;
+            background: #1c1c1e;
+            border: 2px dashed #2c2c2e;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .file-zone:hover {
+            border-color: #0a84ff;
+            background: #222224;
+        }
+        .file-zone p { margin: 0; color: #b0b0b0; font-size: 1rem; }
+        .file-zone span { color: #0a84ff; font-weight: bold; }
+        #fileInput { display: none; }
+
+        /* Unified Buttons used as Playlist Links */
+        .routine-link-btn { 
+            display: inline-block;
+            width: 80%; 
+            max-width: 400px;
+            padding: 1.2rem 1.2rem; 
+            font-size: 1.1rem; 
+            font-weight: bold;
+            margin: 10px auto; 
+            cursor: pointer; 
+            border-radius: 8px; 
+            border: none; 
+            background: #0a84ff; 
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background 0.2s, transform 0.1s;
+        }
+        .routine-link-btn:hover { background: #359aff; color: white; box-shadow: none; }
+        .routine-link-btn:active { transform: scale(0.98); }
+
+        /* Lists and Status Output Container */
+        #routineList {
+            margin: 25px auto;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #status { margin-top: 20px; font-weight: bold; color: #8e8e93; font-size: 0.9rem; }
+        
+        .error-msg { color: #ff453a !important; margin: 10px 0; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <h1>walkpadspeeds</h1>
+    <div class="subtitle" id="subtitleText">Routine Link Generator</div>
+
+    <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <p>Drop your routines text file here or <span>Browse</span></p>
+        <input type="file" id="fileInput" accept=".txt,.txt,,*">
+    </div>
+
+    <p id="status">Status: Waiting for local configuration file...</p>
+
+    <div id="routineContainer" style="display: none;">
+        <h3>Available Routines</h3>
+        <div id="routineList"></div>
+    </div>
+
+    <p id="footer"><a href="https://github.com/ColasNahaboo/walkpadspeed" target="_blank" rel="noopener noreferrer">walkpadspeed</a>, ©Colas Nahaboo 2026, <span id="version"></span></p>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const statusText = document.getElementById('status');
+        const routineContainer = document.getElementById('routineContainer');
+        const routineList = document.getElementById('routineList');
+        
+        let isTestMode = false;
+
+        // Detect mode configuration on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('t') === '1') {
+                isTestMode = true;
+                document.getElementById('subtitleText').innerText = "Routine Link Generator (Test Mode)";
+                statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
+            }
+        });
+
+        // Drag and drop events setup
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#30d158';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#2c2c2e';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                fileInput.files = files;
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            statusText.innerText = `Status: Reading "${file.name}"...`;
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    parseAndGenerateLinks(e.target.result);
+                } catch (err) {
+                    statusText.innerHTML = `<span class="error-msg">Parser Critical Failure: ${err.message}</span>`;
+                }
+            };
+
+            reader.onerror = () => {
+                statusText.innerHTML = '<span class="error-msg">Error loading file from local storage.</span>';
+            };
+
+            reader.readAsText(file);
+        }
+
+        function parseAndGenerateLinks(text) {
+            const blocks = text.split(/\n\s*\n/);
+            const routines = [];
+
+            for (const block of blocks) {
+                const lines = block.split('\n')
+                                   .map(line => line.trim())
+                                   .filter(line => line.length > 0 && !line.startsWith('#'));
+
+                if (lines.length < 2) continue;
+
+                const routineName = lines[0];
+                const stepsArray = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const stepTokens = lines[i].split(/\s+/);
+                    if (stepTokens.length >= 2) {
+                        const speed = stepTokens[0];
+                        const duration = stepTokens[1];
+                        
+                        let stepLabel = stepTokens.slice(2).join('_');
+
+                        if (stepLabel) {
+                            stepsArray.push(`${speed}-${duration}-${stepLabel}`);
+                        } else {
+                            stepsArray.push(`${speed}-${duration}`);
+                        }
+                    }
+                }
+
+                if (stepsArray.length > 0) {
+                    let queryParams = `n=${encodeURIComponent(routineName)}&r=${encodeURIComponent(stepsArray.join(','))}`;
+                    
+                    // Automatically pass through test flag if wpss is running in test mode
+                    if (isTestMode) {
+                        queryParams += '&t=1';
+                    }
+
+                    routines.push({
+                        name: routineName,
+                        queryStringParams: queryParams
+                    });
+                }
+            }
+
+            renderRoutineList(routines);
+        }
+
+        function renderRoutineList(routines) {
+            routineList.innerHTML = '';
+            
+            if (routines.length === 0) {
+                statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
+                routineContainer.style.display = 'none';
+                return;
+            }
+
+            routines.forEach(routine => {
+                const link = document.createElement('a');
+                link.href = `./walkpadspeed.html?${routine.queryStringParams}`;
+                link.className = 'routine-link-btn';
+                link.innerText = routine.name;
+                
+                routineList.appendChild(link);
+            });
+
+            const modeLabel = isTestMode ? "[Test Mode] " : "";
+            statusText.innerText = `Status: ${modeLabel}Successfully parsed ${routines.length} routine(s).`;
+            routineContainer.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
