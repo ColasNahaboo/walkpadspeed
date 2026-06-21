@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeeds - Routine Manager</title>
     <style>
-        #version:after {content: "v0.2.0";}
+        #version:after {content: "v0.2.2";}
       
         /* Dark Mode Global Styles - Preserving Main Application Theme */
         body { 
@@ -47,26 +47,89 @@
         .file-zone span { color: #0a84ff; font-weight: bold; }
         #fileInput { display: none; }
 
+        /* Routine Row Container for Layout */
+        .routine-row {
+            width: 100%;
+            max-width: 440px;
+            margin: 12px auto;
+            display: flex;
+            flex-direction: column;
+            background: #1c1c1e;
+            border-radius: 8px;
+            border: 1px solid #2c2c2e;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .routine-header-controls {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
         /* Unified Buttons used as Playlist Links */
         .routine-link-btn { 
-            display: inline-block;
-            width: 80%; 
-            max-width: 400px;
+            flex-grow: 1;
             padding: 1.2rem 1.2rem; 
             font-size: 1.1rem; 
             font-weight: bold;
-            margin: 10px auto; 
             cursor: pointer; 
-            border-radius: 8px; 
-            border: none; 
             background: #0a84ff; 
             color: white;
             text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: none;
             transition: background 0.2s, transform 0.1s;
         }
-        .routine-link-btn:hover { background: #359aff; color: white; box-shadow: none; }
-        .routine-link-btn:active { transform: scale(0.98); }
+        .routine-link-btn:hover { background: #359aff; color: white; }
+        .routine-link-btn:active { transform: scale(0.99); }
+
+        /* Toggle Button Styles */
+        .routine-toggle-btn {
+            background: #2c2c2e;
+            color: #0a84ff;
+            border: none;
+            font-size: 1.2rem;
+            padding: 0 1.2rem;
+            align-self: stretch;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .routine-toggle-btn:hover {
+            background: #3a3a3c;
+            color: #359aff;
+        }
+        .routine-toggle-btn.expanded {
+            color: #ff9f0a;
+        }
+
+        /* Routine Meta Stats Panel Layout */
+        .routine-stats {
+            background: #161618;
+            border-top: 1px solid #252527;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            color: #8e8e93;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .routine-stats strong {
+            color: #e0e0e0;
+        }
+
+        /* Expandable Raw Text Block Container */
+        .routine-raw-view {
+            display: none;
+            text-align: left;
+            background: #000000;
+            color: #30d158;
+            font-family: monospace;
+            font-size: 0.9rem;
+            padding: 15px;
+            margin: 0;
+            white-space: pre-wrap;
+            border-top: 1px solid #2c2c2e;
+        }
 
         /* Lists and Status Output Container */
         #routineList {
@@ -84,7 +147,7 @@
 <body>
 
     <h1>walkpadspeeds</h1>
-    <div class="subtitle" id="subtitleText">Routine Link Generator</div>
+    <div class="subtitle" id="subtitleText">Routine Manager</div>
 
     <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p>Drop your routines text file here or <span>Browse</span></p>
@@ -98,8 +161,14 @@
         <div id="routineList"></div>
     </div>
 
-    <p id="footer"><a href="https://github.com/ColasNahaboo/walkpadspeed" target="_blank" rel="noopener noreferrer">walkpadspeed</a>, ©Colas Nahaboo 2026, <span id="version"></span></p>
-
+    <p id=footer><a href="https://github.com/ColasNahaboo/walkpadspeed" target="_blank" rel="noopener noreferrer">
+    <svg fill="white" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <g data-name="Layer 2">
+            <rect width="24" height="24" transform="rotate(180 12 12)" opacity="0"/>
+            <path d="M12 1A10.89 10.89 0 0 0 1 11.77 10.79 10.79 0 0 0 8.52 22c.55.1.75-.23.75-.52v-1.83c-3.06.65-3.71-1.44-3.71-1.44a2.86 2.86 0 0 0-1.22-1.58c-1-.66.08-.65.08-.65a2.31 2.31 0 0 1 1.68 1.11 2.37 2.37 0 0 0 3.2.89 2.33 2.33 0 0 1 .7-1.44c-2.44-.27-5-1.19-5-5.32a4.15 4.15 0 0 1 1.11-2.91 3.78 3.78 0 0 1 .11-2.84s.93-.29 3 1.1a10.68 10.68 0 0 1 5.5 0c2.1-1.39 3-1.1 3-1.1a3.78 3.78 0 0 1 .11 2.84A4.15 4.15 0 0 1 19 11.2c0 4.14-2.58 5.05-5 5.32a2.5 2.5 0 0 1 .75 2v2.95c0 .35.2.63.75.52A10.8 10.8 0 0 0 23 11.77 10.89 10.89 0 0 0 12 1" data-name="github"/>
+        </g>
+    </svg>
+walkpadspeed</a>, ©Colas Nahaboo 2026, <span id=version></span></p>
     <script>
         const fileInput = document.getElementById('fileInput');
         const dropZone = document.getElementById('dropZone');
@@ -181,19 +250,27 @@
 
                 const routineName = lines[0];
                 const stepsArray = [];
+                
+                let totalDuration = 0;
+                let distanceAccumulator = 0; // tracking speed * time to calculate proper weighted average
 
                 for (let i = 1; i < lines.length; i++) {
                     const stepTokens = lines[i].split(/\s+/);
                     if (stepTokens.length >= 2) {
-                        const speed = stepTokens[0];
-                        const duration = stepTokens[1];
+                        const speed = parseFloat(stepTokens[0]);
+                        const duration = parseInt(stepTokens[1], 10);
                         
+                        if (!isNaN(speed) && !isNaN(duration)) {
+                            totalDuration += duration;
+                            distanceAccumulator += (speed * duration);
+                        }
+
                         let stepLabel = stepTokens.slice(2).join('_');
 
                         if (stepLabel) {
-                            stepsArray.push(`${speed}-${duration}-${stepLabel}`);
+                            stepsArray.push(`${stepTokens[0]}-${stepTokens[1]}-${stepLabel}`);
                         } else {
-                            stepsArray.push(`${speed}-${duration}`);
+                            stepsArray.push(`${stepTokens[0]}-${stepTokens[1]}`);
                         }
                     }
                 }
@@ -201,19 +278,44 @@
                 if (stepsArray.length > 0) {
                     let queryParams = `n=${encodeURIComponent(routineName)}&r=${encodeURIComponent(stepsArray.join(','))}`;
                     
-                    // Automatically pass through test flag if wpss is running in test mode
                     if (isTestMode) {
                         queryParams += '&t=1';
                     }
 
+                    const blockRawText = lines.join('\n');
+                    
+                    // Format duration stats string
+                    const mins = Math.floor(totalDuration / 60);
+                    const secs = totalDuration % 60;
+                    const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+                    // Calculate true time-weighted average speed
+                    const avgSpeed = totalDuration > 0 ? (distanceAccumulator / totalDuration).toFixed(2) : "0.0";
+
                     routines.push({
                         name: routineName,
-                        queryStringParams: queryParams
+                        queryStringParams: queryParams,
+                        rawText: blockRawText,
+                        durationStr: durationStr,
+                        avgSpeed: avgSpeed
                     });
                 }
             }
 
             renderRoutineList(routines);
+        }
+
+        function toggleRawView(btn, targetId) {
+            const viewPane = document.getElementById(targetId);
+            if (viewPane.style.display === 'block') {
+                viewPane.style.display = 'none';
+                btn.innerText = '▼';
+                btn.classList.remove('expanded');
+            } else {
+                viewPane.style.display = 'block';
+                btn.innerText = '▲';
+                btn.classList.add('expanded');
+            }
         }
 
         function renderRoutineList(routines) {
@@ -225,13 +327,47 @@
                 return;
             }
 
-            routines.forEach(routine => {
+            routines.forEach((routine, idx) => {
+                const rowId = `raw-view-${idx}`;
+
+                // Row block wrapper setup
+                const rowContainer = document.createElement('div');
+                rowContainer.className = 'routine-row';
+
+                const controlsWrapper = document.createElement('div');
+                controlsWrapper.className = 'routine-header-controls';
+
+                // Core launch hyperlink button element
                 const link = document.createElement('a');
                 link.href = `./walkpadspeed.html?${routine.queryStringParams}`;
                 link.className = 'routine-link-btn';
                 link.innerText = routine.name;
+
+                // Expand indicator arrow element trigger
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'routine-toggle-btn';
+                toggleBtn.innerText = '▼';
+                toggleBtn.onclick = () => toggleRawView(toggleBtn, rowId);
+
+                // Meta Stats Container Bar
+                const statsDiv = document.createElement('div');
+                statsDiv.className = 'routine-stats';
+                statsDiv.innerHTML = `<span>Duration: <strong>${routine.durationStr}</strong></span> <span>Avg Speed: <strong>${routine.avgSpeed} km/h</strong></span>`;
+
+                // Expanded monospaced text sheet implementation
+                const rawPre = document.createElement('pre');
+                rawPre.id = rowId;
+                rawPre.className = 'routine-raw-view';
+                rawPre.innerText = routine.rawText;
+
+                // Bind elements down structure sequence tree
+                controlsWrapper.appendChild(link);
+                controlsWrapper.appendChild(toggleBtn);
+                rowContainer.appendChild(controlsWrapper);
+                rowContainer.appendChild(statsDiv);
+                rowContainer.appendChild(rawPre);
                 
-                routineList.appendChild(link);
+                routineList.appendChild(rowContainer);
             });
 
             const modeLabel = isTestMode ? "[Test Mode] " : "";
