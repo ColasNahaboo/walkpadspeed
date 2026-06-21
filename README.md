@@ -37,8 +37,8 @@ You can then launch automated custom workouts by passing URL parameters (`r` for
   - An optional label, a text that cannot contain comma. E.g: warmup, light_walk, sprint-jog ...
   
 Examples of routines: 
-1 https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=My_routine&r=2.5-120-warmup,4.6-150-light_walk,5.0-300,3.1-30
-2 https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort
+1. https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=My_routine&r=2.5-120-warmup,4.6-150-light_walk,5.0-300,3.1-30
+2. https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort
 
 ```
 The second query string above, which also shows that you can host a walkpadspeed page on a github repository, automatically creates a 3-step sequence:
