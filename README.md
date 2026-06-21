@@ -1,7 +1,7 @@
 # walkpadspeed
 <img src="docs/walkpadspeed.svg" align="right" width="256" height="256">A simple HTML page to program the speed intervals of walking pad workouts over the standard  FTMS Bluetooth protocol.
 
-I bought a simple, entry level walking pad, because I wanted something less bulky than a treadmill, easy to install and store away, and I favored mechanical qualities over exotic features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). Buit they all implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
+I bought a simple, entry level walking pad, because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But they all implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
 
 I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to expereiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
 
@@ -18,7 +18,41 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 - **easy to use** simple controls implementing my needs simply.
 - **opiniotated** keep bloat away by refusing to add non-essential features that could be found in other, more complex apps.
 
-**Requirements** The browser on your phone must support [Web Bluetooth](https://github.com/WebBluetoothCG/web-bluetooth#web-bluetooth). Currently: Google Chrome, Samsung Internet, Opera, Opera Mobile, Microsoft Edge, Vivaldi, Brave, Bluefy, BLE Link, WebBLE... but currently **not Firefox** (although some [extensions](https://addons.mozilla.org/en-US/firefox/addon/webbt/) exist). See the [current state of Web Bluetooth browser support](https://github.com/WebBluetoothCG/web-bluetooth/blob/main/implementation-status.md).
+**Requirements**
+- The browser on your phone or computer must support [Web Bluetooth](https://github.com/WebBluetoothCG/web-bluetooth#web-bluetooth). Currently: Google Chrome, Samsung Internet, Opera, Opera Mobile, Microsoft Edge, Vivaldi, Brave, Bluefy, BLE Link, WebBLE... but currently **not Firefox** (although some [extensions](https://addons.mozilla.org/en-US/firefox/addon/webbt/) exist). See the [current state of Web Bluetooth browser support](https://github.com/WebBluetoothCG/web-bluetooth/blob/main/implementation-status.md).
+- A walking pad or treadmill supporting standard BLE FTMS (most modern ones do).
+- A web server somewhere to serve the web page via https://, as Web Bluetooth cannot work by just opening a local file due to security constraints.
+
+## Installation & Deployment
+
+Since the interface is entirely self-contained inside a single file, setup is minimal:
+
+1. Clone this repository or just download the single file `walkpadspeed.html`.
+2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
+3. Access the file using your browser on your bluetooth-enabled device (your phone, tablet, computer...) over an `https://` connection.
+
+## Usage: Programming a Routine
+
+You can launch automated custom workouts by passing URL parameters (`r` for the routine blueprint and `n` for the routine name). Characters not alphanumeric nor hyphen, underscore, dot or tilde must be URL-encoded (E.g. `/` becomes `%2f`). Underscores (`_`) in names will be converted to spaces for convenience, and you can use hyphens in names, e.g: `step-2`
+- A routine is a comma-seprated list of steps.
+- A step is a hypen-separated list of
+  - A speed in km/h, a number with one decimal after the dot. E.g: 2.5, 4.6, 5.0 ...
+  - A duration in seconds, a number. E.g: 120, 150, 300 ...
+  - An optional label, a text that cannot contain comma. E.g: warmup, light_walk, sprint-jog ...
+  
+Examples of routines: 
+```text
+https://my.server.com/walkpadspeed?n=My_routine&r=2.5-120-warmup,4.6-150-light_walk,5.0-300,3.1-30
+https://myrepo.githup.io/walkpadspeed/?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort
+
+```
+The sedcond query string above, which slao shows that you can host a walkpadspeed page on a github repository, automatically creates a 3-step sequence:
+
+1. **Warm Up**: `3.0 km/h` for 10 seconds.
+2. **Interval-1**: `4.5 km/h` for 15 seconds.
+3. **Last Effort**: `6.0 km/h` for 120 seconds.
+
+You can then bookmark these URLs or write them on any editable page (a wiki, a Google doc, ...) to create your library of routines.
 
 ## Implementation
 
@@ -28,56 +62,17 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 - **Audio Cues:** Features low-latency predictive audio chime indicators generated via the Web Audio API precisely 1 second prior to interval changes.
 - **Precise Timer Mechanics:** High-accuracy state machine managing active countdown intervals, automated variable motor warm-up delays (`spinUpTime`), and live metric tracking.
 
-## URL Parameters (Routine Configuration)
-
-You can launch automated custom workouts by passing URL parameters (`r` for the routine blueprint and `n` for the routine name). 
-
-### Format Blueprint
-```text
-?n=Routine_Name&r=Speed-Duration-Step_Name,Speed-Duration-Step_Name,...
-
-```
-
-* **Spaces:** Use underscores (`_`) in your strings; they will be parsed and displayed automatically as spaces in the UI.
-* **Hyphens:** Step names safely support custom hyphens (e.g., `step-2`).
-
-### Example Configuration
-
-```text
-[https://colasnahaboo.github.io/walkpadspeed/?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort](https://colasnahaboo.github.io/walkpadspeed/?n=Fat_Burn&r=3.0-10-Warm_Up,4.5-15-Interval-1,6.0-120-Last_Effort)
-
-```
-
-The query string above automatically creates a 3-step sequence:
-
-1. **Warm Up**: `3.0 km/h` for 10 seconds.
-2. **Interval-1**: `4.5 km/h` for 15 seconds.
-3. **Last Effort**: `6.0 km/h` for 120 seconds.
-
-## Hardware Support & Core Blueprint
-
-This control system operates across standard FTMS profile architectures:
-
+Hardware Support & Core Blueprint: This control system operates across standard FTMS profile architectures:
 * **Service UUID:** `0x1826` (Fitness Machine Service)
 * **Control Characteristic:** `0x2AD9` (Machine Control Point)
 * **Live Telemetry Stream:** `0x2ACD` (Treadmill Data)
 
 ## Getting Started
 
-### Prerequisites
-
-* A walking pad or treadmill supporting standard BLE FTMS.
-* A browser with Web Bluetooth enabled (e.g., Google Chrome, Microsoft Edge, Opera, or Bluefy on iOS).
-* A secure origin host context (`https://`) or local environment context (`localhost`), as required by Web Bluetooth security architectures.
-
-### Installation & Deployment
-
-Since the interface is entirely self-contained inside a single file, setup is minimal:
-
-1. Clone this repository or download `walkpadspeed.html`.
-2. Deploy the file to your web server (e.g., Apache, Nginx, or GitHub Pages).
-3. Access the file using your browser over an `https://` connection.
 
 ## License
 
 © Colas Nahaboo, 2026. MIT license, that means that you can do anything with it, but expect no warranty.
+
+## History
+- v0.1.0 2026-06-20
