@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.2";}
+        #version:after {content: "v0.3.3";}
 
         /* Dark Mode Global Styles */
         body {
@@ -248,8 +248,6 @@
             margin: 25px auto 0;
             max-width: 400px;
             width: 80%;
-        }
-        .test-toggle-row {
             font-size: 0.9rem;
             color: #8e8e93;
             user-select: none;
@@ -313,11 +311,11 @@
 
 <!-- ==================== MANAGER VIEW ==================== -->
 <div id="managerView">
-    <h1>walkpadspeeds</h1>
-    <div class="subtitle" id="subtitleText">Routine Manager</div>
+    <h1>walkpadspeed</h1>
+    <div class="subtitle" id="subtitleText">Routines Manager</div>
 
     <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        <p>Drop your routines text file here or <span>Browse</span></p>
+        <p>Drop your routines file here or <span>Upload it</span></p>
         <input type="file" id="fileInput" accept=".txt,.txt,,*">
     </div>
 
@@ -334,6 +332,7 @@
     <a id="navBackBtn" href="#" class="wpss-nav-menu" title="Return to Routine Manager">☰</a>
 
     <h1 style="margin-bottom: 2rem;">walkpadspeed</h1>
+    <div class="subtitle" id="subtitleText">Routine Player</div>
 
     <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
 
@@ -548,6 +547,7 @@ function resetRoutineState() {
     isRoutineActive = false;
     totalElapsedSeconds = 0;
     isPaused = false;
+    routineTotalDuration = 0;
 
     const routineBtn = document.getElementById('routineBtn');
     routineBtn.disabled = false;
@@ -558,7 +558,6 @@ function resetRoutineState() {
     btn.className = "pause-btn";
 
     document.getElementById('liveTime').innerText = "00:00";
-    document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
     document.getElementById('timerContainer').style.display = 'none';
 }
 
@@ -679,6 +678,17 @@ function minutesSeconds(totalSeconds) {
     return `${mins}:${secs}`;
 }
 
+function routineTotalDurationGet(raw) {
+    if (!raw) return 0;
+    let total = 0;
+    raw.split(',').forEach(item => {
+        const parts = item.split('-');
+        const duration = parseInt(parts[1], 10);
+        if (!isNaN(duration)) total += duration;
+    });
+    return total;
+}
+
 function updateRoutineUI(label, seconds, percentage) {
     document.getElementById('routineLabel').innerText = label;
 
@@ -766,13 +776,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const rParam = urlParams.get('r');
 
     if (rParam && rParam.trim() !== '') {
-        // Driver mode: routine data present in URL
         document.getElementById('managerView').style.display = 'none';
         document.getElementById('driverView').style.display = 'block';
         document.title = 'walkpadspeed';
         initDriverMode(urlParams);
     } else {
-        // Manager mode: no routine data, show library
         document.getElementById('managerView').style.display = 'block';
         document.getElementById('driverView').style.display = 'none';
         document.title = 'walkpadspeeds - Routine Manager';
@@ -799,13 +807,11 @@ function initManagerMode(urlParams) {
         statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
     }
 
-    // Auto-load cached routines
     const cachedData = localStorage.getItem('wpss_cached_routines');
     if (cachedData) {
         parseAndGenerateLinks(cachedData);
     }
 
-    // Drag and drop events
     ['dragenter', 'dragover'].forEach(eventName => {
         dropZone.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -940,7 +946,6 @@ function initManagerMode(urlParams) {
             const controlsWrapper = document.createElement('div');
             controlsWrapper.className = 'routine-header-controls';
 
-            // Self-referencing link: same page with query params
             const link = document.createElement('a');
             link.href = `?${routine.queryStringParams}`;
             link.className = 'routine-link-btn';
@@ -1009,6 +1014,10 @@ function initDriverMode(urlParams) {
 
     updateRoutineButtonText(false);
 
+    // Compute total duration once for the initial "Remain" display
+    routineTotalDuration = routineTotalDurationGet(routineRawCached);
+    document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
+
     const neutralBtn = document.getElementById('mod-neutral');
     if (neutralBtn) {
         neutralBtn.classList.add('active');
@@ -1032,7 +1041,6 @@ function initDriverMode(urlParams) {
                     }
                 };
 
-                // Hide start-screen elements, show controls
                 document.getElementById('testModeToggle').style.display = 'none';
                 document.getElementById('controls').style.display = 'block';
                 document.getElementById('connectBtn').style.display = 'none';
@@ -1064,7 +1072,6 @@ function initDriverMode(urlParams) {
                 console.warn("Metrics channel initialization skipped: ", dataErr.message);
             }
 
-            // Hide start-screen elements, show controls
             document.getElementById('testModeToggle').style.display = 'none';
             document.getElementById('controls').style.display = 'block';
             document.getElementById('connectBtn').style.display = 'none';
@@ -1092,9 +1099,8 @@ function initDriverMode(urlParams) {
                     if (parts.length > 2) {
                         stepName = parts.slice(2).join('-').replace(/_/g, ' ');
                     } else {
-                        stepName = `${routineNameCached} [${index + 1}/${totalSteps}]`;
+                        stepName = `Step [${index + 1}/${totalSteps}]`;
                     }
-                    routineTotalDuration += duration;
                     return {
                         speed: speed,
                         duration: duration,
@@ -1105,9 +1111,13 @@ function initDriverMode(urlParams) {
                 alert("Parser fail! Loading fallback setup.");
                 loadDefaultRoutine(routineNameCached);
             }
+            // Recompute total cleanly after reset cleared it
+            routineTotalDuration = routineTotalDurationGet(routineRawCached);
             updateLiveRemainDisplay(routineTotalDuration);
         } else {
             loadDefaultRoutine(routineNameCached);
+            routineTotalDuration = currentRoutineSteps.reduce((sum, step) => sum + step.duration, 0);
+            updateLiveRemainDisplay(routineTotalDuration);
         }
 
         const routineBtn = document.getElementById('routineBtn');

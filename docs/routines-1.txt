@@ -9,3 +9,9 @@ Fat Burn
 3.0 10 Warm_Up
 4.5 15 Interval-1
 6.0 120 Last_Effort
+
+# A quick test of functionalities
+Quick Test
+2.0 10
+4.0 9
+5.0 8
