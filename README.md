@@ -99,4 +99,5 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.2.7 2026-06-21 new file walkpadspeeds.html to manage a set of routines from a text file description
 - v0.1.0 2026-06-20 initial working version
