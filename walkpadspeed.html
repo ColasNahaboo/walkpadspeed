@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.4";}
+        #version:after {content: "v0.3.5";}
 
         /* Dark Mode Global Styles */
         body {
@@ -424,18 +424,10 @@ let isRoutineActive = false;
 let totalElapsedSeconds = 0;
 let isPaused = false;
 
-let routineNameCached = "Test";
+let routineNameCached = "";
 let routineNameProvided = false;
 let routineRawCached = "";
 let routineTotalDuration = 0;
-
-function loadDefaultRoutine(name) {
-    currentRoutineSteps = [
-        { speed: 2.0, duration: 10, name: `${name} [1/3]` },
-        { speed: 4.0, duration: 9, name: `${name} [2/3]` },
-        { speed: 6.0, duration: 8, name: `${name} [3/3]` }
-    ];
-}
 
 function updateRoutineButtonText(running = false) {
     const button = document.getElementById('routineBtn');
@@ -1108,16 +1100,14 @@ function initDriverMode(urlParams) {
                     };
                 });
             } catch (error) {
-                alert("Parser fail! Loading fallback setup.");
-                loadDefaultRoutine(routineNameCached);
+                alert("Parser fail!");
             }
             // Recompute total cleanly after reset cleared it
             routineTotalDuration = routineTotalDurationGet(routineRawCached);
             updateLiveRemainDisplay(routineTotalDuration);
         } else {
-            loadDefaultRoutine(routineNameCached);
-            routineTotalDuration = currentRoutineSteps.reduce((sum, step) => sum + step.duration, 0);
-            updateLiveRemainDisplay(routineTotalDuration);
+            // Should not happen, but...
+            window.location.hash = '#';
         }
 
         const routineBtn = document.getElementById('routineBtn');
