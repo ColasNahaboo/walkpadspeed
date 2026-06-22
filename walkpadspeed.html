@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.0";}
+        #version:after {content: "v0.3.1";}
 
         /* Dark Mode Global Styles */
         body {
@@ -17,7 +17,8 @@
         }
         h1 { color: #ffffff; margin-bottom: 0.5rem; }
         .subtitle { color: #8e8e93; font-size: 1rem; margin-bottom: 2rem; }
-        h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d; padding-bottom: 5px; margin-top: 25px; }
+        h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d;
+             padding-bottom: 1px; margin-top: 15px; margin-bottom: 5px; }
 
         a {
             text-decoration: none;
@@ -147,12 +148,12 @@
 
         .connect-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
         .speed-btn { background: #2d2d2d; color: #bf5af2;
-                     padding: 1.2rem 0rem; min-width: 3rem; margin: 10px 2px;
+                     padding: 1.2rem 0rem; min-width: 2.8rem; margin: 10px 1px;
                      border: 1px solid #444; }
         .speed-btn.active { background: #bf5af2; color: #121212;
                             border-color: #bf5af2; }
         .routine-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
-        .routine-btn:disabled { background: #2c2c2e; color: #8e8e93; cursor: not-allowed; transform: none; }
+        .routine-btn:disabled { background: #2c2c2e; color: #8e8e93; cursor: not-allowed; transform: none; margin: 0;}
 
         .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
         .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
@@ -160,7 +161,7 @@
 
         #timerContainer {
             display: none;
-            margin: 25px auto;
+            margin: 10px auto;
             max-width: 400px;
             background: #1c1c1e;
             padding: 20px;
@@ -168,7 +169,7 @@
             box-shadow: 0 8px 16px rgba(0,0,0,0.5);
             border: 1px solid #2c2c2e;
         }
-        #routineLabel { font-size: 1.2rem; font-weight: 500; color: #0a84ff; margin-bottom: 8px; }
+        #routineLabel { font-size: 3rem; font-weight: 500; color: #0a84ff; margin-bottom: 8px; }
         #timeDisplay { font-size: 3.5rem; font-weight: bold; font-family: monospace; color: #ffffff; }
 
         .progress-track {
@@ -188,8 +189,8 @@
 
         .metrics-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2px;
             margin: 20px auto;
             max-width: 400px;
         }
@@ -200,12 +201,13 @@
             padding: 12px;
         }
         .metric-value {
-            font-size: 1.8rem;
+            font-size: 2.2rem;
             font-weight: bold;
             font-family: monospace;
             color: #00fa9a;
             margin-top: 5px;
         }
+        #liveSpeed { color: #aaffff; }
         .metric-title {
             font-size: 0.85rem;
             color: #8e8e93;
@@ -219,7 +221,7 @@
             right: 15px;
             color: #0a84ff;
             text-decoration: none;
-            font-size: 1.7rem;
+            font-size: 4rem;
             font-weight: bold;
             line-height: 1;
             opacity: 0.85;
@@ -246,7 +248,7 @@
 
 <!-- Shared Logo -->
 <span style="position: absolute; top: 15px; left: 15px; color: #0a84ff; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;">
-<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="200" height="200" fill="none" viewBox="0 0 64 64"><path fill="#000" fill-rule="evenodd" d="M13 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m-1.947.606a1 1 0 0 1 1.028.08l1 .715a1 1 0 0 1 .401 1.002l-1.049 5.444 4.4 6.598a1 1 0 0 1-1.665 1.11l-4.626-6.94-.816-1.223a1 1 0 0 1-.153-.729l.597-3.38-1.785.893-.572 2.857a1 1 0 0 1-1.961-.392l.667-3.337a1 1 0 0 1 .534-.698Zm5.63 6.343-2.874-.958.382-1.981 3.125 1.041a1 1 0 0 1-.632 1.898m-10.555 7.56L9.396 14.7l.314.47.931 1.397-2.77 4.923a1 1 0 0 1-1.743-.98" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(-3.131 -.252)"/><path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2" stroke-width="2.068" d="M1.202 22.897h18.464l2.173-4.431" style="fill:none;stroke:#0a84ff;stroke-opacity:1"/><path fill="#000" fill-rule="evenodd" d="M4 12a8 8 0 0 1 8-8 1 1 0 1 0 0-2C6.477 2 2 6.477 2 12s4.477 10 10 10a9.97 9.97 0 0 0 7.071-2.929 1 1 0 0 0-1.414-1.414A8 8 0 0 1 4 12m9-6a1 1 0 1 0-2 0v6a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586Zm8.748 9.167a1.25 1.25 0 1 1-2.377-.772 1.25 1.25 0 0 1 2.377.772m-.663-3.34a1.25 1.25 0 1 0-.391-2.47 1.25 1.25 0 0 0 .39 2.47m-.793-5.852a1.25 1.25 0 1 1-2.022 1.47 1.25 1.25 0 0 1 2.022-1.47M17.2 4.548a1.25 1.25 0 1 0-2.228-1.134A1.25 1.25 0 0 0 17.2 4.548" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(15.248 -.68)scale(.37793)"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="167" height="166" fill="none" viewBox="0 0 64 64"><path fill="#000" fill-rule="evenodd" d="M13 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m-1.947.606a1 1 0 0 1 1.028.08l1 .715a1 1 0 0 1 .401 1.002l-1.049 5.444 4.4 6.598a1 1 0 0 1-1.665 1.11l-4.626-6.94-.816-1.223a1 1 0 0 1-.153-.729l.597-3.38-1.785.893-.572 2.857a1 1 0 0 1-1.961-.392l.667-3.337a1 1 0 0 1 .534-.698Zm5.63 6.343-2.874-.958.382-1.981 3.125 1.041a1 1 0 0 1-.632 1.898m-10.555 7.56L9.396 14.7l.314.47.931 1.397-2.77 4.923a1 1 0 0 1-1.743-.98" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(-3.131 -.252)"/><path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2" stroke-width="2.068" d="M1.202 22.897h18.464l2.173-4.431" style="fill:none;stroke:#0a84ff;stroke-opacity:1"/><path fill="#000" fill-rule="evenodd" d="M4 12a8 8 0 0 1 8-8 1 1 0 1 0 0-2C6.477 2 2 6.477 2 12s4.477 10 10 10a9.97 9.97 0 0 0 7.071-2.929 1 1 0 0 0-1.414-1.414A8 8 0 0 1 4 12m9-6a1 1 0 1 0-2 0v6a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586Zm8.748 9.167a1.25 1.25 0 1 1-2.377-.772 1.25 1.25 0 0 1 2.377.772m-.663-3.34a1.25 1.25 0 1 0-.391-2.47 1.25 1.25 0 0 0 .39 2.47m-.793-5.852a1.25 1.25 0 1 1-2.022 1.47 1.25 1.25 0 0 1 2.022-1.47M17.2 4.548a1.25 1.25 0 1 0-2.228-1.134A1.25 1.25 0 0 0 17.2 4.548" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(15.248 -.68)scale(.37793)"/></svg>
 </span>
 
 <!-- ==================== MANAGER VIEW ==================== -->
@@ -286,21 +288,23 @@
 
         <div class="metrics-grid">
             <div class="metric-box">
-                <div class="metric-title">Current Speed</div>
-                <div class="metric-value" id="liveSpeed">0.0 <span style="font-size:1rem">km/h</span></div>
-            </div>
-            <div class="metric-box">
-                <div class="metric-title">Elapsed Time</div>
+                <div class="metric-title">Elapsed</div>
                 <div class="metric-value" id="liveTime">00:00</div>
             </div>
+            <div class="metric-box">
+                <div class="metric-title">Speed</div>
+                <div class="metric-value" id="liveSpeed">0.0</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-title">Remain</div>
+                <div class="metric-value" id="liveRemain">00:00</div>
+            </div>
         </div>
-
-        <h3>Routine Trigger</h3>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
-        <p>
+        <div id=stoppause>
         <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
         <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
-
+        </div>
         <h3>Routine Speed Modifier</h3>
         <button class="speed-btn" onclick="setSpeedMod(0.8, this)">---</button>
         <button class="speed-btn" onclick="setSpeedMod(0.9, this)">--</button>
@@ -341,6 +345,7 @@ let bluetoothDevice = null;
 let currentTargetSpeed = 0.0;
 let speedMod = 1;
 let audioCtx = null;
+let stepOverhead = 1;
 
 let routineInterval = null;
 let currentRoutineSteps = [];
@@ -354,6 +359,7 @@ let isPaused = false;
 let routineNameCached = "Test";
 let routineNameProvided = false;
 let routineRawCached = "";
+let routineTotalDuration = 0;
 
 function loadDefaultRoutine(name) {
     currentRoutineSteps = [
@@ -410,7 +416,7 @@ function handleTreadmillData(event) {
     if ((flags & 0x0001) === 0) {
         const speedRaw = data.getUint16(offset, true);
         const speedKmh = (speedRaw / 100).toFixed(1);
-        document.getElementById('liveSpeed').innerHTML = `${speedKmh} <span style="font-size:1rem">km/h</span>`;
+        document.getElementById('liveSpeed').innerHTML = `${speedKmh} <span style="font-size:1rem"></span>`;
         offset += 2;
     }
 
@@ -483,6 +489,7 @@ function resetRoutineState() {
     btn.className = "pause-btn";
 
     document.getElementById('liveTime').innerText = "00:00";
+    document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
     document.getElementById('timerContainer').style.display = 'none';
 }
 
@@ -562,6 +569,7 @@ function startClockLoop() {
 
         totalElapsedSeconds++;
         updateLiveTimeDisplay(totalElapsedSeconds);
+        updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
 
         secondsLeftInStep--;
 
@@ -574,7 +582,7 @@ function startClockLoop() {
                 return;
             }
 
-            secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+            secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
             totalStepDuration = secondsLeftInStep;
             await sendSpeed(currentRoutineSteps[currentStepIndex].speed, false);
         }
@@ -590,6 +598,18 @@ function updateLiveTimeDisplay(totalSeconds) {
     document.getElementById('liveTime').innerText = `${mins}:${secs}`;
 }
 
+function updateLiveRemainDisplay(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const secs = (totalSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('liveRemain').innerText = `${mins}:${secs}`;
+}
+
+function minutesSeconds(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const secs = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+}
+  
 function updateRoutineUI(label, seconds, percentage) {
     document.getElementById('routineLabel').innerText = label;
 
@@ -927,7 +947,7 @@ function initDriverMode(urlParams) {
                         console.log("Mock BLE Control Write:", buffer);
                         if (buffer.byteLength === 3 && new DataView(buffer).getUint8(0) === 0x02) {
                             const rawSpeed = new DataView(buffer).getUint16(1, true);
-                            document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)} <span style="font-size:1rem">km/h</span>`;
+                            document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)} <span style="font-size:1rem"></span>`;
                         }
                     }
                 };
@@ -968,7 +988,7 @@ function initDriverMode(urlParams) {
             updateStatus("Connected & Ready!");
             document.getElementById('controls').style.display = 'block';
             document.getElementById('connectBtn').style.display = 'none';
-
+            updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
         } catch (error) {
             updateStatus("Error: " + error.message);
         }
@@ -992,7 +1012,7 @@ function initDriverMode(urlParams) {
                     } else {
                         stepName = `${routineNameCached} [${index + 1}/${totalSteps}]`;
                     }
-
+                    routineTotalDuration += duration;
                     return {
                         speed: speed,
                         duration: duration,
@@ -1003,6 +1023,7 @@ function initDriverMode(urlParams) {
                 alert("Parser fail! Loading fallback setup.");
                 loadDefaultRoutine(routineNameCached);
             }
+            updateLiveRemainDisplay(routineTotalDuration);
         } else {
             loadDefaultRoutine(routineNameCached);
         }
@@ -1012,7 +1033,7 @@ function initDriverMode(urlParams) {
         updateRoutineButtonText(true);
 
         currentStepIndex = 0;
-        secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration;
+        secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
         totalStepDuration = secondsLeftInStep;
         isRoutineActive = true;
 
