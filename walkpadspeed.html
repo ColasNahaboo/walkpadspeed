@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.3";}
+        #version:after {content: "v0.3.4";}
 
         /* Dark Mode Global Styles */
         body {
@@ -312,7 +312,7 @@
 <!-- ==================== MANAGER VIEW ==================== -->
 <div id="managerView">
     <h1>walkpadspeed</h1>
-    <div class="subtitle" id="subtitleText">Routines Manager</div>
+    <div class="subtitle" id="subtitleText">Walkpad Routines Manager</div>
 
     <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p>Drop your routines file here or <span>Upload it</span></p>
@@ -329,10 +329,10 @@
 
 <!-- ==================== DRIVER VIEW ==================== -->
 <div id="driverView" style="display: none;">
-    <a id="navBackBtn" href="#" class="wpss-nav-menu" title="Return to Routine Manager">☰</a>
+    <a id="navBackBtn" href="#" class="wpss-nav-menu" title="Return to Routines Manager">☰</a>
 
     <h1 style="margin-bottom: 2rem;">walkpadspeed</h1>
-    <div class="subtitle" id="subtitleText">Routine Player</div>
+    <div class="subtitle" id="subtitleText">Walkpad Routine Player</div>
 
     <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
 
@@ -778,7 +778,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (rParam && rParam.trim() !== '') {
         document.getElementById('managerView').style.display = 'none';
         document.getElementById('driverView').style.display = 'block';
-        document.title = 'walkpadspeed';
+        document.title = 'walkpadspeed- Routine Player';
         initDriverMode(urlParams);
     } else {
         document.getElementById('managerView').style.display = 'block';
@@ -803,7 +803,7 @@ function initManagerMode(urlParams) {
 
     if (urlParams.get('t') === '1') {
         isTestMode = true;
-        document.getElementById('subtitleText').innerText = "Routine Link Generator (Test Mode)";
+        document.getElementById('subtitleText').innerText = "Walkpad Routines Manager (Test Mode)";
         statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
     }
 
