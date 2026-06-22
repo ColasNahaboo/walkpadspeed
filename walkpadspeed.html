@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.1";}
+        #version:after {content: "v0.3.2";}
 
         /* Dark Mode Global Styles */
         body {
@@ -239,6 +239,66 @@
             color: #359aff;
         }
 
+        /* === Test Mode Toggle === */
+        .test-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 25px auto 0;
+            max-width: 400px;
+            width: 80%;
+        }
+        .test-toggle-row {
+            font-size: 0.9rem;
+            color: #8e8e93;
+            user-select: none;
+        }
+        .test-toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+        .test-toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        .test-toggle-track {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #2c2c2e;
+            border-radius: 14px;
+            border: 1px solid #3a3a3c;
+            cursor: pointer;
+            transition: background 0.25s, border-color 0.25s;
+        }
+        .test-toggle-track::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: #8e8e93;
+            border-radius: 50%;
+            transition: transform 0.25s, background 0.25s;
+        }
+        .test-toggle-switch input:checked + .test-toggle-track {
+            background: #ff9f0a;
+            border-color: #ff9f0a;
+        }
+        .test-toggle-switch input:checked + .test-toggle-track::after {
+            transform: translateX(20px);
+            background: #121212;
+        }
+        .test-toggle-switch input:focus-visible + .test-toggle-track {
+            outline: 2px solid #0a84ff;
+            outline-offset: 2px;
+        }
+
         /* === Shared Styles === */
         .status-text { margin-top: 20px; font-weight: bold; color: #8e8e93; font-size: 0.9rem; }
         .error-msg { color: #ff453a !important; margin: 10px 0; font-family: monospace; }
@@ -276,6 +336,15 @@
     <h1 style="margin-bottom: 2rem;">walkpadspeed</h1>
 
     <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
+
+    <div id="testModeToggle" class="test-toggle-row">
+        <span class="test-toggle-label">Test Mode</span>
+        <label class="test-toggle-switch">
+            <input type="checkbox" id="testModeCheckbox">
+            <span class="test-toggle-track"></span>
+        </label>
+        <p>Test mode allows to test the application without connecting to an actual Walkpad
+    </div>
 
     <div id="controls" style="display:none; margin-top: 20px;">
         <div id="timerContainer">
@@ -609,7 +678,7 @@ function minutesSeconds(totalSeconds) {
     const secs = (totalSeconds % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
 }
-  
+
 function updateRoutineUI(label, seconds, percentage) {
     document.getElementById('routineLabel').innerText = label;
 
@@ -912,13 +981,24 @@ function initManagerMode(urlParams) {
 
 function initDriverMode(urlParams) {
     const basePath = window.location.pathname;
+    const isTestMode = urlParams.get('t') === '1';
 
     routineNameCached = urlParams.get('n') || "Test";
     if (routineNameCached !== "Test") {
         routineNameProvided = true;
     }
     routineRawCached = urlParams.get('r');
-    const isTestMode = urlParams.get('t') === '1';
+
+    // Set up the test mode toggle checkbox state
+    const testCheckbox = document.getElementById('testModeCheckbox');
+    testCheckbox.checked = isTestMode;
+
+    // Toggle handler: rebuild URL with flipped t param and navigate
+    testCheckbox.addEventListener('change', () => {
+        const newParams = new URLSearchParams(urlParams);
+        newParams.set('t', testCheckbox.checked ? '1' : '0');
+        window.location.href = basePath + '?' + newParams.toString();
+    });
 
     if (isTestMode) {
         document.getElementById('connectBtn').innerText = "Connect (Test Mode)";
@@ -952,6 +1032,8 @@ function initDriverMode(urlParams) {
                     }
                 };
 
+                // Hide start-screen elements, show controls
+                document.getElementById('testModeToggle').style.display = 'none';
                 document.getElementById('controls').style.display = 'block';
                 document.getElementById('connectBtn').style.display = 'none';
                 await requestWakeLock();
@@ -978,17 +1060,17 @@ function initDriverMode(urlParams) {
                 await dataChar.startNotifications();
                 dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
                 updateStatus("Connected & Ready!");
-                document.getElementById('controls').style.display = 'block';
-                document.getElementById('connectBtn').style.display = 'none';
-                await requestWakeLock();
             } catch (dataErr) {
                 console.warn("Metrics channel initialization skipped: ", dataErr.message);
             }
 
-            updateStatus("Connected & Ready!");
+            // Hide start-screen elements, show controls
+            document.getElementById('testModeToggle').style.display = 'none';
             document.getElementById('controls').style.display = 'block';
             document.getElementById('connectBtn').style.display = 'none';
+            updateStatus("Connected & Ready!");
             updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+            await requestWakeLock();
         } catch (error) {
             updateStatus("Error: " + error.message);
         }
