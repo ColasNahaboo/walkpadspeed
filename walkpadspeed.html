@@ -859,20 +859,52 @@ function initManagerMode(urlParams) {
         const routines = [];
 
         for (const block of blocks) {
-            const lines = block.split('\n')
-                               .map(line => line.trim())
-                               .filter(line => line.length > 0 && !line.startsWith('#'));
+            const rawLines = block.split('\n');
+            const processedLines = [];
 
-            if (lines.length < 2) continue;
+            for (const rawLine of rawLines) {
+                const trimmed = rawLine.trim();
 
-            const routineName = lines[0];
+                // Skip empty lines
+                if (trimmed.length === 0) continue;
+
+                // Skip full-line comments (# or //), even if indented
+                if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+
+                // Separate inline comment (requires at least one space before //)
+                const inlineMatch = trimmed.match(/^(.*?)\s+\/\/(.*)$/);
+
+                let content = trimmed;
+                let comment = '';
+
+                if (inlineMatch) {
+                    content = inlineMatch[1].trim();
+                    comment = ' // ' + inlineMatch[2].trim();
+                }
+
+                processedLines.push({ content, comment });
+            }
+
+            if (processedLines.length < 2) continue;
+
+            const routineName = processedLines[0].content;
             const stepsArray = [];
 
             let totalDuration = 0;
             let distanceAccumulator = 0;
+            const rawTextLines = [];
 
-            for (let i = 1; i < lines.length; i++) {
-                const stepTokens = lines[i].split(/\s+/);
+            for (let i = 0; i < processedLines.length; i++) {
+                const line = processedLines[i];
+
+                // Reconstruct display text with comments re-appended
+                rawTextLines.push(line.content + line.comment);
+
+                // Skip routine name line for step parsing
+                if (i === 0) continue;
+
+                // Parse step using comment-stripped content only
+                const stepTokens = line.content.split(/\s+/);
                 if (stepTokens.length >= 2) {
                     const speed = parseFloat(stepTokens[0]);
                     const duration = parseInt(stepTokens[1], 10);
@@ -899,7 +931,7 @@ function initManagerMode(urlParams) {
                     queryParams += '&t=1';
                 }
 
-                const blockRawText = lines.join('\n');
+                const blockRawText = rawTextLines.join('\n');
 
                 const mins = Math.floor(totalDuration / 60);
                 const secs = totalDuration % 60;
