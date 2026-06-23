@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.9";}
+        #version:after {content: "v0.3.11";}
 
         /* Dark Mode Global Styles */
         body {
@@ -187,6 +187,38 @@
             transition: width 1s linear;
         }
 
+        /* === Global Routine Progress Bar === */
+        .global-progress-track {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 15px;
+            background-color: #2c2c2e;
+            border-radius: 10px;
+            height: 16px;
+            overflow: hidden;
+            position: relative;
+            display: none;
+        }
+        .global-progress-segments {
+            display: flex;
+            height: 100%;
+            width: 100%;
+        }
+        .global-progress-segment {
+            height: 100%;
+            flex-shrink: 0;
+        }
+        .global-progress-eraser {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background-color: #2c2c2e;
+            transition: width 1s linear;
+            z-index: 1;
+        }
+
         .metrics-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -312,7 +344,7 @@
 <!-- ==================== MANAGER VIEW ==================== -->
 <div id="managerView">
     <h1>walkpadspeed</h1>
-    <div class="subtitle" id="subtitleText">Walkpad Routines Manager</div>
+    <div class="subtitle" id="subtitleTextManager">Walkpad Routines Manager</div>
 
     <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p>Drop your routines file here or <span>Upload it</span></p>
@@ -333,6 +365,11 @@
 
     <h1>walkpadspeed</h1>
     <div class="subtitle" id="subtitleText">Walkpad Routine Player</div>
+
+    <div class="global-progress-track" id="globalProgressTrack">
+        <div class="global-progress-segments" id="globalProgressSegments"></div>
+        <div class="global-progress-eraser" id="globalProgressEraser"></div>
+    </div>
 
     <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
 
@@ -553,6 +590,8 @@ function resetRoutineState() {
 
     document.getElementById('liveTime').innerText = "00:00";
     document.getElementById('timerContainer').style.display = 'none';
+
+    hideGlobalProgress();
 }
 
 async function togglePauseState() {
@@ -632,6 +671,7 @@ function startClockLoop() {
         totalElapsedSeconds++;
         updateLiveTimeDisplay(totalElapsedSeconds);
         updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+        updateGlobalProgress(totalElapsedSeconds);
 
         secondsLeftInStep--;
 
@@ -683,13 +723,12 @@ function routineTotalDurationGet(raw) {
     return total;
 }
 
-  function updateRoutineUI(label, setLabel, seconds, percentage) {
-    // If label is a single hyphen, reuse the last non-empty one
+function updateRoutineUI(label, setLabel, seconds, percentage) {
     if (label.trim() === '-') {
         label = lastValidRoutineLabel;
     } else if (setLabel.trim() !== '') {
         lastValidRoutineLabel = label;
-    }        
+    }
 
     document.getElementById('routineLabel').innerText = label;
 
@@ -707,6 +746,83 @@ function routineTotalDurationGet(raw) {
     } else {
         bar.style.backgroundColor = '#ff453a';
     }
+}
+
+/* ================================================================
+   GLOBAL PROGRESS BAR
+   ================================================================ */
+
+function buildGlobalProgressBar(steps) {
+    const container = document.getElementById('globalProgressSegments');
+    const track = document.getElementById('globalProgressTrack');
+    const eraser = document.getElementById('globalProgressEraser');
+    const subtitle = document.getElementById('subtitleText');
+
+    container.innerHTML = '';
+    eraser.style.width = '0%';
+
+    if (!steps || steps.length === 0 || routineTotalDuration <= 0) {
+        track.style.display = 'none';
+        return;
+    }
+
+    // Find min/max speeds excluding first and last step
+    let minSpeed = Infinity;
+    let maxSpeed = -Infinity;
+    for (let i = 1; i < steps.length - 1; i++) {
+        if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
+        if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+    }
+
+    // Fallback if no middle steps exist
+    if (minSpeed === Infinity) {
+        minSpeed = steps[0].speed;
+        maxSpeed = steps[steps.length - 1].speed;
+    }
+
+    const speedRange = maxSpeed - minSpeed;
+
+    // Interpolate green (#30d158) to red (#ff453a) based on speed
+    function speedToColor(speed) {
+        let t = 0;
+        if (speedRange > 0) {
+            t = (speed - minSpeed) / speedRange;
+        }
+        // Green: 48,209,88  Red: 255,69,58
+        const r = Math.round(48 + t * (255 - 48));
+        const g = Math.round(209 + t * (69 - 209));
+        const b = Math.round(88 + t * (58 - 88));
+        return `rgb(${r},${g},${b})`;
+    }
+
+    // Build one flex segment per step, width proportional to duration
+    steps.forEach(step => {
+        const seg = document.createElement('div');
+        seg.className = 'global-progress-segment';
+        seg.style.width = `${(step.duration / routineTotalDuration) * 100}%`;
+        seg.style.backgroundColor = speedToColor(step.speed);
+        container.appendChild(seg);
+    });
+
+    subtitle.style.display = 'none';
+    track.style.display = 'block';
+}
+
+function updateGlobalProgress(elapsed) {
+    if (routineTotalDuration <= 0) return;
+    const pct = Math.min(100, (elapsed / routineTotalDuration) * 100);
+    document.getElementById('globalProgressEraser').style.width = `${pct}%`;
+}
+
+function hideGlobalProgress() {
+    const track = document.getElementById('globalProgressTrack');
+    const eraser = document.getElementById('globalProgressEraser');
+    const container = document.getElementById('globalProgressSegments');
+    const subtitle = document.getElementById('subtitleText');
+    subtitle.style.display = 'block';
+    track.style.display = 'none';
+    eraser.style.width = '0%';
+    container.innerHTML = '';
 }
 
 function updateStatus(msg) {
@@ -874,13 +990,9 @@ function initManagerMode(urlParams) {
             for (const rawLine of rawLines) {
                 const trimmed = rawLine.trim();
 
-                // Skip empty lines
                 if (trimmed.length === 0) continue;
-
-                // Skip full-line comments (# or //), even if indented
                 if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
 
-                // Separate inline comment (requires at least one space before //)
                 const inlineMatch = trimmed.match(/^(.*?)\s+\/\/(.*)$/);
 
                 let content = trimmed;
@@ -906,13 +1018,10 @@ function initManagerMode(urlParams) {
             for (let i = 0; i < processedLines.length; i++) {
                 const line = processedLines[i];
 
-                // Reconstruct display text with comments re-appended
                 rawTextLines.push(line.content + line.comment);
 
-                // Skip routine name line for step parsing
                 if (i === 0) continue;
 
-                // Parse step using comment-stripped content only
                 const stepTokens = line.content.split(/\s+/);
                 if (stepTokens.length >= 2) {
                     const speed = parseFloat(stepTokens[0]);
@@ -1027,11 +1136,9 @@ function initDriverMode(urlParams) {
     }
     routineRawCached = urlParams.get('r');
 
-    // Set up the test mode toggle checkbox state
     const testCheckbox = document.getElementById('testModeCheckbox');
     testCheckbox.checked = isTestMode;
 
-    // Toggle handler: rebuild URL with flipped t param and navigate
     testCheckbox.addEventListener('change', () => {
         const newParams = new URLSearchParams(urlParams);
         newParams.set('t', testCheckbox.checked ? '1' : '0');
@@ -1047,7 +1154,6 @@ function initDriverMode(urlParams) {
 
     updateRoutineButtonText(false);
 
-    // Compute total duration once for the initial "Remain" display
     routineTotalDuration = routineTotalDurationGet(routineRawCached);
     document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
 
@@ -1056,7 +1162,6 @@ function initDriverMode(urlParams) {
         neutralBtn.classList.add('active');
     }
 
-    // Connect button
     document.getElementById('connectBtn').addEventListener('click', async () => {
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1116,7 +1221,6 @@ function initDriverMode(urlParams) {
         }
     });
 
-    // Routine start button
     document.getElementById('routineBtn').addEventListener('click', async () => {
         resetRoutineState();
 
@@ -1146,11 +1250,9 @@ function initDriverMode(urlParams) {
             } catch (error) {
                 alert("Parser fail!");
             }
-            // Recompute total cleanly after reset cleared it
             routineTotalDuration = routineTotalDurationGet(routineRawCached);
             updateLiveRemainDisplay(routineTotalDuration);
         } else {
-            // Should not happen, but...
             window.location.hash = '#';
         }
 
@@ -1163,6 +1265,7 @@ function initDriverMode(urlParams) {
         totalStepDuration = secondsLeftInStep;
         isRoutineActive = true;
 
+        buildGlobalProgressBar(currentRoutineSteps);
         document.getElementById('timerContainer').style.display = 'block';
         updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
@@ -1170,7 +1273,6 @@ function initDriverMode(urlParams) {
         startClockLoop();
     });
 
-    // Re-acquire wake lock when page becomes visible again
     document.addEventListener('visibilitychange', async () => {
         if (wakeLock !== null && document.visibilityState === 'visible') {
             await requestWakeLock();
