@@ -3,7 +3,7 @@
 
 *(Quickstart: see the section "[Usage: Programming a Routine](https://github.com/ColasNahaboo/walkpadspeed#usage-programming-a-routine)")*
 
-I bought a simple, entry level walking pad, because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But they all implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
+I bought a simple, entry level walking pad (A Fousae ZX-390), because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But they all implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
 
 I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to experiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
 
@@ -23,11 +23,10 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 **Requirements**
 - The browser on your phone or computer must support [Web Bluetooth](https://github.com/WebBluetoothCG/web-bluetooth#web-bluetooth). Currently: Google Chrome, Samsung Internet, Opera, Opera Mobile, Microsoft Edge, Vivaldi, Brave, Bluefy, BLE Link, WebBLE... but currently **not Firefox** (although some [extensions](https://addons.mozilla.org/en-US/firefox/addon/webbt/) exist). See the [current state of Web Bluetooth browser support](https://github.com/WebBluetoothCG/web-bluetooth/blob/main/implementation-status.md).
 - A walking pad or treadmill supporting standard BLE FTMS (most modern ones do).
-- A web server somewhere to serve the web page via https://, as Web Bluetooth cannot work by just opening a local file due to security constraints.
 
 ## Usage: Programming a Routine
 
-You can just use the `walkpadspeed` file of this repository directly, without installing anything, by using its GitHub pages URL from Google Chrome on your phone: 
+You can just use the [walkpadspeed.html](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html) file of this repository directly, without installing anything, by using its GitHub pages URL from Google Chrome on your phone: 
 
 [https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html)
 
@@ -90,14 +89,21 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 * **Control Characteristic:** `0x2AD9` (Machine Control Point)
 * **Live Telemetry Stream:** `0x2ACD` (Treadmill Data)
 
-## Getting Started
+## Future developments
 
+Bugs and suggestions are always welcome, but know that I will resist adding features that would add complexity and bloat. I will definitely not add any sensor tracking like heart rate, or systems to manage tracking your training of planning a series of workouts.
+
+The only features I plan to add would be:
+- Usability enhancements
+- Support for some hardware quirks
+- Support for driving walkpads with automatic incline setting, if the need atually exists. I already have an outline of the implementation in `docs/incline-feature.md`.
 
 ## License
 
-© Colas Nahaboo, 2026. MIT license, that means that you can do anything with it, but expect no warranty.
+© Colas Nahaboo, 2026. MIT license, that means that you can do anything with it, but expect no warranty. Some help from Gemini and Z.ai.
 
 ## History
 
-- v0.2.7 2026-06-21 new file walkpadspeeds.html to manage a set of routines from a text file description
-- v0.1.0 2026-06-20 initial working version
+- v0.3.6 2026-06-22 back to a single file performing both function: manager of a library of routines and player of one.
+- v0.2.7 2026-06-21 new file walkpadspeeds.html to manage a set of routines from a text file description.
+- v0.1.0 2026-06-20 initial working version.
