@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.7";}
+        #version:after {content: "v0.3.8";}
 
         /* Dark Mode Global Styles */
         body {
@@ -428,6 +428,7 @@ let routineNameCached = "";
 let routineNameProvided = false;
 let routineRawCached = "";
 let routineTotalDuration = 0;
+let lastValidRoutineLabel = '';
 
 function updateRoutineButtonText(running = false) {
     const button = document.getElementById('routineBtn');
@@ -540,6 +541,7 @@ function resetRoutineState() {
     totalElapsedSeconds = 0;
     isPaused = false;
     routineTotalDuration = 0;
+    lastValidRoutineLabel = '';
 
     const routineBtn = document.getElementById('routineBtn');
     routineBtn.disabled = false;
