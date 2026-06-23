@@ -650,7 +650,7 @@ function startClockLoop() {
         }
 
         const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
-        updateRoutineUI(currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].name, secondsLeftInStep, percentRemaining);
+        updateRoutineUI(currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].name, currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].setName, secondsLeftInStep, percentRemaining);
     }, 1000);
 }
 
@@ -683,11 +683,14 @@ function routineTotalDurationGet(raw) {
     return total;
 }
 
-function updateRoutineUI(label, seconds, percentage) {
-    // If label is a single hyphen or empty, reuse the last valid one
-    if (label !== '-' && label.trim() !== '') {
+  function updateRoutineUI(label, setLabel, seconds, percentage) {
+    // If label is a single hyphen, reuse the last non-empty one
+    if (label.trim() === '-') {
+        label = lastValidRoutineLabel;
+    } else if (setLabel.trim() !== '') {
         lastValidRoutineLabel = label;
-    }
+    }        
+
     document.getElementById('routineLabel').innerText = label;
 
     const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -1128,13 +1131,16 @@ function initDriverMode(urlParams) {
                     let stepName = '';
                     if (parts.length > 2) {
                         stepName = parts.slice(2).join('-').replace(/_/g, ' ');
+                        setName = stepName;
                     } else {
                         stepName = `Step [${index + 1}/${totalSteps}]`;
+                        setName = '';
                     }
                     return {
                         speed: speed,
                         duration: duration,
-                        name: stepName
+                        name: stepName,
+                        setName: setName
                     };
                 });
             } catch (error) {
@@ -1158,7 +1164,7 @@ function initDriverMode(urlParams) {
         isRoutineActive = true;
 
         document.getElementById('timerContainer').style.display = 'block';
-        updateRoutineUI(currentRoutineSteps[currentStepIndex].name, secondsLeftInStep, 100);
+        updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
         await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
         startClockLoop();
