@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.11";}
+        #version:after {content: "v0.3.12";}
 
         /* Dark Mode Global Styles */
         body {
@@ -769,15 +769,17 @@ function buildGlobalProgressBar(steps) {
     // Find min/max speeds excluding first and last step
     let minSpeed = Infinity;
     let maxSpeed = -Infinity;
-    for (let i = 1; i < steps.length - 1; i++) {
-        if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
-        if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
-    }
-
-    // Fallback if no middle steps exist
-    if (minSpeed === Infinity) {
-        minSpeed = steps[0].speed;
-        maxSpeed = steps[steps.length - 1].speed;
+    // If we have enough steps, omit the start and end step, often quite low
+    if (steps.length >= 10) {
+        for (let i = 1; i < steps.length - 1; i++) {
+            if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
+            if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+        }
+    } else {
+        for (let i = 0; i < steps.length; i++) {
+            if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
+            if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+        }
     }
 
     const speedRange = maxSpeed - minSpeed;
