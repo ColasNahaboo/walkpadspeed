@@ -10,8 +10,8 @@ Fat Burn
 4.5 15 Interval-1
 6.0 120 Last_Effort
 
-# A quick test of functionalities
-Quick Test
-2.0 10
-4.0 9
-5.0 8
+Quick Test //  A quick test of functionalities
+2.0 4 label
+4.0 5 -
+5.0 6
+6.0 7 -

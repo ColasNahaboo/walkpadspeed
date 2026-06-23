@@ -684,6 +684,10 @@ function routineTotalDurationGet(raw) {
 }
 
 function updateRoutineUI(label, seconds, percentage) {
+    // If label is a single hyphen or empty, reuse the last valid one
+    if (label !== '-' && label.trim() !== '') {
+        lastValidRoutineLabel = label;
+    }
     document.getElementById('routineLabel').innerText = label;
 
     const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
