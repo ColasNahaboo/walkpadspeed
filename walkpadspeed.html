@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.12";}
+        #version:after {content: "v0.3.13";}
 
         /* Dark Mode Global Styles */
         body {
@@ -784,16 +784,22 @@ function buildGlobalProgressBar(steps) {
 
     const speedRange = maxSpeed - minSpeed;
 
-    // Interpolate green (#30d158) to red (#ff453a) based on speed
+    // Interpolate green to red based on speed. Keep blue to 0 to avoid brown
+    // see https://blogs.perl.org/users/ovid/2010/12/perl101-red-to-green-gradient.html
     function speedToColor(speed) {
         let t = 0;
         if (speedRange > 0) {
             t = (speed - minSpeed) / speedRange;
+            t *= t; // poor man gamma: more granulary for high speeds
         }
-        // Green: 48,209,88  Red: 255,69,58
-        const r = Math.round(48 + t * (255 - 48));
-        const g = Math.round(209 + t * (69 - 209));
-        const b = Math.round(88 + t * (58 - 88));
+        let r = 255;
+        let g = 255;
+        let b = 0;
+        if (t >= 0.5) {
+            g = Math.round(255 * (1 - t));
+        } else {
+            r = Math.round(255 * t);
+        }
         return `rgb(${r},${g},${b})`;
     }
 
