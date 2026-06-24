@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.3.13";}
+        #version:after {content: "v0.4.0-Z";}
 
         /* Dark Mode Global Styles */
         body {
@@ -161,10 +161,10 @@
 
         #timerContainer {
             display: none;
-            margin: 10px auto;
+            margin: 0px auto;
             max-width: 400px;
             background: #1c1c1e;
-            padding: 20px;
+            padding: 0px;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.5);
             border: 1px solid #2c2c2e;
@@ -467,6 +467,10 @@ let routineRawCached = "";
 let routineTotalDuration = 0;
 let lastValidRoutineLabel = '';
 
+// Suppress false remote pause/resume detection during our own BLE speed changes
+let ignoreSpeedChanges = false;
+let remotePauseDebounce = null;
+
 function updateRoutineButtonText(running = false) {
     const button = document.getElementById('routineBtn');
     const prefix = running ? "" : "Start: ";
@@ -513,9 +517,14 @@ function handleTreadmillData(event) {
 
     if ((flags & 0x0001) === 0) {
         const speedRaw = data.getUint16(offset, true);
-        const speedKmh = (speedRaw / 100).toFixed(1);
-        document.getElementById('liveSpeed').innerHTML = `${speedKmh} <span style="font-size:1rem"></span>`;
+        const speedKmh = speedRaw / 100;
+        document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)} <span style="font-size:1rem"></span>`;
         offset += 2;
+
+        // Detect remote pause/resume via speed changes
+        if (ftmsControlCharacteristic) {
+            checkRemoteStateChange(speedKmh);
+        }
     }
 
     if (flags & 0x0002) offset += 2;
@@ -540,6 +549,9 @@ async function sendSpeed(speedKmh, isInitialStart = false) {
     currentTargetSpeed = speedKmh;
 
     try {
+        // Suppress remote state detection during our own speed commands
+        ignoreSpeedChanges = true;
+
         if (isInitialStart) {
             const started = await startTreadmill();
             if (!started) return;
@@ -556,8 +568,12 @@ async function sendSpeed(speedKmh, isInitialStart = false) {
 
         await ftmsControlCharacteristic.writeValue(buffer);
         updateStatus(`Speed set to ${speedKmh} km/h`);
+
+        // Re-enable remote state detection after speed stabilizes
+        setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
     } catch (error) {
         updateStatus("Failed to set speed: " + error.message);
+        ignoreSpeedChanges = false;
     }
 }
 
@@ -579,6 +595,11 @@ function resetRoutineState() {
     isPaused = false;
     routineTotalDuration = 0;
     lastValidRoutineLabel = '';
+    ignoreSpeedChanges = false;
+    if (remotePauseDebounce) {
+        clearTimeout(remotePauseDebounce);
+        remotePauseDebounce = null;
+    }
 
     const routineBtn = document.getElementById('routineBtn');
     routineBtn.disabled = false;
@@ -601,6 +622,9 @@ async function togglePauseState() {
 
     if (!isPaused) {
         try {
+            // Suppress remote detection during our own pause command
+            ignoreSpeedChanges = true;
+
             clearAllIntervals();
             const pauseBuffer = new Uint8Array([0x08]);
             await ftmsControlCharacteristic.writeValue(pauseBuffer);
@@ -609,11 +633,18 @@ async function togglePauseState() {
             btn.innerText = "RESUME";
             btn.className = "resume-btn";
             updateStatus("Paused (Timer frozen).");
+
+            // Re-enable after the pause is fully processed and speed is stable at 0
+            setTimeout(() => { ignoreSpeedChanges = false; }, 2000);
         } catch (error) {
             updateStatus("Failed to pause: " + error.message);
+            ignoreSpeedChanges = false;
         }
     } else {
         try {
+            // Suppress remote detection during our own resume sequence
+            ignoreSpeedChanges = true;
+
             updateStatus("Resuming workout...");
 
             isPaused = false;
@@ -632,8 +663,12 @@ async function togglePauseState() {
             if (isRoutineActive && !routineInterval) {
                 startClockLoop();
             }
+
+            // Re-enable after speed stabilizes post-resume
+            setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
         } catch (error) {
             updateStatus("Failed to resume: " + error.message);
+            ignoreSpeedChanges = false;
         }
     }
 }
@@ -641,6 +676,7 @@ async function togglePauseState() {
 async function stopTreadmill() {
     if (!ftmsControlCharacteristic) return;
     try {
+        ignoreSpeedChanges = true;
         resetRoutineState();
         updateStatus("Stopping walkpad...");
 
@@ -690,7 +726,13 @@ function startClockLoop() {
         }
 
         const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
-        updateRoutineUI(currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].name, currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].setName, secondsLeftInStep, percentRemaining);
+        updateRoutineUI(
+            currentRoutineSteps[currentStepIndex].name, 
+            currentRoutineSteps[currentStepIndex].setName, 
+            secondsLeftInStep, 
+            percentRemaining
+        );
+        //OLD: checks not needed? updateRoutineUI(currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].name, currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].setName, secondsLeftInStep, percentRemaining);
     }, 1000);
 }
 
@@ -766,10 +808,8 @@ function buildGlobalProgressBar(steps) {
         return;
     }
 
-    // Find min/max speeds excluding first and last step
     let minSpeed = Infinity;
     let maxSpeed = -Infinity;
-    // If we have enough steps, omit the start and end step, often quite low
     if (steps.length >= 10) {
         for (let i = 1; i < steps.length - 1; i++) {
             if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
@@ -784,13 +824,11 @@ function buildGlobalProgressBar(steps) {
 
     const speedRange = maxSpeed - minSpeed;
 
-    // Interpolate green to red based on speed. Keep blue to 0 to avoid brown
-    // see https://blogs.perl.org/users/ovid/2010/12/perl101-red-to-green-gradient.html
     function speedToColor(speed) {
         let t = 0;
         if (speedRange > 0) {
             t = (speed - minSpeed) / speedRange;
-            t *= t; // poor man gamma: more granulary for high speeds
+            t *= t;
         }
         let r = 255;
         let g = 255;
@@ -803,7 +841,6 @@ function buildGlobalProgressBar(steps) {
         return `rgb(${r},${g},${b})`;
     }
 
-    // Build one flex segment per step, width proportional to duration
     steps.forEach(step => {
         const seg = document.createElement('div');
         seg.className = 'global-progress-segment';
@@ -831,6 +868,51 @@ function hideGlobalProgress() {
     track.style.display = 'none';
     eraser.style.width = '0%';
     container.innerHTML = '';
+}
+
+/* ================================================================
+   REMOTE PAUSE / RESUME DETECTION
+   ================================================================ */
+
+function checkRemoteStateChange(currentSpeed) {
+    if (ignoreSpeedChanges) return;
+
+    // Debounce to avoid glitches during speed transitions
+    if (remotePauseDebounce) {
+        clearTimeout(remotePauseDebounce);
+    }
+    remotePauseDebounce = setTimeout(() => {
+        remotePauseDebounce = null;
+        handleRemoteStateChange(currentSpeed);
+    }, 1500);
+}
+
+function handleRemoteStateChange(currentSpeed) {
+    // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
+    if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < 0.5) {
+        console.log("Remote pause detected");
+        isPaused = true;
+        clearAllIntervals();
+        const btn = document.getElementById('pauseToggleBtn');
+        btn.innerText = "RESUME";
+        btn.className = "resume-btn";
+        updateStatus("Paused via remote.");
+        return;
+    }
+
+    // Remote resume: we're paused, and pad reports speed coming back
+    if (isRoutineActive && isPaused && currentSpeed > 0.5) {
+        console.log("Remote resume detected");
+        isPaused = false;
+        const btn = document.getElementById('pauseToggleBtn');
+        btn.innerText = "PAUSE";
+        btn.className = "pause-btn";
+        updateStatus("Resumed via remote.");
+        if (isRoutineActive && !routineInterval) {
+            startClockLoop();
+        }
+        return;
+    }
 }
 
 function updateStatus(msg) {
