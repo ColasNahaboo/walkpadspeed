@@ -406,9 +406,11 @@
             </div>
         </div>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
-        <div id=stoppause>
-        <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
-        <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
+        <div id="stoppause">
+            <!-- NEW: Simulated Remote Start/Pause Button -->
+            <button class="metric-box" id="simStartPauseBtn" style="display: none; padding: 1.5rem 1rem; margin: 10px 5px 10px 0; font-size: 1rem;">START/PAUSE</button>
+            <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
+            <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
         </div>
         <h3>Routine Speed Modifier</h3>
         <button class="speed-btn" onclick="setSpeedMod(0.8, this)">---</button>
@@ -448,6 +450,7 @@ let wakeLock = null;
 let ftmsControlCharacteristic = null;
 let bluetoothDevice = null;
 let currentTargetSpeed = 0.0;
+let currentLiveSpeed = 0.0; // NEW: Tracks live speed reported FROM the walkpad
 let speedMod = 1;
 let audioCtx = null;
 let stepOverhead = 1;
@@ -518,6 +521,10 @@ function handleTreadmillData(event) {
     if ((flags & 0x0001) === 0) {
         const speedRaw = data.getUint16(offset, true);
         const speedKmh = speedRaw / 100;
+        
+        // NEW: Update our global live speed tracker
+        currentLiveSpeed = speedKmh; 
+        
         document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)} <span style="font-size:1rem"></span>`;
         offset += 2;
 
@@ -530,6 +537,26 @@ function handleTreadmillData(event) {
     if (flags & 0x0002) offset += 2;
     if (flags & 0x0004) offset += 3;
     if (flags & 0x0008) offset += 4;
+}
+
+// NEW: Simulates the remote physical start/pause button
+function simulateRemoteStartPause() {
+    // Determine synthetic speed based on current live speed from walkpad
+    let syntheticSpeed = (currentLiveSpeed >= 0.5) ? 0.0 : 1.0;
+    let speedRaw = Math.round(syntheticSpeed * 100);
+
+    // Construct fake DataView mimicking the walkpad's exact BLE data format
+    // Flags = 0 (so (flags & 0x0001) === 0 evaluates to true in handleTreadmillData)
+    let buffer = new ArrayBuffer(4); // 2 bytes flags + 2 bytes speed
+    let dataView = new DataView(buffer);
+    dataView.setUint16(0, 0, true);         // Flags
+    dataView.setUint16(2, speedRaw, true);  // Speed Raw
+
+    let syntheticEvent = { target: { value: dataView } };
+
+    // Call the handler. This will update the UI speed AND trigger
+    // the remote pause/resume detection logic automatically.
+    handleTreadmillData(syntheticEvent);
 }
 
 async function startTreadmill() {
@@ -732,7 +759,6 @@ function startClockLoop() {
             secondsLeftInStep, 
             percentRemaining
         );
-        //OLD: checks not needed? updateRoutineUI(currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].name, currentRoutineSteps[currentStepIndex ? currentStepIndex : 0].setName, secondsLeftInStep, percentRemaining);
     }, 1000);
 }
 
@@ -1229,6 +1255,13 @@ function initDriverMode(urlParams) {
     const testCheckbox = document.getElementById('testModeCheckbox');
     testCheckbox.checked = isTestMode;
 
+    // NEW: Show the simulated start/pause button ONLY in test mode
+    const simBtn = document.getElementById('simStartPauseBtn');
+    if (isTestMode && simBtn) {
+        simBtn.style.display = 'inline-block';
+        simBtn.addEventListener('click', simulateRemoteStartPause);
+    }
+
     testCheckbox.addEventListener('change', () => {
         const newParams = new URLSearchParams(urlParams);
         newParams.set('t', testCheckbox.checked ? '1' : '0');
@@ -1264,6 +1297,8 @@ function initDriverMode(urlParams) {
                         console.log("Mock BLE Control Write:", buffer);
                         if (buffer.byteLength === 3 && new DataView(buffer).getUint8(0) === 0x02) {
                             const rawSpeed = new DataView(buffer).getUint16(1, true);
+                            // NEW: Keep mock live speed updated
+                            currentLiveSpeed = rawSpeed / 100; 
                             document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)} <span style="font-size:1rem"></span>`;
                         }
                     }
