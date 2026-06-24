@@ -158,6 +158,7 @@
         .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
         .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
         .resume-btn { background: #30d158; color: white; padding: 1.5rem 2rem; }
+        .plause-btn { background: #444444; color: white; padding: 1.5rem 2rem; }
 
         #timerContainer {
             display: none;
@@ -408,7 +409,8 @@
         <button class="routine-btn" id="routineBtn">Start Routine</button>
         <div id="stoppause">
             <!-- NEW: Simulated Remote Start/Pause Button -->
-            <button class="metric-box" id="simStartPauseBtn" style="display: none; padding: 1.5rem 1rem; margin: 10px 5px 10px 0; font-size: 1rem;">START/PAUSE</button>
+            <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
+            </button>
             <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
             <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
         </div>
