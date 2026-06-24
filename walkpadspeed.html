@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.4.0-Z1";}
+        #version:after {content: "v0.4.0";}
 
         /* Dark Mode Global Styles */
         body {
@@ -408,7 +408,7 @@
         </div>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
         <div id="stoppause">
-            <!-- NEW: Simulated Remote Start/Pause Button -->
+            <!-- Simulated Remote Start/Pause Button -->
             <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
             </button>
             <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
@@ -672,8 +672,20 @@ async function togglePauseState() {
             ignoreSpeedChanges = true;
 
             clearAllIntervals();
-            const pauseBuffer = new Uint8Array([0x08]);
-            await ftmsControlCharacteristic.writeValue(pauseBuffer);
+            
+            // Mimic physical remote: store current speed to restore it later
+            const speedToRestore = currentTargetSpeed;
+
+            // Send speed 0.0. The walkpad firmware interprets this as "Pause"
+            // and updates its built-in screen to show "Pause".
+            const buffer = new ArrayBuffer(3);
+            const dataView = new DataView(buffer);
+            dataView.setUint8(0, 0x02);
+            dataView.setUint16(1, 0, true);
+            await ftmsControlCharacteristic.writeValue(buffer);
+
+            // Restore the app's internal target speed so resume works correctly
+            currentTargetSpeed = speedToRestore;
 
             isPaused = true;
             btn.innerText = "RESUME";
