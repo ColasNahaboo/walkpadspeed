@@ -34,7 +34,7 @@
             max-width: 400px;
             margin: 20px auto;
             padding: 30px 20px;
-            background: #1c1c1e;
+            background: #1c5533;
             border: 2px dashed #2c2c2e;
             border-radius: 12px;
             cursor: pointer;
@@ -44,9 +44,11 @@
             border-color: #0a84ff;
             background: #222224;
         }
-        .file-zone p { margin: 0; color: #b0b0b0; font-size: 1rem; }
-        .file-zone span { color: #0a84ff; font-weight: bold; }
+        .file-zone p { margin: 0; color: #e0e0e0; font-size: 1rem; }
+        .file-zone span { color: #0a84ff; font-weight: bold; font-size:1.2rem;}
         #fileInput { display: none; }
+        #defLoad { background: #444; color: #aaa;font-weight: 300;}
+        #defLoad:hover  { background: #222224; color: #ccc;font-weight: 500;}
 
         .routine-row {
             width: 100%;
@@ -77,7 +79,7 @@
             border: none;
             transition: background 0.2s, transform 0.1s;
         }
-        .routine-link-btn:hover { background: #359aff; color: white; }
+        .routine-link-btn:hover { background: #359aff; color: white; box-shadow: none;}
         .routine-link-btn:active { transform: scale(0.99); }
 
         .routine-toggle-btn {
@@ -351,6 +353,8 @@
         <p>Drop your routines file here or <span>Upload it</span></p>
         <input type="file" id="fileInput" accept=".txt,.wps">
     </div>
+    <!-- NEW: Fallback default loader -->
+    <button id="defLoad" class="routine-link-btn" style="display: none; width: 80%; max-width: 400px; margin: 0 auto 10px;">Load sample routines file</button>
 
     <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
 
@@ -409,7 +413,7 @@
         <button class="routine-btn" id="routineBtn">Start Routine</button>
         <div id="stoppause">
             <!-- Simulated Remote Start/Pause Button -->
-            <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
+            <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75-.75.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
             </button>
             <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
             <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
@@ -453,7 +457,7 @@ let ftmsControlCharacteristic = null;
 let bluetoothDevice = null;
 let currentTargetSpeed = 0.0;
 let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
-let speedThreshold = 0.8; // Under this speed, device stopped. between 0 and 1 exclusive.
+let speedThreshold = 0.8; // Over this speed, pad is running. between 0 and 1 exclusive.
 let speedMod = 1;
 let audioCtx = null;
 let stepOverhead = 1;
@@ -466,6 +470,8 @@ let totalStepDuration = 0;
 let isRoutineActive = false;
 let totalElapsedSeconds = 0;
 let isPaused = false;
+let minSpeed = Infinity; // minimum speed of the routine. Less means pad stopped
+let maxSpeed = 0;
 
 let routineNameCached = "";
 let routineNameProvided = false;
@@ -866,8 +872,8 @@ function buildGlobalProgressBar(steps) {
         return;
     }
 
-    let minSpeed = Infinity;
-    let maxSpeed = -Infinity;
+    minSpeed = Infinity;
+    maxSpeed = 0;
     if (steps.length >= 10) {
         for (let i = 1; i < steps.length - 1; i++) {
             if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
@@ -935,9 +941,9 @@ function hideGlobalProgress() {
 function checkRemoteStateChange(currentSpeed) {
     if (ignoreSpeedChanges) return;
 
-    // Detect Pause: Running, expecting speed, but pad drops below speedThreshold
+    // Detect Pause: Running, expecting speed, but pad drops below minSpeed
     if (isRoutineActive && !isPaused && currentTargetSpeed > 0) {
-        if (currentSpeed < speedThreshold) {
+        if (currentSpeed < minSpeed) {
             // Start timer if not already started
             if (!remotePauseDebounce) {
                 remotePauseDebounce = setTimeout(() => {
@@ -974,9 +980,9 @@ function checkRemoteStateChange(currentSpeed) {
     }
 }
 
-function handleRemoteStateChange(currentSpeed) {
+async function handleRemoteStateChange(currentSpeed) {
     // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
-    if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < speedThreshold) {
+    if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < minSpeed) {
         console.log("Remote pause detected");
         isPaused = true;
         clearAllIntervals();
@@ -1161,10 +1167,48 @@ function initManagerMode(urlParams) {
         reader.readAsText(file);
     }
 
+    // NEW: Fallback default loader logic
+    const defLoadBtn = document.getElementById('defLoad');
+    if (defLoadBtn) {
+        defLoadBtn.addEventListener('click', () => {
+            const defaultText = `Quick Test //  A quick test of functionalities
+2.0 4 label
+4.0 5 -
+5.0 6
+6.0 7 -
+3 4 end
+
+Walk in the park
+2.5 120 warmup
+4.6 150 light walk
+5.0 300
+
+Fat Burn
+3 20 Warm_Up
+6 30 sprint #1
+4 25 recover
+6 30 sprint #2
+4 25 recover
+6 30 sprint #3
+4 25 recover
+6 30 sprint #4
+3 20 Cool_Down`;
+
+            try {
+                localStorage.setItem('wpss_cached_routines', defaultText);
+                parseAndGenerateLinks(defaultText);
+                
+                // Hide button after successful load so it doesn't clutter the UI
+                if (document.getElementById('routineContainer').style.display !== 'none') {
+                    defLoadBtn.style.display = 'none';
+                }
+            } catch(err) {
+                console.error("Failed to load default routines:", err);
+            }
+        });
+    }
+
     function parseAndGenerateLinks(text) {
-        if (text === '') {
-            return;
-        }
         const blocks = text.split(/\n\s*\n/);
         const routines = [];
 
@@ -1261,6 +1305,12 @@ function initManagerMode(urlParams) {
         if (routines.length === 0) {
             statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
             routineContainer.style.display = 'none';
+            
+            // NEW: Show fallback button if no routines are loaded
+            const defLoadBtn = document.getElementById('defLoad');
+            if (defLoadBtn) {
+                defLoadBtn.style.display = 'inline-block';
+            }
             return;
         }
 

@@ -1,17 +1,24 @@
 # Sample routines to upload to walkpadspeeds
 
-My routine
-2.5 120 warmup
-4.6 150 light walk
-5.0 300
-
-Fat Burn
-3.0 10 Warm_Up
-4.5 15 Interval-1
-6.0 120 Last_Effort
-
 Quick Test //  A quick test of functionalities
 2.0 4 label
 4.0 5 -
 5.0 6
 6.0 7 -
+3 4 end
+
+Walk in the park
+2.5 120 warmup
+4.6 150 light walk
+5.0 300
+
+Fat Burn
+3 20 Warm_Up
+6 30 sprint #1
+4 25 recover
+6 30 sprint #2
+4 25 recover
+6 30 sprint #3
+4 25 recover
+6 30 sprint #4
+3 20 Cool_Down
