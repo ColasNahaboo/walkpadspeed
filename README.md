@@ -25,15 +25,23 @@ To use walkpadspeed, you need:
 
 [![Screenshots](docs/screens-v0.4.0/all-1024.webp)](docs/screens-v0.4.0/all.webp)
 
-<table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+<table width="100%">
+  <colgroup>
+    <col style="width:25%">
+    <col style="width:25%">
+    <col style="width:25%">
+    <col style="width:25%">
+  </colgroup>
+
   <thead>
     <tr>
-      <th style="width: 25%; text-align: left;">Manager</th>
-      <th style="width: 25%; text-align: left;">Connection</th>
-      <th style="width: 25%; text-align: left;">Routine Ready</th>
-      <th style="width: 25%; text-align: left;">Routine Playing</th>
+      <th align="left">Manager</th>
+      <th align="left">Connection</th>
+      <th align="left">Routine Ready</th>
+      <th align="left">Routine Playing</th>
     </tr>
   </thead>
+
   <tbody>
     <tr>
       <td>You load your routines text file, and the manager lets you choose one to play.</td>
