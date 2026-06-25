@@ -4,7 +4,7 @@
 
 (**Quickstart:** Open https://walkpad.fr in Google Chrome on your phone or tablet)
 
-I bought a simple, entry level walking pad (A Fousae ZX-390), because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But  all the good ones implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
+I bought a simple, entry level walking pad (A [Fousae ZX-390](https://gemini.google.com/app/3a269a17de02ca04), but sold under many brands: Urevo, Sperax, DeerRun, Costway...), because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But  all the good ones implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
 
 I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to experiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
 
@@ -100,8 +100,9 @@ Bugs and suggestions are always welcome, but know that I will resist adding feat
 The only features I plan to add would be:
 
 - Usability enhancements
-- Support for some hardware quirks
-- Support for driving walkpads with automatic incline setting, if the need actually exists. I already have an outline of the implementation in `docs/incline-feature.md`.
+- Support for some hardware quirks when reported, if possible.
+- A way to go directly to a step (from the manager wiew?).
+- Not sure: Support for driving walkpads with automatic incline setting, if the need actually exists. I already have an outline of the implementation in `docs/incline-feature.md`. Adding the incline percentage in the file format would be done as an optional step property in a backwards compatible way.
 
 ## License
 
@@ -109,6 +110,6 @@ The only features I plan to add would be:
 
 ## History
 
-- v0.3.6 2026-06-22 back to a single file performing both function: manager of a library of routines and player of one.
-- v0.2.7 2026-06-21 new file walkpadspeeds.html to manage a set of routines from a text file description.
+- v0.3.6 2026-06-22 back to a single file performing both functions: manager of a library of routines and player of one.
+- v0.2.7 2026-06-21 new file walkpadspeeds.html, the Routines Manager, to manage a set of routines from a text file description.
 - v0.1.0 2026-06-20 initial working version.
