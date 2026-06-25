@@ -25,22 +25,21 @@ To use walkpadspeed, you need:
 
 [![Screenshots](docs/screens-v0.4.0/all-1024.webp)](docs/screens-v0.4.0/all.webp)
 
-<table style="width: 100%; table-layout: fixed;">
+<table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
   <thead>
     <tr>
-      <th style="width: 25%;">Manager</th>
-      <th style="width: 25%;">Connection</th>
-      <th style="width: 25%;">Routine Ready</th>
-      <th style="width: 25%;">Routine Playing</th>
+      <th style="width: 25%; text-align: left;">Manager</th>
+      <th style="width: 25%; text-align: left;">Connection</th>
+      <th style="width: 25%; text-align: left;">Routine Ready</th>
+      <th style="width: 25%; text-align: left;">Routine Playing</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>You load your routines text file, and the manager let you choose one to play</td>
-      <td>You connect to your Walking Pad via Bluetooth</td>
-      <td>The routine is now ready to play, click on the blue button with its name its name</td>
+      <td>You load your routines text file, and the manager lets you choose one to play.</td>
+      <td>You connect to your Walking Pad via Bluetooth.</td>
+      <td>The routine is now ready to play; click on the blue button with its name.</td>
       <td>Routine started, now Walk!</td>
-    </tr>
     </tr>
   </tbody>
 </table>
@@ -100,7 +99,7 @@ Save the file and keep it handy — you'll upload it on the Manager screen.
 
 1. Open walkpadspeed. You'll land on the **Manager** screen.
 2. **Drag your text file onto the box**, or click the box to choose the file from your device.
-3. The page reads your file and lists every routine it found, each as its own button, showing:
+3. The page reads your file and lists every routine it found, each as its own button, also computing and showing:
    - its total **duration**, and
    - its **average speed**.
 4. Click the little **▼** next to a routine to peek at the raw text the app read for it — handy for double-checking your file if something looks off.
@@ -215,7 +214,7 @@ If you do not want to use the walkpadspeed.html hosted here, and want to host it
 
 - **Pure modern Javascript** is used to interpret your routine, use the browser Web Bluetooth API and manage the timers to send the steps to drive your walking pad.
 - **Bluetooth FTMS Integration:** Connects directly via Web Bluetooth API to native Fitness Machine Service characteristics (`0x1826`).
-- **Dynamic URL Routines (`?r=`)**: Configure custom interval training profiles directly in the URL bar, complete with speeds, durations, and descriptive step names.
+- **Dynamic URL Routines (`?r=`)**: The Manager passes the routine definition as URL parameters n (routine name), t (test mode), and r the complete definition of the routine.
 - **Persistent Storage:** Leverages the modern Browser Screen to store your loaded routines locally, soo you do not have to re-load them each time.
 - **Audio Cues:** Features low-latency predictive audio chime indicators generated via the Web Audio API precisely 1 second prior to interval changes.
 - **Precise Timer Mechanics:** High-accuracy state machine managing active countdown intervals, automated variable motor warm-up delays (`spinUpTime`), and live metric tracking.
@@ -232,7 +231,9 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.4.1 2026-06-25 released. This implements all the features I wanted initially.
 - v0.4.0 2026-06-25 works consistently with the physical play/pause button on the remote.
 - v0.3.6 2026-06-22 back to a single file performing both functions: manager of a library of routines and player of one.
 - v0.2.7 2026-06-21 new file walkpadspeeds.html, the Routines Manager, to manage a set of routines from a text file description.
+- v0.1.6 2026-06-21 released. I know use only walkpadspeed for my workouts.
 - v0.1.0 2026-06-20 initial working version.
