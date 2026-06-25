@@ -35,10 +35,10 @@ To use walkpadspeed, you need:
 
   <thead>
     <tr>
-      <th align="left">Manager</th>
-      <th align="left">Connection</th>
-      <th align="left">Routine Ready</th>
-      <th align="left">Routine Playing</th>
+    <th>Manager&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</th>
+    <th>Connection&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</th>
+    <th>Routine Ready&nbsp;&nbsp;&nbsp;&nbsp;</th>
+    <th>Routine Playing&nbsp;&nbsp;&nbsp;&nbsp;</th>
     </tr>
   </thead>
 
