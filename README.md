@@ -9,7 +9,7 @@
 ## What can it do?
 
 - **Connect to your walkpad over Bluetooth** directly from your browser — no extra app needed.
-- **Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations.
+- **Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations, and optionally incline changes.
 - **Pause, resume, or stop** at any time, from the app or from your walkpad's own physical remote.
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
 - **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
@@ -77,6 +77,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 - Each workout starts with a **name** on its own line.
 - Every line after that is one **step**: a speed, then how long to hold it, separated by a space.
 - Speed is in **km/h**. Duration is in **seconds**.
+- Optionally a percent of incline can be given between speed and duration as an integer postfixed by `%`.
 - You can optionally add a label after the duration, to name that step (e.g. "Warmup").
 - Leave a **blank line** between two different routines.
 - Lines starting with `#` or `//` are notes for yourself and are ignored, as is anything after `//` on a line.
@@ -98,11 +99,21 @@ HIIT Sprints
 3 30
 6 30 sprint #3
 3 120 Cooldown
+
+Climb some hills // for walkpads with automatic incline change
+3 120 warmup
+5.0 4% 180 climb_1
+4.0 60 flat
+5.5 6% 180 climb_2
+4.0 60 flat
+3 0% 120 cooldown
 ```
 
 This file describes two separate routines: a 17-minute steady walk, and an interval session that alternates between walking and jogging speed.
 
 Save the file and keep it handy — you'll upload it on the Manager screen.
+
+**Note:** As I do not have a walkpad with automatic incline setting, the code to drive the incline on the pad should work, but is not actually tested.
 
 ## Step 2 — Load your routines (Manager screen)
 
@@ -125,6 +136,7 @@ Click any routine button on the Manager screen to jump to the **Player** screen,
 2. Once connected, you'll see three live numbers:
    - **Elapsed** — how long you've been moving
    - **Speed** — your pad's current actual speed
+   - **Incline** - if the routine has any incline changes defined
    - **Remain** — how much time is left in the whole routine
 3. Press the big blue button (named after your routine) to **start**. The pad will begin moving and speed up/slow down automatically on schedule.
 4. A thin **progress bar** above shows the whole routine at a glance — colored from green (slower, easier sections) to red (faster, harder sections) — with the elapsed portion "wiped clean" as you go.
@@ -191,7 +203,7 @@ Everything happens entirely inside your browser. Your routine file, your Bluetoo
 
 ## Why walkpadspeed?
 
-I bought a simple, entry level walking pad (A [Fousae ZX-390](https://gemini.google.com/app/3a269a17de02ca04), but sold under many brands: Urevo, Sperax, DeerRun, Costway...), because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (no automatic incline setting...), and there are no sensors (heart rate...). But  all the good ones implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
+I bought a simple, entry level walking pad (A [Fousae ZX-390](https://gemini.google.com/app/3a269a17de02ca04), but sold under many brands: Urevo, Sperax, DeerRun, Costway...), because I wanted something less bulky than a treadmill, easy to install and store away, and for the same price I favored mechanical qualities over sophisticated features. And thus on such simple pads, the speed is the only thing that apps can remote control (with automatic incline setting on some models), and there are no sensors (heart rate...). But  all the good ones implement a subset of the standard [FTMS (Fitness Machine Service) Bluetooth protocol](https://www.bluetooth.com/specifications/specs/fitness-machine-service-1-0/).
 
 I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to experiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
 
@@ -214,8 +226,6 @@ The only features I plan to add would be:
 
 - Usability enhancements
 - Support for some hardware quirks when reported, if possible.
-- A way to go directly to a step (from the manager wiew?).
-- Maybe: Support for driving walkpads with automatic incline setting, if the need actually exists, as I think people with these more sophisticaded walkpads want more complex applications to take better advantage of the functionalities available. But in any case, I already have an outline of the implementation in `docs/incline-feature.md`. Adding the incline percentage in the file format would be done as an optional step property in a backwards compatible way.
 
 ## Optional: Installation & Deployment
 
@@ -246,6 +256,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.5.0 2026-06-27 Support for inclines. But Untested on real walkpads.
 - v0.4.2 2026-06-26 released. You can now (re)start to any routine step.
 - v0.4.1 2026-06-25 released. This implements all the features I wanted initially.
 - v0.4.0 2026-06-25 works consistently with the physical play/pause button on the remote.

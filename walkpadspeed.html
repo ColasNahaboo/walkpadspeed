@@ -1,469 +1,474 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.4.2";}
+      #version:after {content: "v0.5.0";}
 
-        /* Dark Mode Global Styles */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            text-align: center;
-            padding: 1rem;
-            background: #121212;
-            color: #e0e0e0;
-        }
-        h1 { color: #ffffff; margin-bottom: 0.5rem; }
-        .subtitle { color: #8e8e93; font-size: 1rem; margin-bottom: 0.5rem; }
-        h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d;
-             padding-bottom: 1px; margin-top: 15px; margin-bottom: 5px; }
+      /* Dark Mode Global Styles */
+      body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          text-align: center;
+          padding: 1rem;
+          background: #121212;
+          color: #e0e0e0;
+      }
+      h1 { color: #ffffff; margin-bottom: 0.5rem; }
+      .subtitle { color: #8e8e93; font-size: 1rem; margin-bottom: 0.5rem; }
+      h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d;
+           padding-bottom: 1px; margin-top: 15px; margin-bottom: 5px; }
 
-        a {
-            text-decoration: none;
-            color: #aab;
-            box-shadow: inset 0 -0.1em 0 0 #667;
-            transition: box-shadow 0.2s ease-in-out;
-            border-bottom: none;
-        }
-        a:hover { box-shadow: inset 0 -1.2em 0 0 #3a3a3c; color: #ffffff; }
+      a {
+          text-decoration: none;
+          color: #aab;
+          box-shadow: inset 0 -0.1em 0 0 #667;
+          transition: box-shadow 0.2s ease-in-out;
+          border-bottom: none;
+      }
+      a:hover { box-shadow: inset 0 -1.2em 0 0 #3a3a3c; color: #ffffff; }
 
-        /* === Manager View Styles === */
-        .file-zone {
-            max-width: 400px;
-            margin: 20px auto;
-            padding: 30px 20px;
-            background: #1c5533;
-            border: 2px dashed #2c2c2e;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-        }
-        .file-zone:hover {
-            border-color: #0a84ff;
-            background: #222224;
-        }
-        .file-zone p { margin: 0; color: #e0e0e0; font-size: 1rem; }
-        .file-zone span { color: #0a84ff; font-weight: bold; font-size:1.2rem;}
-        #fileInput { display: none; }
-        #defLoad { background: #444; color: #aaa;font-weight: 300;}
-        #defLoad:hover  { background: #222224; color: #ccc;font-weight: 500;}
+      /* === Manager View Styles === */
+      .file-zone {
+          max-width: 400px;
+          margin: 20px auto;
+          padding: 30px 20px;
+          background: #1c5533;
+          border: 2px dashed #2c2c2e;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: border-color 0.2s, background 0.2s;
+      }
+      .file-zone:hover {
+          border-color: #0a84ff;
+          background: #222224;
+      }
+      .file-zone p { margin: 0; color: #e0e0e0; font-size: 1rem; }
+      .file-zone span { color: #0a84ff; font-weight: bold; font-size:1.2rem;}
+      #fileInput { display: none; }
+      #defLoad { background: #444; color: #aaa;font-weight: 300;}
+      #defLoad:hover  { background: #222224; color: #ccc;font-weight: 500;}
 
-        .routine-row {
-            width: 100%;
-            max-width: 440px;
-            margin: 12px auto;
-            display: flex;
-            flex-direction: column;
-            background: #1c1c1e;
-            border-radius: 8px;
-            border: 1px solid #2c2c2e;
-            overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-        .routine-header-controls {
-            display: flex;
-            align-items: center;
-            width: 100%;
-        }
-        .routine-link-btn {
-            flex-grow: 1;
-            padding: 1.2rem 1.2rem;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            background: #0a84ff;
-            color: white;
-            text-align: center;
-            border: none;
-            transition: background 0.2s, transform 0.1s;
-        }
-        .routine-link-btn:hover { background: #359aff; color: white; box-shadow: none;}
-        .routine-link-btn:active { transform: scale(0.99); }
+      .routine-row {
+          width: 100%;
+          max-width: 440px;
+          margin: 12px auto;
+          display: flex;
+          flex-direction: column;
+          background: #1c1c1e;
+          border-radius: 8px;
+          border: 1px solid #2c2c2e;
+          overflow: hidden;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      }
+      .routine-header-controls {
+          display: flex;
+          align-items: center;
+          width: 100%;
+      }
+      .routine-link-btn {
+          flex-grow: 1;
+          padding: 1.2rem 1.2rem;
+          font-size: 1.1rem;
+          font-weight: bold;
+          cursor: pointer;
+          background: #0a84ff;
+          color: white;
+          text-align: center;
+          border: none;
+          transition: background 0.2s, transform 0.1s;
+      }
+      .routine-link-btn:hover { background: #359aff; color: white; box-shadow: none;}
+      .routine-link-btn:active { transform: scale(0.99); }
 
-        .routine-toggle-btn {
-            background: #2c2c2e;
-            color: #0a84ff;
-            border: none;
-            font-size: 1.2rem;
-            padding: 0 1.2rem;
-            align-self: stretch;
-            cursor: pointer;
-            transition: background 0.2s, color 0.2s;
-        }
-        .routine-toggle-btn:hover {
-            background: #3a3a3c;
-            color: #359aff;
-        }
-        .routine-toggle-btn.expanded {
-            color: #ff9f0a;
-        }
+      .routine-toggle-btn {
+          background: #2c2c2e;
+          color: #0a84ff;
+          border: none;
+          font-size: 1.2rem;
+          padding: 0 1.2rem;
+          align-self: stretch;
+          cursor: pointer;
+          transition: background 0.2s, color 0.2s;
+      }
+      .routine-toggle-btn:hover {
+          background: #3a3a3c;
+          color: #359aff;
+      }
+      .routine-toggle-btn.expanded {
+          color: #ff9f0a;
+      }
 
-        .routine-stats {
-            background: #161618;
-            border-top: 1px solid #252527;
-            padding: 6px 12px;
-            font-size: 0.85rem;
-            color: #8e8e93;
-            display: flex;
-            justify-content: space-around;
-            text-align: center;
-        }
-        .routine-stats strong {
-            color: #e0e0e0;
-        }
+      .routine-stats {
+          background: #161618;
+          border-top: 1px solid #252527;
+          padding: 6px 12px;
+          font-size: 0.85rem;
+          color: #8e8e93;
+          display: flex;
+          justify-content: space-around;
+          text-align: center;
+      }
+      .routine-stats strong {
+          color: #e0e0e0;
+      }
 
-        .routine-raw-view {
-            display: none;
-            text-align: left;
-            background: #000000;
-            color: #30d158;
-            font-family: monospace;
-            font-size: 0.9rem;
-            padding: 15px;
-            margin: 0;
-            white-space: pre-wrap;
-            border-top: 1px solid #2c2c2e;
-        }
+      .routine-raw-view {
+          display: none;
+          text-align: left;
+          background: #000000;
+          color: #30d158;
+          font-family: monospace;
+          font-size: 0.9rem;
+          padding: 15px;
+          margin: 0;
+          white-space: pre-wrap;
+          border-top: 1px solid #2c2c2e;
+      }
 
-        #routineList {
-            margin: 25px auto;
-            max-width: 450px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+      #routineList {
+          margin: 25px auto;
+          max-width: 450px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+      }
 
-        /* === Driver View Styles === */
-        button {
-            padding: 1.2rem 1.2rem;
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin: 10px 5px;
-            cursor: pointer;
-            border-radius: 8px;
-            border: none;
-            transition: background 0.2s, transform 0.1s;
-        }
-        button:active { transform: scale(0.98); }
+      /* === Driver View Styles === */
+      button {
+          padding: 1.2rem 1.2rem;
+          font-size: 1.2rem;
+          font-weight: bold;
+          margin: 10px 5px;
+          cursor: pointer;
+          border-radius: 8px;
+          border: none;
+          transition: background 0.2s, transform 0.1s;
+      }
+      button:active { transform: scale(0.98); }
 
-        .connect-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
-        .speed-btn { background: #2d2d2d; color: #bf5af2;
-                     padding: 1.2rem 0rem; min-width: 2.8rem; margin: 10px 1px;
-                     border: 1px solid #444; }
-        .speed-btn.active { background: #bf5af2; color: #121212;
-                            border-color: #bf5af2; }
-        .routine-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px;}
-        .routine-btn:disabled { background: #2c2c2e; color: #8e8e93; cursor: not-allowed; transform: none; margin: 0; padding: 2px; font-size: 100%; }
+      .connect-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
+      .speed-btn { background: #2d2d2d; color: #bf5af2;
+                   padding: 1.2rem 0rem; min-width: 2.8rem; margin: 10px 1px;
+                   border: 1px solid #444; }
+      .speed-btn.active { background: #bf5af2; color: #121212;
+                          border-color: #bf5af2; }
+      .routine-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px;}
+      .routine-btn:disabled { background: #2c2c2e; color: #8e8e93; cursor: not-allowed; transform: none; margin: 0; padding: 2px; font-size: 100%; }
 
-        /* === Step Jump List (Driver View) === */
-        #stepsListContainer {
-            margin: 30px auto 10px;
-            max-width: 450px;
-        }
-        #stepsList {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-        .step-row {
-            width: 100%;
-            max-width: 440px;
-            display: flex;
-            align-items: center;
-            background: #1c1c1e;
-            border-radius: 8px;
-            border: 1px solid #2c2c2e;
-            overflow: hidden;
-        }
-        .step-link-btn {
-            flex-grow: 1;
-            text-align: left;
-            background: transparent;
-            color: #b0b0b0;
-            border: none;
-            border-radius: 0;
-            padding: 0.8rem 1rem;
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin: 0;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .step-link-btn:hover { background: #2c2c2e; color: #ffffff; }
-        .step-meta {
-            display: flex;
-            gap: 10px;
-            padding: 0 1rem;
-            font-size: 0.85rem;
-            color: #8e8e93;
-            font-family: monospace;
-            white-space: nowrap;
-        }
+      /* === Step Jump List (Driver View) === */
+      #stepsListContainer {
+          margin: 30px auto 10px;
+          max-width: 450px;
+      }
+      #stepsList {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+      }
+      .step-row {
+          width: 100%;
+          max-width: 440px;
+          display: flex;
+          align-items: center;
+          background: #1c1c1e;
+          border-radius: 8px;
+          border: 1px solid #2c2c2e;
+          overflow: hidden;
+      }
+      .step-link-btn {
+          flex-grow: 1;
+          text-align: left;
+          background: transparent;
+          color: #b0b0b0;
+          border: none;
+          border-radius: 0;
+          padding: 0.8rem 1rem;
+          font-size: 0.95rem;
+          font-weight: 600;
+          margin: 0;
+          cursor: pointer;
+          transition: background 0.2s;
+      }
+      .step-link-btn:hover { background: #2c2c2e; color: #ffffff; }
+      .step-meta {
+          display: flex;
+          gap: 10px;
+          padding: 0 1rem;
+          font-size: 0.85rem;
+          color: #8e8e93;
+          font-family: monospace;
+          white-space: nowrap;
+      }
 
-        .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
-        .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
-        .resume-btn { background: #30d158; color: white; padding: 1.5rem 2rem; }
-        .plause-btn { background: #444444; color: white; padding: 1.5rem 2rem; }
+      .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
+      .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
+      .resume-btn { background: #30d158; color: white; padding: 1.5rem 2rem; }
+      .plause-btn { background: #444444; color: white; padding: 1.5rem 2rem; }
 
-        #timerContainer {
-            display: none;
-            margin: 0px auto;
-            max-width: 400px;
-            background: #1c1c1e;
-            padding: 0px;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-            border: 1px solid #2c2c2e;
-        }
-        #routineLabel { font-size: 3rem; font-weight: 500; color: #0a84ff; margin-bottom: 8px; }
-        #timeDisplay { font-size: 3.5rem; font-weight: bold; font-family: monospace; color: #ffffff; }
+      #timerContainer {
+          display: none;
+          margin: 0px auto;
+          max-width: 400px;
+          background: #1c1c1e;
+          padding: 0px;
+          border-radius: 12px;
+          box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+          border: 1px solid #2c2c2e;
+      }
+      #routineLabel { font-size: 3rem; font-weight: 500; color: #0a84ff; margin-bottom: 8px; }
+      #timeDisplay { font-size: 3.5rem; font-weight: bold; font-family: monospace; color: #ffffff; }
 
-        .progress-track {
-            width: 100%;
-            background-color: #2c2c2e;
-            border-radius: 10px;
-            height: 24px;
-            margin-top: 15px;
-            overflow: hidden;
-        }
-        #progressBar {
-            width: 100%;
-            height: 100%;
-            background-color: #30d158;
-            transition: width 1s linear;
-        }
+      .progress-track {
+          width: 100%;
+          background-color: #2c2c2e;
+          border-radius: 10px;
+          height: 24px;
+          margin-top: 15px;
+          overflow: hidden;
+      }
+      #progressBar {
+          width: 100%;
+          height: 100%;
+          background-color: #30d158;
+          transition: width 1s linear;
+      }
 
-        /* === Global Routine Progress Bar === */
-        .global-progress-track {
-            width: 100%;
-            max-width: 400px;
-            margin: 0 auto 15px;
-            background-color: #2c2c2e;
-            border-radius: 10px;
-            height: 16px;
-            overflow: hidden;
-            position: relative;
-            display: none;
-        }
-        .global-progress-segments {
-            display: flex;
-            height: 100%;
-            width: 100%;
-        }
-        .global-progress-segment {
-            height: 100%;
-            flex-shrink: 0;
-        }
-        .global-progress-eraser {
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 0%;
-            background-color: #2c2c2e;
-            transition: width 1s linear;
-            z-index: 1;
-        }
+      /* === Global Routine Progress Bar === */
+      .global-progress-track {
+          width: 100%;
+          max-width: 400px;
+          margin: 0 auto 15px;
+          background-color: #2c2c2e;
+          border-radius: 10px;
+          height: 16px;
+          overflow: hidden;
+          position: relative;
+          display: none;
+      }
+      .global-progress-segments {
+          display: flex;
+          height: 100%;
+          width: 100%;
+      }
+      .global-progress-segment {
+          height: 100%;
+          flex-shrink: 0;
+      }
+      .global-progress-eraser {
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100%;
+          width: 0%;
+          background-color: #2c2c2e;
+          transition: width 1s linear;
+          z-index: 1;
+      }
 
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 2px;
-            margin: 20px auto;
-            max-width: 400px;
-        }
-        .metric-box {
-            background: #1c1c1e;
-            border: 1px solid #2c2c2e;
-            border-radius: 10px;
-            padding: 12px;
-        }
-        .metric-value {
-            font-size: 2.4rem;
-            font-weight: bold;
-            font-family: monospace;
-            color: #00fa9a;
-            margin-top: 5px;
-        }
-        #liveSpeed { color: #aaffff; }
-        .metric-title {
-            font-size: 0.85rem;
-            color: #8e8e93;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+      .metrics-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 2px;
+          margin: 20px auto;
+          max-width: 400px;
+      }
+      .metric-box {
+          background: #1c1c1e;
+          border: 1px solid #2c2c2e;
+          border-radius: 10px;
+          padding: 12px;
+      }
+      .metric-value {
+          font-size: 2.4rem;
+          font-weight: bold;
+          font-family: monospace;
+          color: #00fa9a;
+          margin-top: 5px;
+      }
+      #liveSpeed { color: #aaffff; }
+      #liveIncline { color: #ffffaa; }
+      .metric-title {
+          font-size: 0.85rem;
+          color: #8e8e93;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+      }
 
-        .wpss-nav-menu {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            color: #0a84ff;
-            text-decoration: none;
-            font-size: 4rem;
-            font-weight: bold;
-            line-height: 1;
-            opacity: 0.85;
-            transition: opacity 0.2s, transform 0.1s;
-            cursor: pointer;
-            box-shadow: none;
-            border-bottom: none;
-            background: transparent;
-            padding: 4px 8px;
-        }
-        .wpss-nav-menu:hover {
-            opacity: 1;
-            transform: scale(1.05);
-            box-shadow: none;
-            color: #359aff;
-        }
+      .wpss-nav-menu {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          color: #0a84ff;
+          text-decoration: none;
+          font-size: 4rem;
+          font-weight: bold;
+          line-height: 1;
+          opacity: 0.85;
+          transition: opacity 0.2s, transform 0.1s;
+          cursor: pointer;
+          box-shadow: none;
+          border-bottom: none;
+          background: transparent;
+          padding: 4px 8px;
+      }
+      .wpss-nav-menu:hover {
+          opacity: 1;
+          transform: scale(1.05);
+          box-shadow: none;
+          color: #359aff;
+      }
 
-        /* === Test Mode Toggle === */
-        .test-toggle-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            margin: 25px auto 0;
-            max-width: 400px;
-            width: 80%;
-            font-size: 0.9rem;
-            color: #8e8e93;
-            user-select: none;
-        }
-        .test-toggle-switch {
-            position: relative;
-            width: 48px;
-            height: 28px;
-            flex-shrink: 0;
-        }
-        .test-toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            position: absolute;
-        }
-        .test-toggle-track {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: #2c2c2e;
-            border-radius: 14px;
-            border: 1px solid #3a3a3c;
-            cursor: pointer;
-            transition: background 0.25s, border-color 0.25s;
-        }
-        .test-toggle-track::after {
-            content: '';
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 20px;
-            height: 20px;
-            background: #8e8e93;
-            border-radius: 50%;
-            transition: transform 0.25s, background 0.25s;
-        }
-        .test-toggle-switch input:checked + .test-toggle-track {
-            background: #ff9f0a;
-            border-color: #ff9f0a;
-        }
-        .test-toggle-switch input:checked + .test-toggle-track::after {
-            transform: translateX(20px);
-            background: #121212;
-        }
-        .test-toggle-switch input:focus-visible + .test-toggle-track {
-            outline: 2px solid #0a84ff;
-            outline-offset: 2px;
-        }
+      /* === Test Mode Toggle === */
+      .test-toggle-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin: 25px auto 0;
+          max-width: 400px;
+          width: 80%;
+          font-size: 0.9rem;
+          color: #8e8e93;
+          user-select: none;
+      }
+      .test-toggle-switch {
+          position: relative;
+          width: 48px;
+          height: 28px;
+          flex-shrink: 0;
+      }
+      .test-toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+          position: absolute;
+      }
+      .test-toggle-track {
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: #2c2c2e;
+          border-radius: 14px;
+          border: 1px solid #3a3a3c;
+          cursor: pointer;
+          transition: background 0.25s, border-color 0.25s;
+      }
+      .test-toggle-track::after {
+          content: '';
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 20px;
+          height: 20px;
+          background: #8e8e93;
+          border-radius: 50%;
+          transition: transform 0.25s, background 0.25s;
+      }
+      .test-toggle-switch input:checked + .test-toggle-track {
+          background: #ff9f0a;
+          border-color: #ff9f0a;
+      }
+      .test-toggle-switch input:checked + .test-toggle-track::after {
+          transform: translateX(20px);
+          background: #121212;
+      }
+      .test-toggle-switch input:focus-visible + .test-toggle-track {
+          outline: 2px solid #0a84ff;
+          outline-offset: 2px;
+      }
 
-        /* === Shared Styles === */
-        .status-text { margin-top: 20px; font-weight: bold; color: #8e8e93; font-size: 1rem; }
-        .error-msg { color: #ff453a !important; margin: 10px 0; font-family: monospace; }
+      /* === Shared Styles === */
+      .status-text { margin-top: 20px; font-weight: bold; color: #8e8e93; font-size: 1rem; }
+      .error-msg { color: #ff453a !important; margin: 10px 0; font-family: monospace; }
     </style>
-</head>
-<body>
+  </head>
+  <body>
 
-<!-- Shared Logo -->
-<span style="position: absolute; top: 15px; left: 15px; color: #0a84ff; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;">
-<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="167" height="166" fill="none" viewBox="0 0 64 64"><path fill="#000" fill-rule="evenodd" d="M13 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m-1.947.606a1 1 0 0 1 1.028.08l1 .715a1 1 0 0 1 .401 1.002l-1.049 5.444 4.4 6.598a1 1 0 0 1-1.665 1.11l-4.626-6.94-.816-1.223a1 1 0 0 1-.153-.729l.597-3.38-1.785.893-.572 2.857a1 1 0 0 1-1.961-.392l.667-3.337a1 1 0 0 1 .534-.698Zm5.63 6.343-2.874-.958.382-1.981 3.125 1.041a1 1 0 0 1-.632 1.898m-10.555 7.56L9.396 14.7l.314.47.931 1.397-2.77 4.923a1 1 0 0 1-1.743-.98" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(-3.131 -.252)"/><path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2" stroke-width="2.068" d="M1.202 22.897h18.464l2.173-4.431" style="fill:none;stroke:#0a84ff;stroke-opacity:1"/><path fill="#000" fill-rule="evenodd" d="M4 12a8 8 0 0 1 8-8 1 1 0 1 0 0-2C6.477 2 2 6.477 2 12s4.477 10 10 10a9.97 9.97 0 0 0 7.071-2.929 1 1 0 0 0-1.414-1.414A8 8 0 0 1 4 12m9-6a1 1 0 1 0-2 0v6a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586Zm8.748 9.167a1.25 1.25 0 1 1-2.377-.772 1.25 1.25 0 0 1 2.377.772m-.663-3.34a1.25 1.25 0 1 0-.391-2.47 1.25 1.25 0 0 0 .39 2.47m-.793-5.852a1.25 1.25 0 1 1-2.022 1.47 1.25 1.25 0 0 1 2.022-1.47M17.2 4.548a1.25 1.25 0 1 0-2.228-1.134A1.25 1.25 0 0 0 17.2 4.548" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(15.248 -.68)scale(.37793)"/></svg>
-</span>
+    <!-- Shared Logo -->
+    <span style="position: absolute; top: 15px; left: 15px; color: #0a84ff; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;">
+      <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="167" height="166" fill="none" viewBox="0 0 64 64"><path fill="#000" fill-rule="evenodd" d="M13 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4m-1.947.606a1 1 0 0 1 1.028.08l1 .715a1 1 0 0 1 .401 1.002l-1.049 5.444 4.4 6.598a1 1 0 0 1-1.665 1.11l-4.626-6.94-.816-1.223a1 1 0 0 1-.153-.729l.597-3.38-1.785.893-.572 2.857a1 1 0 0 1-1.961-.392l.667-3.337a1 1 0 0 1 .534-.698Zm5.63 6.343-2.874-.958.382-1.981 3.125 1.041a1 1 0 0 1-.632 1.898m-10.555 7.56L9.396 14.7l.314.47.931 1.397-2.77 4.923a1 1 0 0 1-1.743-.98" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(-3.131 -.252)"/><path stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2" stroke-width="2.068" d="M1.202 22.897h18.464l2.173-4.431" style="fill:none;stroke:#0a84ff;stroke-opacity:1"/><path fill="#000" fill-rule="evenodd" d="M4 12a8 8 0 0 1 8-8 1 1 0 1 0 0-2C6.477 2 2 6.477 2 12s4.477 10 10 10a9.97 9.97 0 0 0 7.071-2.929 1 1 0 0 0-1.414-1.414A8 8 0 0 1 4 12m9-6a1 1 0 1 0-2 0v6a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586Zm8.748 9.167a1.25 1.25 0 1 1-2.377-.772 1.25 1.25 0 0 1 2.377.772m-.663-3.34a1.25 1.25 0 1 0-.391-2.47 1.25 1.25 0 0 0 .39 2.47m-.793-5.852a1.25 1.25 0 1 1-2.022 1.47 1.25 1.25 0 0 1 2.022-1.47M17.2 4.548a1.25 1.25 0 1 0-2.228-1.134A1.25 1.25 0 0 0 17.2 4.548" clip-rule="evenodd" style="fill:#0a84ff;fill-opacity:1" transform="translate(15.248 -.68)scale(.37793)"/></svg>
+    </span>
 
-<!-- ==================== MANAGER VIEW ==================== -->
-<div id="managerView">
-    <h1>walkpadspeed</h1>
-    <div class="subtitle" id="subtitleTextManager">Walkpad Routines Manager</div>
+    <!-- ==================== MANAGER VIEW ==================== -->
+    <div id="managerView">
+      <h1>walkpadspeed</h1>
+      <div class="subtitle" id="subtitleTextManager">Walkpad Routines Manager</div>
 
-    <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="file-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p>Drop your routines file here or <span>Upload it</span></p>
         <input type="file" id="fileInput" accept=".txt,.wps">
-    </div>
-    <div><a target="_blank" href='https://github.com/ColasNahaboo/walkpadspeed#step-1--write-your-routines'> (File format documentation) </a></div>
-    <!-- NEW: Fallback default loader -->
-    <button id="defLoad" class="routine-link-btn" style="display: none; width: 80%; max-width: 400px; margin: 0 auto 10px;">Load sample routines file</button>
+      </div>
+      <div><a target="_blank" href='https://github.com/ColasNahaboo/walkpadspeed#step-1--write-your-routines'> (File format documentation) </a></div>
+      <!-- NEW: Fallback default loader -->
+      <button id="defLoad" class="routine-link-btn" style="display: none; width: 80%; max-width: 400px; margin: 0 auto 10px;">Load sample routines file</button>
 
-    <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
+      <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
 
-    <div id="routineContainer" style="display: none;">
+      <div id="routineContainer" style="display: none;">
         <h3>Available Routines</h3>
         <div id="routineList"></div>
+      </div>
     </div>
-</div>
 
-<!-- ==================== DRIVER VIEW ==================== -->
-<div id="driverView" style="display: none;">
-    <a id="navBackBtn" href="#" class="wpss-nav-menu" title="Return to Routines Manager">☰</a>
+    <!-- ==================== DRIVER VIEW ==================== -->
+    <div id="driverView" style="display: none;">
+      <a id="navBackBtn" href="#" class="wpss-nav-menu" title="Return to Routines Manager">☰</a>
 
-    <h1>walkpadspeed</h1>
-    <div class="subtitle" id="subtitleText">Walkpad Routine Player</div>
+      <h1>walkpadspeed</h1>
+      <div class="subtitle" id="subtitleText">Walkpad Routine Player</div>
 
-    <div class="global-progress-track" id="globalProgressTrack">
+      <div class="global-progress-track" id="globalProgressTrack">
         <div class="global-progress-segments" id="globalProgressSegments"></div>
         <div class="global-progress-eraser" id="globalProgressEraser"></div>
-    </div>
+      </div>
 
-    <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
+      <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
 
-    <div id="testModeToggle" class="test-toggle-row">
+      <div id="testModeToggle" class="test-toggle-row">
         <span class="test-toggle-label">Test Mode</span>
         <label class="test-toggle-switch">
-            <input type="checkbox" id="testModeCheckbox">
-            <span class="test-toggle-track"></span>
+          <input type="checkbox" id="testModeCheckbox">
+          <span class="test-toggle-track"></span>
         </label>
         <p>Test mode allows to test the application without connecting to an actual Walkpad
-    </div>
+      </div>
 
-    <div id="controls" style="display:none; margin-top: 20px;">
+      <div id="controls" style="display:none; margin-top: 20px;">
         <div id="timerContainer">
-            <div id="routineLabel">Active</div>
-            <div id="timeDisplay">00:00</div>
-            <div class="progress-track">
-                <div id="progressBar"></div>
-            </div>
+          <div id="routineLabel">Active</div>
+          <div id="timeDisplay">00:00</div>
+          <div class="progress-track">
+            <div id="progressBar"></div>
+          </div>
         </div>
 
         <div class="metrics-grid">
-            <div class="metric-box">
-                <div class="metric-title">Elapsed</div>
-                <div class="metric-value" id="liveTime">00:00</div>
-            </div>
-            <div class="metric-box">
-                <div class="metric-title">Speed</div>
-                <div class="metric-value" id="liveSpeed">0.0</div>
-            </div>
-            <div class="metric-box">
-                <div class="metric-title">Remain</div>
-                <div class="metric-value" id="liveRemain">00:00</div>
-            </div>
+          <div class="metric-box">
+            <div class="metric-title">Elapsed</div>
+            <div class="metric-value" id="liveTime">00:00</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-title">Speed</div>
+            <div class="metric-value" id="liveSpeed">0.0</div>
+          </div>
+          <div id="inclineMetric" class="metric-box" style="display:none">
+            <div class="metric-title">Incline</div>
+            <div class="metric-value" id="liveIncline">0%</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-title">Remain</div>
+            <div class="metric-value" id="liveRemain">00:00</div>
+          </div>
         </div>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
         <div id="stoppause">
-            <!-- Simulated Remote Start/Pause Button -->
-            <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75-.75.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
-            </button>
-            <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
-            <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
+          <!-- Simulated Remote Start/Pause Button -->
+          <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75-.75.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
+          </button>
+          <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
+          <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
         </div>
         <h3>Routine Speed Modifier</h3>
         <button class="speed-btn" onclick="setSpeedMod(0.8, this)">---</button>
@@ -473,884 +478,939 @@
         <button class="speed-btn" onclick="setSpeedMod(1.05, this)">+</button>
         <button class="speed-btn" onclick="setSpeedMod(1.1, this)">++</button>
         <button class="speed-btn" onclick="setSpeedMod(1.2, this)">+++</button>
-    </div>
+      </div>
 
-    <p id="driverStatus" class="status-text">Status: Disconnected</p>
+      <p id="driverStatus" class="status-text">Status: Disconnected</p>
 
-    <div id="stepsListContainer" style="display:none;">
+      <div id="stepsListContainer" style="display:none;">
         <h3>Routine Steps</h3>
         <p class="status-text" style="margin-top:0; font-weight:400; font-size:0.85rem;">Tap a step to position the routine there, paused — press RESUME to start moving from that point.</p>
         <div id="stepsList"></div>
+      </div>
     </div>
-</div>
-
-<!-- Shared Footer -->
-<p id="footer"><a href="https://github.com/ColasNahaboo/walkpadspeed" target="_blank" rel="noopener noreferrer">
-<svg fill="white" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <g data-name="Layer 2">
-        <rect width="24" height="24" transform="rotate(180 12 12)" opacity="0"/>
-        <path d="M12 1A10.89 10.89 0 0 0 1 11.77 10.79 10.79 0 0 0 8.52 22c.55.1.75-.23.75-.52v-1.83c-3.06.65-3.71-1.44-3.71-1.44a2.86 2.86 0 0 0-1.22-1.58c-1-.66.08-.65.08-.65a2.31 2.31 0 0 1 1.68 1.11 2.37 2.37 0 0 0 3.2.89 2.33 2.33 0 0 1 .7-1.44c-2.44-.27-5-1.19-5-5.32a4.15 4.15 0 0 1 1.11-2.91 3.78 3.78 0 0 1 .11-2.84s.93-.29 3 1.1a10.68 10.68 0 0 1 5.5 0c2.1-1.39 3-1.1 3-1.1a3.78 3.78 0 0 1 .11 2.84A4.15 4.15 0 0 1 19 11.2c0 4.14-2.58 5.05-5 5.32a2.5 2.5 0 0 1 .75 2v2.95c0 .35.2.63.75.52A10.8 10.8 0 0 0 23 11.77 10.89 10.89 0 0 0 12 1" data-name="github"/>
-    </g>
-</svg>
-walkpadspeed</a>, &copy; Colas Nahaboo 2026, <span id="version"></span></p>
-
-<script>
-/* ================================================================
-   DRIVER GLOBAL STATE & FUNCTIONS
-   (kept at top level because they're referenced by onclick attributes)
-   ================================================================ */
-
-const FTMS_SERVICE_UUID = 0x1826;
-const FTMS_CONTROL_POINT_UUID = 0x2AD9;
-const FTMS_DATA_UUID = 0x2ACD;
-const spinUpTime = 5000;
-
-let wakeLock = null;
-let ftmsControlCharacteristic = null;
-let bluetoothDevice = null;
-let currentTargetSpeed = 0.0;
-let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
-let speedThreshold = 0.8; // Over this speed, pad is running. between 0 and 1 exclusive.
-let speedMod = 1;
-let audioCtx = null;
-let stepOverhead = 1;
-
-let routineInterval = null;
-let currentRoutineSteps = [];
-let currentStepIndex = 0;
-let secondsLeftInStep = 0;
-let totalStepDuration = 0;
-let isRoutineActive = false;
-let totalElapsedSeconds = 0;
-let isPaused = false;
-let minSpeed = Infinity; // minimum speed of the routine. Less means pad stopped
-let maxSpeed = 0;
-
-let routineNameCached = "";
-let routineNameProvided = false;
-let routineRawCached = "";
-let routineTotalDuration = 0;
-let lastValidRoutineLabel = '';
-
-// Suppress false remote pause/resume detection during our own BLE speed changes
-let ignoreSpeedChanges = false;
-let remotePauseDebounce = null;
-
-function updateRoutineButtonText(running = false) {
-    const button = document.getElementById('routineBtn');
-    const prefix = running ? "" : "Start: ";
-
-    if (routineNameProvided) {
-        button.innerText = `${prefix}${routineNameCached}`;
-    } else {
-        if (routineRawCached) {
-            button.innerText = `${prefix}${routineNameCached} (${routineRawCached})`;
-        } else {
-            button.innerText = `${prefix}Test`;
-        }
-    }
-}
-
-function playBeep() {
-    try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
-    } catch (e) {
-        console.error("Audio cue failed: ", e);
-    }
-}
-
-function handleTreadmillData(event) {
-    const data = event.target.value;
-    if (data.byteLength < 2) return;
-
-    const flags = data.getUint16(0, true);
-    let offset = 2;
-
-    if ((flags & 0x0001) === 0) {
-        const speedRaw = data.getUint16(offset, true);
-        const speedKmh = speedRaw / 100;
-        
-        // Update our global live speed tracker
-        currentLiveSpeed = speedKmh; 
-        
-        document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)} <span style="font-size:1rem"></span>`;
-        offset += 2;
-
-        // Detect remote pause/resume via speed changes
-        if (ftmsControlCharacteristic) {
-            checkRemoteStateChange(speedKmh);
-        }
-    }
-
-    if (flags & 0x0002) offset += 2;
-    if (flags & 0x0004) offset += 3;
-    if (flags & 0x0008) offset += 4;
-}
-
-// Simulates the remote physical start/pause button
-function simulateRemoteStartPause() {
-    if (!ftmsControlCharacteristic || !isRoutineActive) return;
-
-    // Bypass the 1500ms debounce so the pause/resume triggers instantly
-    if (remotePauseDebounce) {
-        clearTimeout(remotePauseDebounce);
-        remotePauseDebounce = null;
-    }
-
-    let syntheticSpeed;
-    if (currentLiveSpeed >= speedThreshold) {
-        syntheticSpeed = 0.0; // Simulate Pause
-    } else {
-        // Simulate Resume. We use currentTargetSpeed instead of 1.0 
-        // to accurately mimic how a real walkpad remembers and restores its last set speed,
-        // avoiding a UI flicker and correctly restoring the routine's step speed.
-        syntheticSpeed = currentTargetSpeed > 0 ? currentTargetSpeed : 1.0;
-    }
-
-    let speedRaw = Math.round(syntheticSpeed * 100);
-
-    // Construct fake DataView mimicking the walkpad's exact BLE data format
-    let buffer = new ArrayBuffer(4); // 2 bytes flags + 2 bytes speed
-    let dataView = new DataView(buffer);
-    dataView.setUint16(0, 0, true);         // Flags
-    dataView.setUint16(2, speedRaw, true);  // Speed Raw
-
-    let syntheticEvent = { target: { value: dataView } };
-
-    // 1. Call the handler to update UI speed and live state instantly
-    handleTreadmillData(syntheticEvent);
-
-    // 2. Directly trigger the routine state change logic to pause/resume the clock
-    handleRemoteStateChange(syntheticSpeed);
-}
-
-async function startTreadmill() {
-    if (!ftmsControlCharacteristic) return false;
-    try {
-        const startBuffer = new Uint8Array([0x07]);
-        await ftmsControlCharacteristic.writeValue(startBuffer);
-        return true;
-    } catch (error) {
-        updateStatus("Failed to start motor: " + error.message);
-        return false;
-    }
-}
-
-async function sendSpeed(speedKmh, isInitialStart = false) {
-    if (!ftmsControlCharacteristic) return;
-    currentTargetSpeed = speedKmh;
-
-    try {
-        // Suppress remote state detection during our own speed commands
-        ignoreSpeedChanges = true;
-
-        if (isInitialStart) {
-            const started = await startTreadmill();
-            if (!started) return;
-            updateStatus("Waiting for motor initialization...");
-            await new Promise(resolve => setTimeout(resolve, spinUpTime));
-        }
-
-        const speedRaw = Math.round(speedKmh * 100 * speedMod);
-        const buffer = new ArrayBuffer(3);
-        const dataView = new DataView(buffer);
-
-        dataView.setUint8(0, 0x02);
-        dataView.setUint16(1, speedRaw, true);
-
-        await ftmsControlCharacteristic.writeValue(buffer);
-        updateStatus(`Speed set to ${speedKmh} km/h`);
-
-        // Re-enable remote state detection after speed stabilizes
-        setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
-    } catch (error) {
-        updateStatus("Failed to set speed: " + error.message);
-        ignoreSpeedChanges = false;
-    }
-}
-
-function clearAllIntervals() {
-    if (routineInterval) {
-        clearInterval(routineInterval);
-        routineInterval = null;
-    }
-}
-
-function resetRoutineState() {
-    clearAllIntervals();
-    currentRoutineSteps = [];
-    currentStepIndex = 0;
-    secondsLeftInStep = 0;
-    totalStepDuration = 0;
-    isRoutineActive = false;
-    totalElapsedSeconds = 0;
-    isPaused = false;
-    routineTotalDuration = 0;
-    lastValidRoutineLabel = '';
-    ignoreSpeedChanges = false;
-    if (remotePauseDebounce) {
-        clearTimeout(remotePauseDebounce);
-        remotePauseDebounce = null;
-    }
-
-    const routineBtn = document.getElementById('routineBtn');
-    routineBtn.disabled = false;
-    updateRoutineButtonText(false);
-
-    const btn = document.getElementById('pauseToggleBtn');
-    btn.innerText = "PAUSE";
-    btn.className = "pause-btn";
-
-    document.getElementById('liveTime').innerText = "00:00";
-    document.getElementById('timerContainer').style.display = 'none';
-
-    hideGlobalProgress();
-    updateStepsListVisibility();
-}
-
-async function togglePauseState() {
-    if (!ftmsControlCharacteristic) return;
-
-    const btn = document.getElementById('pauseToggleBtn');
-
-    if (!isPaused) {
-        try {
-            // Suppress remote detection during our own pause command
-            ignoreSpeedChanges = true;
-
-            clearAllIntervals();
-            
-            // Mimic physical remote: store current speed to restore it later
-            const speedToRestore = currentTargetSpeed;
-
-            // Send speed 0.0. The walkpad firmware interprets this as "Pause"
-            // and updates its built-in screen to show "Pause".
-            const buffer = new ArrayBuffer(3);
-            const dataView = new DataView(buffer);
-            dataView.setUint8(0, 0x02);
-            dataView.setUint16(1, 0, true);
-            await ftmsControlCharacteristic.writeValue(buffer);
-
-            // Restore the app's internal target speed so resume works correctly
-            currentTargetSpeed = speedToRestore;
-
-            isPaused = true;
-            btn.innerText = "RESUME";
-            btn.className = "resume-btn";
-            updateStatus("Paused (Timer frozen).");
-
-            // Re-enable after the pause is fully processed and speed is stable at 0
-            setTimeout(() => { ignoreSpeedChanges = false; }, 2000);
-        } catch (error) {
-            updateStatus("Failed to pause: " + error.message);
-            ignoreSpeedChanges = false;
-        }
-    } else {
-        try {
-            // Suppress remote detection during our own resume sequence
-            ignoreSpeedChanges = true;
-
-            updateStatus("Resuming workout...");
-
-            isPaused = false;
-            btn.innerText = "PAUSE";
-            btn.className = "pause-btn";
-
-            const resumeBuffer = new Uint8Array([0x07]);
-            await ftmsControlCharacteristic.writeValue(resumeBuffer);
-
-            await new Promise(resolve => setTimeout(resolve, spinUpTime));
-
-            if (currentTargetSpeed > 0) {
-                await sendSpeed(currentTargetSpeed, false);
-            }
-
-            if (isRoutineActive && !routineInterval) {
-                startClockLoop();
-            }
-
-            // Re-enable after speed stabilizes post-resume
-            setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
-        } catch (error) {
-            updateStatus("Failed to resume: " + error.message);
-            ignoreSpeedChanges = false;
-        }
-    }
-}
-
-async function stopTreadmill() {
-    if (!ftmsControlCharacteristic) return;
-    try {
-        ignoreSpeedChanges = true;
-        resetRoutineState();
-        updateStatus("Stopping walkpad...");
-
-        const buffer = new ArrayBuffer(3);
-        const dataView = new DataView(buffer);
-        dataView.setUint8(0, 0x02);
-        dataView.setUint16(1, 0, true);
-        await ftmsControlCharacteristic.writeValue(buffer);
-
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        const pauseBuffer = new Uint8Array([0x08]);
-        await ftmsControlCharacteristic.writeValue(pauseBuffer);
-
-        releaseWakeLock();
-        updateStatus("Stopped.");
-    } catch (error) {
-        updateStatus("Failed to stop: " + error.message);
-    }
-}
-
-function startClockLoop() {
-    routineInterval = setInterval(async () => {
-        if (secondsLeftInStep === 1) {
-            playBeep();
-        }
-
-        totalElapsedSeconds++;
-        updateLiveTimeDisplay(totalElapsedSeconds);
-        updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
-        updateGlobalProgress(totalElapsedSeconds);
-
-        secondsLeftInStep--;
-
-        if (secondsLeftInStep < 0) {
-            currentStepIndex++;
-
-            if (currentStepIndex >= currentRoutineSteps.length) {
-                updateStatus("Routine Completed!");
-                stopTreadmill();
-                return;
-            }
-
-            secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
-            totalStepDuration = secondsLeftInStep;
-            await sendSpeed(currentRoutineSteps[currentStepIndex].speed, false);
-        }
-
-        const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
-        updateRoutineUI(
-            currentRoutineSteps[currentStepIndex].name, 
-            currentRoutineSteps[currentStepIndex].setName, 
-            secondsLeftInStep, 
-            percentRemaining
-        );
-    }, 1000);
-}
-
-function updateLiveTimeDisplay(totalSeconds) {
-    const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const secs = (totalSeconds % 60).toString().padStart(2, '0');
-    document.getElementById('liveTime').innerText = `${mins}:${secs}`;
-}
-
-function updateLiveRemainDisplay(totalSeconds) {
-    const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const secs = (totalSeconds % 60).toString().padStart(2, '0');
-    document.getElementById('liveRemain').innerText = `${mins}:${secs}`;
-}
-
-function minutesSeconds(totalSeconds) {
-    const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-    const secs = (totalSeconds % 60).toString().padStart(2, '0');
-    return `${mins}:${secs}`;
-}
-
-function routineTotalDurationGet(raw) {
-    if (!raw) return 0;
-    let total = 0;
-    raw.split(',').forEach(item => {
-        const parts = item.split('-');
-        const duration = parseInt(parts[1], 10);
-        if (!isNaN(duration)) total += duration;
-    });
-    return total;
-}
-
-function buildRoutineSteps(raw) {
-    if (!raw) return [];
-    const totalSteps = raw.split(',').length;
-    return raw.split(',').map((item, index) => {
-        const parts = item.split('-');
-        const speed = parseFloat(parts[0]);
-        const duration = parseInt(parts[1], 10);
-
-        let stepName = '';
-        let setName = '';
-        if (parts.length > 2) {
-            stepName = parts.slice(2).join('-').replace(/_/g, ' ');
-            setName = stepName;
-        } else {
-            stepName = `Step [${index + 1}/${totalSteps}]`;
-            setName = '';
-        }
-        return {
-            speed: speed,
-            duration: duration,
-            name: stepName,
-            setName: setName
-        };
-    });
-}
-
-function updateRoutineUI(label, setLabel, seconds, percentage) {
-    if (label.trim() === '-') {
-        label = lastValidRoutineLabel;
-    } else if (setLabel.trim() !== '') {
-        lastValidRoutineLabel = label;
-    }
-
-    document.getElementById('routineLabel').innerText = label;
-
-    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
-    document.getElementById('timeDisplay').innerText = `${mins}:${secs}`;
-
-    const bar = document.getElementById('progressBar');
-    bar.style.width = `${percentage}%`;
-
-    if (percentage > 50) {
-        bar.style.backgroundColor = '#30d158';
-    } else if (percentage > 20) {
-        bar.style.backgroundColor = '#ff9f0a';
-    } else {
-        bar.style.backgroundColor = '#ff453a';
-    }
-}
-
-/* ================================================================
-   GLOBAL PROGRESS BAR
-   ================================================================ */
-
-function buildGlobalProgressBar(steps) {
-    const container = document.getElementById('globalProgressSegments');
-    const track = document.getElementById('globalProgressTrack');
-    const eraser = document.getElementById('globalProgressEraser');
-    const subtitle = document.getElementById('subtitleText');
-
-    container.innerHTML = '';
-    eraser.style.width = '0%';
-
-    if (!steps || steps.length === 0 || routineTotalDuration <= 0) {
-        track.style.display = 'none';
-        return;
-    }
-
-    minSpeed = Infinity;
-    maxSpeed = 0;
-    if (steps.length >= 10) {
-        for (let i = 1; i < steps.length - 1; i++) {
-            if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
-            if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
-        }
-    } else {
-        for (let i = 0; i < steps.length; i++) {
-            if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
-            if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
-        }
-    }
-
-    const speedRange = maxSpeed - minSpeed;
-
-    function speedToColor(speed) {
-        let t = 0;
-        if (speedRange > 0) {
-            t = (speed - minSpeed) / speedRange;
-            t *= t;
-        }
-        let r = 255;
-        let g = 255;
-        let b = 0;
-        if (t >= 0.5) {
-            g = Math.round(255 * (1 - t));
-        } else {
-            r = Math.round(255 * t);
-        }
-        return `rgb(${r},${g},${b})`;
-    }
-
-    steps.forEach(step => {
-        const seg = document.createElement('div');
-        seg.className = 'global-progress-segment';
-        seg.style.width = `${(step.duration / routineTotalDuration) * 100}%`;
-        seg.style.backgroundColor = speedToColor(step.speed);
-        container.appendChild(seg);
-    });
-
-    subtitle.style.display = 'none';
-    track.style.display = 'block';
-}
-
-function updateGlobalProgress(elapsed) {
-    if (routineTotalDuration <= 0) return;
-    const pct = Math.min(100, (elapsed / routineTotalDuration) * 100);
-    document.getElementById('globalProgressEraser').style.width = `${pct}%`;
-}
-
-function hideGlobalProgress() {
-    const track = document.getElementById('globalProgressTrack');
-    const eraser = document.getElementById('globalProgressEraser');
-    const container = document.getElementById('globalProgressSegments');
-    const subtitle = document.getElementById('subtitleText');
-    subtitle.style.display = 'block';
-    track.style.display = 'none';
-    eraser.style.width = '0%';
-    container.innerHTML = '';
-}
-
-/* ================================================================
-   STEP JUMP LIST (Driver View)
-   Shown whenever the routine is idle (not yet started, or stopped).
-   Tapping a step positions the routine there in a paused state,
-   with every widget updated to match, ready for the user to RESUME.
-   ================================================================ */
-
-function renderStepsList() {
-    const wrapper = document.getElementById('stepsListContainer');
-    const list = document.getElementById('stepsList');
-    if (!wrapper || !list) return;
-
-    if (!routineRawCached) {
-        wrapper.style.display = 'none';
-        return;
-    }
-
-    const steps = buildRoutineSteps(routineRawCached);
-    list.innerHTML = '';
-
-    steps.forEach((step, index) => {
-        const row = document.createElement('div');
-        row.className = 'step-row';
-
-        const btn = document.createElement('button');
-        btn.className = 'step-link-btn';
-        btn.innerText = `${index + 1}. ${step.name}`;
-        btn.title = 'Position the routine here, paused';
-        btn.onclick = () => jumpToStep(index);
-
-        const meta = document.createElement('div');
-        meta.className = 'step-meta';
-        meta.innerHTML = `<span>${step.speed} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
-
-        row.appendChild(btn);
-        row.appendChild(meta);
-        list.appendChild(row);
-    });
-
-    updateStepsListVisibility();
-}
-
-function updateStepsListVisibility() {
-    const wrapper = document.getElementById('stepsListContainer');
-    if (!wrapper) return;
-    wrapper.style.display = (!isRoutineActive && routineRawCached) ? 'block' : 'none';
-}
-
-function jumpToStep(index) {
-    if (!currentRoutineSteps || currentRoutineSteps.length === 0) {
-        currentRoutineSteps = buildRoutineSteps(routineRawCached);
-    }
-    if (index < 0 || index >= currentRoutineSteps.length) return;
-
-    // Stop any running clock and clear pending remote pause/resume detection
-    clearAllIntervals();
-    if (remotePauseDebounce) {
-        clearTimeout(remotePauseDebounce);
-        remotePauseDebounce = null;
-    }
-    ignoreSpeedChanges = false;
-
-    // Recompute total duration in case a previous Stop reset it to 0
-    routineTotalDuration = routineTotalDurationGet(routineRawCached);
-
-    // Sum the duration of every step before this one, to know our elapsed time
-    let elapsed = 0;
-    for (let i = 0; i < index; i++) {
-        elapsed += currentRoutineSteps[i].duration;
-    }
-
-    currentStepIndex = index;
-    totalElapsedSeconds = elapsed;
-    secondsLeftInStep = currentRoutineSteps[index].duration - stepOverhead;
-    totalStepDuration = secondsLeftInStep;
-    currentTargetSpeed = currentRoutineSteps[index].speed;
-
-    isRoutineActive = true;
-    isPaused = true;
-
-    const routineBtn = document.getElementById('routineBtn');
-    routineBtn.disabled = true;
-    updateRoutineButtonText(true);
-
-    const pauseBtn = document.getElementById('pauseToggleBtn');
-    pauseBtn.innerText = "RESUME";
-    pauseBtn.className = "resume-btn";
-
-    document.getElementById('timerContainer').style.display = 'block';
-    buildGlobalProgressBar(currentRoutineSteps);
-    updateGlobalProgress(totalElapsedSeconds);
-    updateLiveTimeDisplay(totalElapsedSeconds);
-    updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
-    updateRoutineUI(currentRoutineSteps[index].name, currentRoutineSteps[index].setName, secondsLeftInStep, 100);
-
-    updateStatus(`Positioned at "${currentRoutineSteps[index].name}". Paused — press RESUME to continue.`);
-    updateStepsListVisibility();
-}
-
-/* ================================================================
-   REMOTE PAUSE / RESUME DETECTION
-   ================================================================ */
-
-function checkRemoteStateChange(currentSpeed) {
-    if (ignoreSpeedChanges) return;
-
-    // Detect Pause: Running, expecting speed, but pad drops below minSpeed
-    if (isRoutineActive && !isPaused && currentTargetSpeed > 0) {
-        if (currentSpeed < minSpeed) {
-            // Start timer if not already started
-            if (!remotePauseDebounce) {
-                remotePauseDebounce = setTimeout(() => {
-                    remotePauseDebounce = null;
-                    handleRemoteStateChange(currentSpeed);
-                }, 1500);
-            }
-        } else {
-            // Speed recovered above speedThreshold, cancel pause detection
-            if (remotePauseDebounce) {
-                clearTimeout(remotePauseDebounce);
-                remotePauseDebounce = null;
-            }
-        }
-    }
-
-    // Detect Resume: Paused, but pad speeds up above speedThreshold
-    if (isRoutineActive && isPaused) {
-        if (currentSpeed > speedThreshold) {
-            // Start timer if not already started
-            if (!remotePauseDebounce) {
-                remotePauseDebounce = setTimeout(() => {
-                    remotePauseDebounce = null;
-                    handleRemoteStateChange(currentSpeed);
-                }, 1500);
-            }
-        } else {
-            // Speed dropped back below speedThreshold, cancel resume detection
-            if (remotePauseDebounce) {
-                clearTimeout(remotePauseDebounce);
-                remotePauseDebounce = null;
-            }
-        }
-    }
-}
-
-async function handleRemoteStateChange(currentSpeed) {
-    // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
-    if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < minSpeed) {
-        console.log("Remote pause detected");
-        isPaused = true;
-        clearAllIntervals();
-        const btn = document.getElementById('pauseToggleBtn');
-        btn.innerText = "RESUME";
-        btn.className = "resume-btn";
-        updateStatus("Paused via remote.");
-        return;
-    }
-
-    // Remote resume: we're paused, and pad reports speed coming back
-    if (isRoutineActive && isPaused && currentSpeed > speedThreshold) {
-        console.log("Remote resume detected");
-        isPaused = false;
-        const btn = document.getElementById('pauseToggleBtn');
-        btn.innerText = "PAUSE";
-        btn.className = "pause-btn";
-        updateStatus("Resumed via remote.");
-        // The physical remote defaults to 1.0 km/h when resumed.
-        // We must tell the walkpad to change to the actual routine step speed.
-        if (currentTargetSpeed > 0) {
-            await sendSpeed(currentTargetSpeed, false);
-        }
-        if (isRoutineActive && !routineInterval) {
-            startClockLoop();
-        }
-        return;
-    }
-}
-
-function updateStatus(msg) {
-    document.getElementById('driverStatus').innerText = "Status: " + msg;
-}
-
-function setSpeedMod(mod, btnElement) {
-    speedMod = mod;
-    if (mod === 1) {
-        updateStatus('No speed modifier');
-    } else {
-        updateStatus('Speed modifier set to ' + Math.round((mod - 1) * 100) + '%');
-    }
-
-    const modButtons = document.querySelectorAll('.speed-btn');
-    modButtons.forEach(btn => btn.classList.remove('active'));
-
-    if (btnElement) {
-        btnElement.classList.add('active');
-    }
-}
-
-async function requestWakeLock() {
-    try {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
-            console.log("Screen Wake Lock is active.");
-            wakeLock.addEventListener('release', () => {
-                console.log("Screen Wake Lock was released.");
-            });
-        }
-    } catch (err) {
-        console.warn(`Wake Lock failed: ${err.name}, ${err.message}`);
-    }
-}
-
-function releaseWakeLock() {
-    if (wakeLock !== null) {
-        wakeLock.release();
-        wakeLock = null;
-    }
-}
-
-/* ================================================================
-   MANAGER GLOBAL FUNCTION
-   (referenced by dynamically created onclick handlers)
-   ================================================================ */
-
-function toggleRawView(btn, targetId) {
-    const viewPane = document.getElementById(targetId);
-    if (viewPane.style.display === 'block') {
-        viewPane.style.display = 'none';
-        btn.innerText = '▼';
-        btn.classList.remove('expanded');
-    } else {
-        viewPane.style.display = 'block';
-        btn.innerText = '▲';
-        btn.classList.add('expanded');
-    }
-}
-
-/* ================================================================
-   ROUTER — dispatches to manager or driver mode on load
-   ================================================================ */
-
-window.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const rParam = urlParams.get('r');
-
-    if (rParam && rParam.trim() !== '') {
-        document.getElementById('managerView').style.display = 'none';
-        document.getElementById('driverView').style.display = 'block';
-        document.title = 'walkpadspeed- Routine Player';
-        initDriverMode(urlParams);
-    } else {
-        document.getElementById('managerView').style.display = 'block';
-        document.getElementById('driverView').style.display = 'none';
-        document.title = 'walkpadspeeds - Routine Manager';
-        initManagerMode(urlParams);
-    }
-});
-
-/* ================================================================
-   MANAGER MODE INITIALIZATION
-   ================================================================ */
-
-function initManagerMode(urlParams) {
-    const fileInput = document.getElementById('fileInput');
-    const dropZone = document.getElementById('dropZone');
-    const statusText = document.getElementById('managerStatus');
-    const routineContainer = document.getElementById('routineContainer');
-    const routineList = document.getElementById('routineList');
-
-    let isTestMode = false;
-
-    if (urlParams.get('t') === '1') {
-        isTestMode = true;
-        document.getElementById('subtitleText').innerText = "Walkpad Routines Manager (Test Mode)";
-        statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
-    }
-
-    const cachedData = localStorage.getItem('wpss_cached_routines');
-    if (cachedData) {
-        parseAndGenerateLinks(cachedData);
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = '#30d158';
-        }, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = '#2c2c2e';
-        }, false);
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files.length) {
-            fileInput.files = files;
-            handleFile(files[0]);
-        }
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            handleFile(e.target.files[0]);
-        }
-    });
-
-    function handleFile(file) {
-        statusText.innerText = `Status: Reading "${file.name}"...`;
-        const reader = new FileReader();
-
-        reader.onload = (e) => {
-            try {
-                const fileContent = e.target.result;
-                localStorage.setItem('wpss_cached_routines', fileContent);
-                parseAndGenerateLinks(fileContent);
-            } catch (err) {
-                statusText.innerHTML = `<span class="error-msg">Parser Critical Failure: ${err.message}</span>`;
-            }
-        };
-
-        reader.onerror = () => {
-            statusText.innerHTML = '<span class="error-msg">Error loading file from local storage.</span>';
-        };
-
-        reader.readAsText(file);
-    }
-
-    // NEW: Fallback default loader logic
-    const defLoadBtn = document.getElementById('defLoad');
-    if (defLoadBtn) {
-        defLoadBtn.addEventListener('click', () => {
-            const defaultText = `Quick Test //  A quick test of functionalities
+
+    <!-- Shared Footer -->
+    <p id="footer"><a href="https://github.com/ColasNahaboo/walkpadspeed" target="_blank" rel="noopener noreferrer">
+        <svg fill="white" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <g data-name="Layer 2">
+            <rect width="24" height="24" transform="rotate(180 12 12)" opacity="0"/>
+            <path d="M12 1A10.89 10.89 0 0 0 1 11.77 10.79 10.79 0 0 0 8.52 22c.55.1.75-.23.75-.52v-1.83c-3.06.65-3.71-1.44-3.71-1.44a2.86 2.86 0 0 0-1.22-1.58c-1-.66.08-.65.08-.65a2.31 2.31 0 0 1 1.68 1.11 2.37 2.37 0 0 0 3.2.89 2.33 2.33 0 0 1 .7-1.44c-2.44-.27-5-1.19-5-5.32a4.15 4.15 0 0 1 1.11-2.91 3.78 3.78 0 0 1 .11-2.84s.93-.29 3 1.1a10.68 10.68 0 0 1 5.5 0c2.1-1.39 3-1.1 3-1.1a3.78 3.78 0 0 1 .11 2.84A4.15 4.15 0 0 1 19 11.2c0 4.14-2.58 5.05-5 5.32a2.5 2.5 0 0 1 .75 2v2.95c0 .35.2.63.75.52A10.8 10.8 0 0 0 23 11.77 10.89 10.89 0 0 0 12 1" data-name="github"/>
+          </g>
+        </svg>
+        walkpadspeed</a>, &copy; Colas Nahaboo 2026, <span id="version"></span></p>
+
+    <script>
+      /* ================================================================
+         DRIVER GLOBAL STATE & FUNCTIONS
+         (kept at top level because they're referenced by onclick attributes)
+         ================================================================ */
+
+      const FTMS_SERVICE_UUID = 0x1826;
+      const FTMS_CONTROL_POINT_UUID = 0x2AD9;
+      const FTMS_DATA_UUID = 0x2ACD;
+      const spinUpTime = 5000;
+
+      let wakeLock = null;
+      let ftmsControlCharacteristic = null;
+      let bluetoothDevice = null;
+      let currentTargetSpeed = 0.0;
+      let currentTargetIncline = 0;
+      let routineHasIncline = false;
+      let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
+      let speedThreshold = 0.8; // Over this speed, pad is running. between 0 and 1 exclusive.
+      let speedMod = 1;
+      let audioCtx = null;
+      let stepOverhead = 1;
+
+      let routineInterval = null;
+      let currentRoutineSteps = [];
+      let currentStepIndex = 0;
+      let secondsLeftInStep = 0;
+      let totalStepDuration = 0;
+      let isRoutineActive = false;
+      let totalElapsedSeconds = 0;
+      let isPaused = false;
+      let minSpeed = Infinity; // minimum speed of the routine. Less means pad stopped
+      let maxSpeed = 0;
+
+      let routineNameCached = "";
+      let routineNameProvided = false;
+      let routineRawCached = "";
+      let routineTotalDuration = 0;
+      let lastValidRoutineLabel = '';
+
+      // Suppress false remote pause/resume detection during our own BLE speed changes
+      let ignoreSpeedChanges = false;
+      let remotePauseDebounce = null;
+
+      function updateRoutineButtonText(running = false) {
+          const button = document.getElementById('routineBtn');
+          const prefix = running ? "" : "Start: ";
+
+          if (routineNameProvided) {
+              button.innerText = `${prefix}${routineNameCached}`;
+          } else {
+              if (routineRawCached) {
+                  button.innerText = `${prefix}${routineNameCached} (${routineRawCached})`;
+              } else {
+                  button.innerText = `${prefix}Test`;
+              }
+          }
+      }
+
+      function playBeep() {
+          try {
+              if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              if (audioCtx.state === 'suspended') audioCtx.resume();
+
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+              gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.15);
+          } catch (e) {
+              console.error("Audio cue failed: ", e);
+          }
+      }
+
+      function handleTreadmillData(event) {
+          const data = event.target.value;
+          if (data.byteLength < 2) return;
+
+          const flags = data.getUint16(0, true);
+          let offset = 2;
+
+          if ((flags & 0x0001) === 0) {
+              const speedRaw = data.getUint16(offset, true);
+              const speedKmh = speedRaw / 100;
+              
+              // Update our global live speed tracker
+              currentLiveSpeed = speedKmh; 
+              
+              document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)} <span style="font-size:1rem"></span>`;
+              offset += 2;
+
+              // Detect remote pause/resume via speed changes
+              if (ftmsControlCharacteristic) {
+                  checkRemoteStateChange(speedKmh);
+              }
+          }
+
+          if (flags & 0x0002) offset += 2;
+          if (flags & 0x0004) offset += 3;
+          if (flags & 0x0008) offset += 4;
+      }
+
+      // Simulates the remote physical start/pause button
+      function simulateRemoteStartPause() {
+          if (!ftmsControlCharacteristic || !isRoutineActive) return;
+
+          // Bypass the 1500ms debounce so the pause/resume triggers instantly
+          if (remotePauseDebounce) {
+              clearTimeout(remotePauseDebounce);
+              remotePauseDebounce = null;
+          }
+
+          let syntheticSpeed;
+          if (currentLiveSpeed >= speedThreshold) {
+              syntheticSpeed = 0.0; // Simulate Pause
+          } else {
+              // Simulate Resume. We use currentTargetSpeed instead of 1.0 
+              // to accurately mimic how a real walkpad remembers and restores its last set speed,
+              // avoiding a UI flicker and correctly restoring the routine's step speed.
+              syntheticSpeed = currentTargetSpeed > 0 ? currentTargetSpeed : 1.0;
+          }
+
+          let speedRaw = Math.round(syntheticSpeed * 100);
+
+          // Construct fake DataView mimicking the walkpad's exact BLE data format
+          let buffer = new ArrayBuffer(4); // 2 bytes flags + 2 bytes speed
+          let dataView = new DataView(buffer);
+          dataView.setUint16(0, 0, true);         // Flags
+          dataView.setUint16(2, speedRaw, true);  // Speed Raw
+
+          let syntheticEvent = { target: { value: dataView } };
+
+          // 1. Call the handler to update UI speed and live state instantly
+          handleTreadmillData(syntheticEvent);
+
+          // 2. Directly trigger the routine state change logic to pause/resume the clock
+          handleRemoteStateChange(syntheticSpeed);
+      }
+
+      async function startTreadmill() {
+          if (!ftmsControlCharacteristic) return false;
+          try {
+              const startBuffer = new Uint8Array([0x07]);
+              await ftmsControlCharacteristic.writeValue(startBuffer);
+              return true;
+          } catch (error) {
+              updateStatus("Failed to start motor: " + error.message);
+              return false;
+          }
+      }
+
+      async function sendSpeed(speedKmh, isInitialStart = false) {
+          if (!ftmsControlCharacteristic) return;
+          currentTargetSpeed = speedKmh;
+
+          try {
+              // Suppress remote state detection during our own speed commands
+              ignoreSpeedChanges = true;
+
+              if (isInitialStart) {
+                  const started = await startTreadmill();
+                  if (!started) return;
+                  updateStatus("Waiting for motor initialization...");
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime));
+              }
+
+              const speedRaw = Math.round(speedKmh * 100 * speedMod);
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+
+              dataView.setUint8(0, 0x02);
+              dataView.setUint16(1, speedRaw, true);
+
+              await ftmsControlCharacteristic.writeValue(buffer);
+              updateStatus(`Speed set to ${speedKmh} km/h`);
+
+              // Re-enable remote state detection after speed stabilizes
+              setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
+          } catch (error) {
+              updateStatus("Failed to set speed: " + error.message);
+              ignoreSpeedChanges = false;
+          }
+      }
+
+      async function sendIncline(percent) {
+
+          if (!ftmsControlCharacteristic) return;
+
+          percent = Math.max(0, Math.min(99, percent));
+
+          currentTargetIncline = percent;
+
+          /*
+            FTMS Inclination command:
+            opcode 0x03
+            incline is signed 16-bit, 0.1%
+          */
+
+          let buffer = new ArrayBuffer(5);
+          let view = new DataView(buffer);
+
+          view.setUint8(0, 0x03);
+          view.setInt16(1, percent * 10, true);
+
+          await ftmsControlCharacteristic.writeValue(buffer);
+      }
+      
+      function clearAllIntervals() {
+          if (routineInterval) {
+              clearInterval(routineInterval);
+              routineInterval = null;
+          }
+      }
+
+      function resetRoutineState() {
+          clearAllIntervals();
+          currentRoutineSteps = [];
+          currentStepIndex = 0;
+          secondsLeftInStep = 0;
+          totalStepDuration = 0;
+          isRoutineActive = false;
+          totalElapsedSeconds = 0;
+          isPaused = false;
+          routineTotalDuration = 0;
+          lastValidRoutineLabel = '';
+          ignoreSpeedChanges = false;
+          if (remotePauseDebounce) {
+              clearTimeout(remotePauseDebounce);
+              remotePauseDebounce = null;
+          }
+
+          const routineBtn = document.getElementById('routineBtn');
+          routineBtn.disabled = false;
+          updateRoutineButtonText(false);
+
+          const btn = document.getElementById('pauseToggleBtn');
+          btn.innerText = "PAUSE";
+          btn.className = "pause-btn";
+
+          document.getElementById('liveTime').innerText = "00:00";
+          document.getElementById('timerContainer').style.display = 'none';
+
+          hideGlobalProgress();
+          updateStepsListVisibility();
+      }
+
+      async function togglePauseState() {
+          if (!ftmsControlCharacteristic) return;
+
+          const btn = document.getElementById('pauseToggleBtn');
+
+          if (!isPaused) {
+              try {
+                  // Suppress remote detection during our own pause command
+                  ignoreSpeedChanges = true;
+
+                  clearAllIntervals();
+                  
+                  // Mimic physical remote: store current speed to restore it later
+                  const speedToRestore = currentTargetSpeed;
+
+                  // Send speed 0.0. The walkpad firmware interprets this as "Pause"
+                  // and updates its built-in screen to show "Pause".
+                  const buffer = new ArrayBuffer(3);
+                  const dataView = new DataView(buffer);
+                  dataView.setUint8(0, 0x02);
+                  dataView.setUint16(1, 0, true);
+                  await ftmsControlCharacteristic.writeValue(buffer);
+
+                  // Restore the app's internal target speed so resume works correctly
+                  currentTargetSpeed = speedToRestore;
+
+                  isPaused = true;
+                  btn.innerText = "RESUME";
+                  btn.className = "resume-btn";
+                  updateStatus("Paused (Timer frozen).");
+
+                  // Re-enable after the pause is fully processed and speed is stable at 0
+                  setTimeout(() => { ignoreSpeedChanges = false; }, 2000);
+              } catch (error) {
+                  updateStatus("Failed to pause: " + error.message);
+                  ignoreSpeedChanges = false;
+              }
+          } else {
+              try {
+                  // Suppress remote detection during our own resume sequence
+                  ignoreSpeedChanges = true;
+
+                  updateStatus("Resuming workout...");
+
+                  isPaused = false;
+                  btn.innerText = "PAUSE";
+                  btn.className = "pause-btn";
+
+                  const resumeBuffer = new Uint8Array([0x07]);
+                  await ftmsControlCharacteristic.writeValue(resumeBuffer);
+
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime));
+
+                  if (currentTargetSpeed > 0) {
+                      await sendSpeed(currentTargetSpeed, false);
+                  }
+
+                  if (isRoutineActive && !routineInterval) {
+                      startClockLoop();
+                  }
+
+                  // Re-enable after speed stabilizes post-resume
+                  setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
+              } catch (error) {
+                  updateStatus("Failed to resume: " + error.message);
+                  ignoreSpeedChanges = false;
+              }
+          }
+      }
+
+      async function stopTreadmill() {
+          if (!ftmsControlCharacteristic) return;
+          try {
+              ignoreSpeedChanges = true;
+              resetRoutineState();
+              updateStatus("Stopping walkpad...");
+
+              const buffer = new ArrayBuffer(3);
+              const dataView = new DataView(buffer);
+              dataView.setUint8(0, 0x02);
+              dataView.setUint16(1, 0, true);
+              await ftmsControlCharacteristic.writeValue(buffer);
+
+              await new Promise(resolve => setTimeout(resolve, 200));
+
+              const pauseBuffer = new Uint8Array([0x08]);
+              await ftmsControlCharacteristic.writeValue(pauseBuffer);
+
+              releaseWakeLock();
+              updateStatus("Stopped.");
+          } catch (error) {
+              updateStatus("Failed to stop: " + error.message);
+          }
+      }
+
+      function startClockLoop() {
+          routineInterval = setInterval(async () => {
+              if (secondsLeftInStep === 1) {
+                  playBeep();
+              }
+
+              totalElapsedSeconds++;
+              updateLiveTimeDisplay(totalElapsedSeconds);
+              updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+              updateGlobalProgress(totalElapsedSeconds);
+
+              secondsLeftInStep--;
+
+              if (secondsLeftInStep < 0) {
+                  currentStepIndex++;
+
+                  if (currentStepIndex >= currentRoutineSteps.length) {
+                      updateStatus("Routine Completed!");
+                      stopTreadmill();
+                      return;
+                  }
+
+                  secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
+                  totalStepDuration = secondsLeftInStep;
+                  const step = currentRoutineSteps[currentStepIndex];
+                  await sendSpeed(step.speed, false);
+                  if (step.incline !== undefined &&
+                      step.incline !== currentTargetIncline) {
+                      await sendIncline(step.incline);
+                  }
+              }
+
+              const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
+              updateRoutineUI(
+                  currentRoutineSteps[currentStepIndex].name, 
+                  currentRoutineSteps[currentStepIndex].setName, 
+                  secondsLeftInStep, 
+                  percentRemaining
+              );
+          }, 1000);
+      }
+
+      function updateLiveTimeDisplay(totalSeconds) {
+          const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+          const secs = (totalSeconds % 60).toString().padStart(2, '0');
+          document.getElementById('liveTime').innerText = `${mins}:${secs}`;
+      }
+
+      function updateLiveRemainDisplay(totalSeconds) {
+          const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+          const secs = (totalSeconds % 60).toString().padStart(2, '0');
+          document.getElementById('liveRemain').innerText = `${mins}:${secs}`;
+      }
+
+      function minutesSeconds(totalSeconds) {
+          const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+          const secs = (totalSeconds % 60).toString().padStart(2, '0');
+          return `${mins}:${secs}`;
+      }
+
+      function routineTotalDurationGet(raw) {
+          if (!raw) return 0;
+          let total = 0;
+          raw.split(',').forEach(item => {
+              const parts = item.split('-');
+              const duration = parseInt(parts[1], 10);
+              if (!isNaN(duration)) total += duration;
+          });
+          return total;
+      }
+      
+      function buildRoutineSteps(raw) {
+          if (!raw) return [];
+
+          const totalSteps = raw.split(',').length;
+          let previousIncline = 0;
+          routineHasIncline = false;
+          return raw.split(',').map((item, index) => {
+              const parts = item.split('-');
+              const speed = parseFloat(parts[0]);
+              let durationPart = parts[1];
+              let incline = previousIncline;
+              if (durationPart.includes('%_')) {
+                  const inclinePart = durationPart.split('%_');
+
+                  incline = parseInt(inclinePart[0],10);
+                  durationPart = inclinePart[1];
+
+                  previousIncline = incline;
+                  routineHasIncline = true;
+              }
+              const duration = parseInt(durationPart,10);
+              let stepName = '';
+              let setName = '';
+              if (parts.length > 2) {
+                  stepName = parts.slice(2)
+                      .join('-')
+                      .replace(/_/g,' ');
+
+                  setName = stepName;
+
+              } else {
+                  stepName = `Step [${index + 1}/${totalSteps}]`;
+              }
+              return {
+                  speed,
+                  duration,
+                  incline,
+                  name: stepName,
+                  setName
+              };
+          });
+      }
+
+      function updateRoutineUI(label, setLabel, seconds, percentage) {
+          if (label.trim() === '-') {
+              label = lastValidRoutineLabel;
+          } else if (setLabel.trim() !== '') {
+              lastValidRoutineLabel = label;
+          }
+
+          document.getElementById('routineLabel').innerText = label;
+
+          const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+          const secs = (seconds % 60).toString().padStart(2, '0');
+          document.getElementById('timeDisplay').innerText = `${mins}:${secs}`;
+
+          const bar = document.getElementById('progressBar');
+          bar.style.width = `${percentage}%`;
+
+          if (percentage > 50) {
+              bar.style.backgroundColor = '#30d158';
+          } else if (percentage > 20) {
+              bar.style.backgroundColor = '#ff9f0a';
+          } else {
+              bar.style.backgroundColor = '#ff453a';
+          }
+          if (routineHasIncline) {
+              document.getElementById('liveIncline').innerText =
+                  `${currentRoutineSteps[currentStepIndex].incline}%`;
+          }
+      }
+
+      /* ================================================================
+         GLOBAL PROGRESS BAR
+         ================================================================ */
+
+      function buildGlobalProgressBar(steps) {
+          const container = document.getElementById('globalProgressSegments');
+          const track = document.getElementById('globalProgressTrack');
+          const eraser = document.getElementById('globalProgressEraser');
+          const subtitle = document.getElementById('subtitleText');
+
+          container.innerHTML = '';
+          eraser.style.width = '0%';
+
+          if (!steps || steps.length === 0 || routineTotalDuration <= 0) {
+              track.style.display = 'none';
+              return;
+          }
+
+          minSpeed = Infinity;
+          maxSpeed = 0;
+          if (steps.length >= 10) {
+              for (let i = 1; i < steps.length - 1; i++) {
+                  if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
+                  if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+              }
+          } else {
+              for (let i = 0; i < steps.length; i++) {
+                  if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
+                  if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+              }
+          }
+
+          const speedRange = maxSpeed - minSpeed;
+
+          function speedToColor(speed) {
+              let t = 0;
+              if (speedRange > 0) {
+                  t = (speed - minSpeed) / speedRange;
+                  t *= t;
+              }
+              let r = 255;
+              let g = 255;
+              let b = 0;
+              if (t >= 0.5) {
+                  g = Math.round(255 * (1 - t));
+              } else {
+                  r = Math.round(255 * t);
+              }
+              return `rgb(${r},${g},${b})`;
+          }
+
+          steps.forEach(step => {
+              const seg = document.createElement('div');
+              seg.className = 'global-progress-segment';
+              seg.style.width = `${(step.duration / routineTotalDuration) * 100}%`;
+              seg.style.backgroundColor = speedToColor(step.speed);
+              container.appendChild(seg);
+          });
+
+          subtitle.style.display = 'none';
+          track.style.display = 'block';
+      }
+
+      function updateGlobalProgress(elapsed) {
+          if (routineTotalDuration <= 0) return;
+          const pct = Math.min(100, (elapsed / routineTotalDuration) * 100);
+          document.getElementById('globalProgressEraser').style.width = `${pct}%`;
+      }
+
+      function hideGlobalProgress() {
+          const track = document.getElementById('globalProgressTrack');
+          const eraser = document.getElementById('globalProgressEraser');
+          const container = document.getElementById('globalProgressSegments');
+          const subtitle = document.getElementById('subtitleText');
+          subtitle.style.display = 'block';
+          track.style.display = 'none';
+          eraser.style.width = '0%';
+          container.innerHTML = '';
+      }
+
+      /* ================================================================
+         STEP JUMP LIST (Driver View)
+         Shown whenever the routine is idle (not yet started, or stopped).
+         Tapping a step positions the routine there in a paused state,
+         with every widget updated to match, ready for the user to RESUME.
+         ================================================================ */
+
+      function renderStepsList() {
+          const wrapper = document.getElementById('stepsListContainer');
+          const list = document.getElementById('stepsList');
+          if (!wrapper || !list) return;
+
+          if (!routineRawCached) {
+              wrapper.style.display = 'none';
+              return;
+          }
+
+          const steps = buildRoutineSteps(routineRawCached);
+          list.innerHTML = '';
+
+          steps.forEach((step, index) => {
+              const row = document.createElement('div');
+              row.className = 'step-row';
+
+              const btn = document.createElement('button');
+              btn.className = 'step-link-btn';
+              btn.innerText = `${index + 1}. ${step.name}`;
+              btn.title = 'Position the routine here, paused';
+              btn.onclick = () => jumpToStep(index);
+
+              const meta = document.createElement('div');
+              meta.className = 'step-meta';
+              let incline = '';
+              if (step.incline) {
+                  incline = `${step.incline}% `;
+              }
+              meta.innerHTML = `<span>${incline}${step.speed.toFixed(1)} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
+
+              row.appendChild(btn);
+              row.appendChild(meta);
+              list.appendChild(row);
+          });
+
+          updateStepsListVisibility();
+      }
+
+      function updateStepsListVisibility() {
+          const wrapper = document.getElementById('stepsListContainer');
+          if (!wrapper) return;
+          wrapper.style.display = (!isRoutineActive && routineRawCached) ? 'block' : 'none';
+      }
+
+      function jumpToStep(index) {
+          if (!currentRoutineSteps || currentRoutineSteps.length === 0) {
+              currentRoutineSteps = buildRoutineSteps(routineRawCached);
+          }
+          if (index < 0 || index >= currentRoutineSteps.length) return;
+
+          // Stop any running clock and clear pending remote pause/resume detection
+          clearAllIntervals();
+          if (remotePauseDebounce) {
+              clearTimeout(remotePauseDebounce);
+              remotePauseDebounce = null;
+          }
+          ignoreSpeedChanges = false;
+
+          // Recompute total duration in case a previous Stop reset it to 0
+          routineTotalDuration = routineTotalDurationGet(routineRawCached);
+
+          // Sum the duration of every step before this one, to know our elapsed time
+          let elapsed = 0;
+          for (let i = 0; i < index; i++) {
+              elapsed += currentRoutineSteps[i].duration;
+          }
+
+          currentStepIndex = index;
+          totalElapsedSeconds = elapsed;
+          secondsLeftInStep = currentRoutineSteps[index].duration - stepOverhead;
+          totalStepDuration = secondsLeftInStep;
+          currentTargetSpeed = currentRoutineSteps[index].speed;
+
+          isRoutineActive = true;
+          isPaused = true;
+
+          const routineBtn = document.getElementById('routineBtn');
+          routineBtn.disabled = true;
+          updateRoutineButtonText(true);
+
+          const pauseBtn = document.getElementById('pauseToggleBtn');
+          pauseBtn.innerText = "RESUME";
+          pauseBtn.className = "resume-btn";
+
+          document.getElementById('timerContainer').style.display = 'block';
+          buildGlobalProgressBar(currentRoutineSteps);
+          updateGlobalProgress(totalElapsedSeconds);
+          updateLiveTimeDisplay(totalElapsedSeconds);
+          updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+          updateRoutineUI(currentRoutineSteps[index].name, currentRoutineSteps[index].setName, secondsLeftInStep, 100);
+
+          updateStatus(`Positioned at "${currentRoutineSteps[index].name}". Paused — press RESUME to continue.`);
+          updateStepsListVisibility();
+      }
+
+      /* ================================================================
+         REMOTE PAUSE / RESUME DETECTION
+         ================================================================ */
+
+      function checkRemoteStateChange(currentSpeed) {
+          if (ignoreSpeedChanges) return;
+
+          // Detect Pause: Running, expecting speed, but pad drops below minSpeed
+          if (isRoutineActive && !isPaused && currentTargetSpeed > 0) {
+              if (currentSpeed < minSpeed) {
+                  // Start timer if not already started
+                  if (!remotePauseDebounce) {
+                      remotePauseDebounce = setTimeout(() => {
+                          remotePauseDebounce = null;
+                          handleRemoteStateChange(currentSpeed);
+                      }, 1500);
+                  }
+              } else {
+                  // Speed recovered above speedThreshold, cancel pause detection
+                  if (remotePauseDebounce) {
+                      clearTimeout(remotePauseDebounce);
+                      remotePauseDebounce = null;
+                  }
+              }
+          }
+
+          // Detect Resume: Paused, but pad speeds up above speedThreshold
+          if (isRoutineActive && isPaused) {
+              if (currentSpeed > speedThreshold) {
+                  // Start timer if not already started
+                  if (!remotePauseDebounce) {
+                      remotePauseDebounce = setTimeout(() => {
+                          remotePauseDebounce = null;
+                          handleRemoteStateChange(currentSpeed);
+                      }, 1500);
+                  }
+              } else {
+                  // Speed dropped back below speedThreshold, cancel resume detection
+                  if (remotePauseDebounce) {
+                      clearTimeout(remotePauseDebounce);
+                      remotePauseDebounce = null;
+                  }
+              }
+          }
+      }
+
+      async function handleRemoteStateChange(currentSpeed) {
+          // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
+          if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < minSpeed) {
+              console.log("Remote pause detected");
+              isPaused = true;
+              clearAllIntervals();
+              const btn = document.getElementById('pauseToggleBtn');
+              btn.innerText = "RESUME";
+              btn.className = "resume-btn";
+              updateStatus("Paused via remote.");
+              return;
+          }
+
+          // Remote resume: we're paused, and pad reports speed coming back
+          if (isRoutineActive && isPaused && currentSpeed > speedThreshold) {
+              console.log("Remote resume detected");
+              isPaused = false;
+              const btn = document.getElementById('pauseToggleBtn');
+              btn.innerText = "PAUSE";
+              btn.className = "pause-btn";
+              updateStatus("Resumed via remote.");
+              // The physical remote defaults to 1.0 km/h when resumed.
+              // We must tell the walkpad to change to the actual routine step speed.
+              if (currentTargetSpeed > 0) {
+                  await sendSpeed(currentTargetSpeed, false);
+              }
+              if (isRoutineActive && !routineInterval) {
+                  startClockLoop();
+              }
+              return;
+          }
+      }
+
+      function updateStatus(msg) {
+          document.getElementById('driverStatus').innerText = "Status: " + msg;
+      }
+
+      function setSpeedMod(mod, btnElement) {
+          speedMod = mod;
+          if (mod === 1) {
+              updateStatus('No speed modifier');
+          } else {
+              updateStatus('Speed modifier set to ' + Math.round((mod - 1) * 100) + '%');
+          }
+
+          const modButtons = document.querySelectorAll('.speed-btn');
+          modButtons.forEach(btn => btn.classList.remove('active'));
+
+          if (btnElement) {
+              btnElement.classList.add('active');
+          }
+      }
+
+      async function requestWakeLock() {
+          try {
+              if ('wakeLock' in navigator) {
+                  wakeLock = await navigator.wakeLock.request('screen');
+                  console.log("Screen Wake Lock is active.");
+                  wakeLock.addEventListener('release', () => {
+                      console.log("Screen Wake Lock was released.");
+                  });
+              }
+          } catch (err) {
+              console.warn(`Wake Lock failed: ${err.name}, ${err.message}`);
+          }
+      }
+
+      function releaseWakeLock() {
+          if (wakeLock !== null) {
+              wakeLock.release();
+              wakeLock = null;
+          }
+      }
+
+      /* ================================================================
+         MANAGER GLOBAL FUNCTION
+         (referenced by dynamically created onclick handlers)
+         ================================================================ */
+
+      function toggleRawView(btn, targetId) {
+          const viewPane = document.getElementById(targetId);
+          if (viewPane.style.display === 'block') {
+              viewPane.style.display = 'none';
+              btn.innerText = '▼';
+              btn.classList.remove('expanded');
+          } else {
+              viewPane.style.display = 'block';
+              btn.innerText = '▲';
+              btn.classList.add('expanded');
+          }
+      }
+
+      /* ================================================================
+         ROUTER — dispatches to manager or driver mode on load
+         ================================================================ */
+
+      window.addEventListener('DOMContentLoaded', () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const rParam = urlParams.get('r');
+
+          if (rParam && rParam.trim() !== '') {
+              document.getElementById('managerView').style.display = 'none';
+              document.getElementById('driverView').style.display = 'block';
+              document.title = 'walkpadspeed- Routine Player';
+              initDriverMode(urlParams);
+          } else {
+              document.getElementById('managerView').style.display = 'block';
+              document.getElementById('driverView').style.display = 'none';
+              document.title = 'walkpadspeeds - Routine Manager';
+              initManagerMode(urlParams);
+          }
+      });
+
+      /* ================================================================
+         MANAGER MODE INITIALIZATION
+         ================================================================ */
+
+      function initManagerMode(urlParams) {
+          const fileInput = document.getElementById('fileInput');
+          const dropZone = document.getElementById('dropZone');
+          const statusText = document.getElementById('managerStatus');
+          const routineContainer = document.getElementById('routineContainer');
+          const routineList = document.getElementById('routineList');
+
+          let isTestMode = false;
+
+          if (urlParams.get('t') === '1') {
+              isTestMode = true;
+              document.getElementById('subtitleText').innerText = "Walkpad Routines Manager (Test Mode)";
+              statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
+          }
+
+          const cachedData = localStorage.getItem('wpss_cached_routines');
+          if (cachedData) {
+              parseAndGenerateLinks(cachedData);
+          }
+
+          ['dragenter', 'dragover'].forEach(eventName => {
+              dropZone.addEventListener(eventName, (e) => {
+                  e.preventDefault();
+                  dropZone.style.borderColor = '#30d158';
+              }, false);
+          });
+
+          ['dragleave', 'drop'].forEach(eventName => {
+              dropZone.addEventListener(eventName, (e) => {
+                  e.preventDefault();
+                  dropZone.style.borderColor = '#2c2c2e';
+              }, false);
+          });
+
+          dropZone.addEventListener('drop', (e) => {
+              const dt = e.dataTransfer;
+              const files = dt.files;
+              if (files.length) {
+                  fileInput.files = files;
+                  handleFile(files[0]);
+              }
+          });
+
+          fileInput.addEventListener('change', (e) => {
+              if (e.target.files.length) {
+                  handleFile(e.target.files[0]);
+              }
+          });
+
+          function handleFile(file) {
+              statusText.innerText = `Status: Reading "${file.name}"...`;
+              const reader = new FileReader();
+
+              reader.onload = (e) => {
+                  try {
+                      const fileContent = e.target.result;
+                      localStorage.setItem('wpss_cached_routines', fileContent);
+                      parseAndGenerateLinks(fileContent);
+                  } catch (err) {
+                      statusText.innerHTML = `<span class="error-msg">Parser Critical Failure: ${err.message}</span>`;
+                  }
+              };
+
+              reader.onerror = () => {
+                  statusText.innerHTML = '<span class="error-msg">Error loading file from local storage.</span>';
+              };
+
+              reader.readAsText(file);
+          }
+
+          // NEW: Fallback default loader logic
+          const defLoadBtn = document.getElementById('defLoad');
+          if (defLoadBtn) {
+              defLoadBtn.addEventListener('click', () => {
+                  const defaultText = `Quick Test //  A quick test of functionalities
 2.0 4 label
 4.0 5 -
 5.0 6
@@ -1371,319 +1431,357 @@ Fat Burn
 6 30 sprint #3
 4 25 recover
 6 30 sprint #4
-3 20 Cool_Down`;
-
-            try {
-                localStorage.setItem('wpss_cached_routines', defaultText);
-                parseAndGenerateLinks(defaultText);
-                
-                // Hide button after successful load so it doesn't clutter the UI
-                if (document.getElementById('routineContainer').style.display !== 'none') {
-                    defLoadBtn.style.display = 'none';
-                }
-            } catch(err) {
-                console.error("Failed to load default routines:", err);
-            }
-        });
-    }
-
-    function parseAndGenerateLinks(text) {
-        const blocks = text.split(/\n\s*\n/);
-        const routines = [];
-
-        for (const block of blocks) {
-            const rawLines = block.split('\n');
-            const processedLines = [];
-
-            for (const rawLine of rawLines) {
-                const trimmed = rawLine.trim();
-
-                if (trimmed.length === 0) continue;
-                if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
-
-                const inlineMatch = trimmed.match(/^(.*?)\s+\/\/(.*)$/);
-
-                let content = trimmed;
-                let comment = '';
-
-                if (inlineMatch) {
-                    content = inlineMatch[1].trim();
-                    comment = ' // ' + inlineMatch[2].trim();
-                }
-
-                processedLines.push({ content, comment });
-            }
-
-            if (processedLines.length < 2) continue;
-
-            const routineName = processedLines[0].content;
-            const stepsArray = [];
-
-            let totalDuration = 0;
-            let distanceAccumulator = 0;
-            const rawTextLines = [];
-
-            for (let i = 0; i < processedLines.length; i++) {
-                const line = processedLines[i];
-
-                rawTextLines.push(line.content + line.comment);
-
-                if (i === 0) continue;
-
-                const stepTokens = line.content.split(/\s+/);
-                if (stepTokens.length >= 2) {
-                    const speed = parseFloat(stepTokens[0]);
-                    const duration = parseInt(stepTokens[1], 10);
-
-                    if (!isNaN(speed) && !isNaN(duration)) {
-                        totalDuration += duration;
-                        distanceAccumulator += (speed * duration);
-                    }
-
-                    let stepLabel = stepTokens.slice(2).join('_');
-
-                    if (stepLabel) {
-                        stepsArray.push(`${stepTokens[0]}-${stepTokens[1]}-${stepLabel}`);
-                    } else {
-                        stepsArray.push(`${stepTokens[0]}-${stepTokens[1]}`);
-                    }
-                }
-            }
-
-            if (stepsArray.length > 0) {
-                let queryParams = `n=${encodeURIComponent(routineName)}&r=${encodeURIComponent(stepsArray.join(','))}`;
-
-                if (isTestMode) {
-                    queryParams += '&t=1';
-                }
-
-                const blockRawText = rawTextLines.join('\n');
-
-                const mins = Math.floor(totalDuration / 60);
-                const secs = totalDuration % 60;
-                const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-
-                const avgSpeed = totalDuration > 0 ? (distanceAccumulator / totalDuration).toFixed(2) : "0.0";
-
-                routines.push({
-                    name: routineName,
-                    queryStringParams: queryParams,
-                    rawText: blockRawText,
-                    durationStr: durationStr,
-                    avgSpeed: avgSpeed
-                });
-            }
-        }
-
-        renderRoutineList(routines);
-    }
-
-    function renderRoutineList(routines) {
-        routineList.innerHTML = '';
-
-        if (routines.length === 0) {
-            statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
-            routineContainer.style.display = 'none';
-            
-            // NEW: Show fallback button if no routines are loaded
-            const defLoadBtn = document.getElementById('defLoad');
-            if (defLoadBtn) {
-                defLoadBtn.style.display = 'inline-block';
-            }
-            return;
-        }
-
-        routines.forEach((routine, idx) => {
-            const rowId = `raw-view-${idx}`;
-
-            const rowContainer = document.createElement('div');
-            rowContainer.className = 'routine-row';
-
-            const controlsWrapper = document.createElement('div');
-            controlsWrapper.className = 'routine-header-controls';
-
-            const link = document.createElement('a');
-            link.href = `?${routine.queryStringParams}`;
-            link.className = 'routine-link-btn';
-            link.innerText = routine.name;
-
-            const toggleBtn = document.createElement('button');
-            toggleBtn.className = 'routine-toggle-btn';
-            toggleBtn.innerText = '▼';
-            toggleBtn.onclick = () => toggleRawView(toggleBtn, rowId);
-
-            const statsDiv = document.createElement('div');
-            statsDiv.className = 'routine-stats';
-            statsDiv.innerHTML = `<span>Duration: <strong>${routine.durationStr}</strong></span> <span>Avg Speed: <strong>${routine.avgSpeed} km/h</strong></span>`;
-
-            const rawPre = document.createElement('pre');
-            rawPre.id = rowId;
-            rawPre.className = 'routine-raw-view';
-            rawPre.innerText = routine.rawText;
-
-            controlsWrapper.appendChild(link);
-            controlsWrapper.appendChild(toggleBtn);
-            rowContainer.appendChild(controlsWrapper);
-            rowContainer.appendChild(statsDiv);
-            rowContainer.appendChild(rawPre);
-
-            routineList.appendChild(rowContainer);
-        });
-
-        const modeLabel = isTestMode ? "[Test Mode] " : "";
-        statusText.innerText = `Status: ${modeLabel}Successfully parsed ${routines.length} routine(s).`;
-        routineContainer.style.display = 'block';
-    }
-}
-
-/* ================================================================
-   DRIVER MODE INITIALIZATION
-   ================================================================ */
-
-function initDriverMode(urlParams) {
-    const basePath = window.location.pathname;
-    const isTestMode = urlParams.get('t') === '1';
-
-    routineNameCached = urlParams.get('n') || "Test";
-    if (routineNameCached !== "Test") {
-        routineNameProvided = true;
-    }
-    routineRawCached = urlParams.get('r');
-
-    const testCheckbox = document.getElementById('testModeCheckbox');
-    testCheckbox.checked = isTestMode;
-
-    // Show the simulated start/pause button ONLY in test mode
-    const simBtn = document.getElementById('simStartPauseBtn');
-    if (isTestMode && simBtn) {
-        simBtn.style.display = 'inline-block';
-        simBtn.addEventListener('click', simulateRemoteStartPause);
-    }
-
-    testCheckbox.addEventListener('change', () => {
-        const newParams = new URLSearchParams(urlParams);
-        newParams.set('t', testCheckbox.checked ? '1' : '0');
-        window.location.href = basePath + '?' + newParams.toString();
-    });
-
-    if (isTestMode) {
-        document.getElementById('connectBtn').innerText = "Connect (Test Mode)";
-        document.getElementById('navBackBtn').href = basePath + '?t=1';
-    } else {
-        document.getElementById('navBackBtn').href = basePath;
-    }
-
-    updateRoutineButtonText(false);
-
-    routineTotalDuration = routineTotalDurationGet(routineRawCached);
-    document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
-    renderStepsList();
-
-    const neutralBtn = document.getElementById('mod-neutral');
-    if (neutralBtn) {
-        neutralBtn.classList.add('active');
-    }
-
-    document.getElementById('connectBtn').addEventListener('click', async () => {
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-            if (isTestMode) {
-                updateStatus("Test Mode active. Bypassing Bluetooth...");
-
-                ftmsControlCharacteristic = {
-                    writeValue: async (buffer) => {
-                        console.log("Mock BLE Control Write:", buffer);
-                        if (buffer.byteLength === 3 && new DataView(buffer).getUint8(0) === 0x02) {
-                            const rawSpeed = new DataView(buffer).getUint16(1, true);
-                            // Keep mock live speed updated
-                            currentLiveSpeed = rawSpeed / 100; 
-                            document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)} <span style="font-size:1rem"></span>`;
-                        }
-                    }
-                };
-
-                document.getElementById('testModeToggle').style.display = 'none';
-                document.getElementById('controls').style.display = 'block';
-                document.getElementById('connectBtn').style.display = 'none';
-                await requestWakeLock();
-                return;
-            }
-
-            updateStatus("Requesting Bluetooth device...");
-            bluetoothDevice = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [FTMS_SERVICE_UUID] }]
-            });
-
-            updateStatus("Connecting to GATT Server...");
-            const server = await bluetoothDevice.gatt.connect();
-
-            updateStatus("Getting Fitness Machine Service...");
-            const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
-
-            updateStatus("Getting Control Point Characteristic...");
-            ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
-
-            try {
-                updateStatus("Subscribing to Walkpad Data stream...");
-                const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
-                await dataChar.startNotifications();
-                dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
-                updateStatus("Connected & Ready!");
-            } catch (dataErr) {
-                console.warn("Metrics channel initialization skipped: ", dataErr.message);
-            }
-
-            document.getElementById('testModeToggle').style.display = 'none';
-            document.getElementById('controls').style.display = 'block';
-            document.getElementById('connectBtn').style.display = 'none';
-            updateStatus("Connected & Ready!");
-            updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
-            await requestWakeLock();
-        } catch (error) {
-            updateStatus("Error: " + error.message);
-        }
-    });
-
-    document.getElementById('routineBtn').addEventListener('click', async () => {
-        resetRoutineState();
-
-        if (routineRawCached) {
-            try {
-                currentRoutineSteps = buildRoutineSteps(routineRawCached);
-            } catch (error) {
-                alert("Parser fail!");
-            }
-            routineTotalDuration = routineTotalDurationGet(routineRawCached);
-            updateLiveRemainDisplay(routineTotalDuration);
-        } else {
-            window.location.hash = '#';
-        }
-
-        const routineBtn = document.getElementById('routineBtn');
-        routineBtn.disabled = true;
-        updateRoutineButtonText(true);
-
-        currentStepIndex = 0;
-        secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
-        totalStepDuration = secondsLeftInStep;
-        isRoutineActive = true;
-        updateStepsListVisibility();
-
-        buildGlobalProgressBar(currentRoutineSteps);
-        document.getElementById('timerContainer').style.display = 'block';
-        updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
-
-        await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
-        startClockLoop();
-    });
-
-    document.addEventListener('visibilitychange', async () => {
-        if (wakeLock !== null && document.visibilityState === 'visible') {
-            await requestWakeLock();
-        }
-    });
-}
-</script>
-</body>
+3 20 Cool_Down
+
+Climb with Inclines // For walkpads with automatic incline settings
+3 120 warmup
+5.0 4% 180 climb_1
+4.0 60 flat
+5.5 6% 180 climb_2
+4.0 60 flat
+6.0 8% 180 climb_3
+4.0 60 flat
+5.0 4% 180 climb_4
+3 120 cooldown`;
+
+                  try {
+                      localStorage.setItem('wpss_cached_routines', defaultText);
+                      parseAndGenerateLinks(defaultText);
+                      
+                      // Hide button after successful load so it doesn't clutter the UI
+                      if (document.getElementById('routineContainer').style.display !== 'none') {
+                          defLoadBtn.style.display = 'none';
+                      }
+                  } catch(err) {
+                      console.error("Failed to load default routines:", err);
+                  }
+              });
+          }
+
+          function parseAndGenerateLinks(text) {
+              const blocks = text.split(/\n\s*\n/);
+              const routines = [];
+
+              for (const block of blocks) {
+                  const rawLines = block.split('\n');
+                  const processedLines = [];
+
+                  for (const rawLine of rawLines) {
+                      const trimmed = rawLine.trim();
+
+                      if (trimmed.length === 0) continue;
+                      if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+
+                      const inlineMatch = trimmed.match(/^(.*?)\s+\/\/(.*)$/);
+
+                      let content = trimmed;
+                      let comment = '';
+
+                      if (inlineMatch) {
+                          content = inlineMatch[1].trim();
+                          comment = ' // ' + inlineMatch[2].trim();
+                      }
+
+                      processedLines.push({ content, comment });
+                  }
+
+                  if (processedLines.length < 2) continue;
+
+                  const routineName = processedLines[0].content;
+                  const stepsArray = [];
+
+                  let totalDuration = 0;
+                  let distanceAccumulator = 0;
+                  let maxIncline = 0;
+                  const rawTextLines = [];
+
+                  for (let i = 0; i < processedLines.length; i++) {
+                      const line = processedLines[i];
+
+                      rawTextLines.push(line.content + line.comment);
+
+                      if (i === 0) continue;
+
+                      const stepTokens = line.content.split(/\s+/);
+                      if (stepTokens.length >= 2) {
+                          const speed = parseFloat(stepTokens[0]);
+                          let tokenIndex = 1;
+                          let incline = null;
+                          if (/^\d+%$/.test(stepTokens[tokenIndex])) {
+                              incline = parseInt(
+                                  stepTokens[tokenIndex].replace('%',''),
+                                  10
+                              );
+                              tokenIndex++;
+                              if (incline > maxIncline) {
+                                  maxIncline = incline;
+                              }
+                          }
+                          const duration = parseInt(stepTokens[tokenIndex], 10);
+                          if (!isNaN(speed) && !isNaN(duration)) {
+                              totalDuration += duration;
+                              distanceAccumulator += (speed * duration);
+                          }
+                          let labelStart = tokenIndex + 1;
+                          let stepLabel = stepTokens.slice(labelStart).join('_');
+                          let packedStep = `${stepTokens[0]}-`;
+                          if (incline !== null) {
+                              packedStep += `${incline}%_`;
+                          }
+                          packedStep += `${duration}`;
+                          if (stepLabel) {
+                              packedStep += `-${stepLabel}`;
+                          }
+                          stepsArray.push(packedStep);
+                      }
+                  }
+                  if (stepsArray.length > 0) {
+                      let queryParams = `n=${encodeURIComponent(routineName)}&r=${encodeURIComponent(stepsArray.join(','))}`;
+
+                      if (isTestMode) {
+                          queryParams += '&t=1';
+                      }
+
+                      const blockRawText = rawTextLines.join('\n');
+
+                      const mins = Math.floor(totalDuration / 60);
+                      const secs = totalDuration % 60;
+                      const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+                      const avgSpeed = totalDuration > 0 ? (distanceAccumulator / totalDuration).toFixed(2) : "0.0";
+
+                      routines.push({
+                          name: routineName,
+                          queryStringParams: queryParams,
+                          rawText: blockRawText,
+                          durationStr: durationStr,
+                          avgSpeed: avgSpeed,
+                          maxIncline: maxIncline
+                      });
+                  }
+              }
+
+              renderRoutineList(routines);
+          }
+
+          function renderRoutineList(routines) {
+              routineList.innerHTML = '';
+
+              if (routines.length === 0) {
+                  statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
+                  routineContainer.style.display = 'none';
+                  
+                  // NEW: Show fallback button if no routines are loaded
+                  const defLoadBtn = document.getElementById('defLoad');
+                  if (defLoadBtn) {
+                      defLoadBtn.style.display = 'inline-block';
+                  }
+                  return;
+              }
+
+              routines.forEach((routine, idx) => {
+                  const rowId = `raw-view-${idx}`;
+
+                  const rowContainer = document.createElement('div');
+                  rowContainer.className = 'routine-row';
+
+                  const controlsWrapper = document.createElement('div');
+                  controlsWrapper.className = 'routine-header-controls';
+
+                  const link = document.createElement('a');
+                  link.href = `?${routine.queryStringParams}`;
+                  link.className = 'routine-link-btn';
+                  link.innerText = routine.name;
+
+                  const toggleBtn = document.createElement('button');
+                  toggleBtn.className = 'routine-toggle-btn';
+                  toggleBtn.innerText = '▼';
+                  toggleBtn.onclick = () => toggleRawView(toggleBtn, rowId);
+
+                  let incline = '';
+                  if (routine.maxIncline > 0) {
+                      incline = ` <span>Max incline: <strong>${routine.maxIncline}%</strong></span>`;
+                  }
+                  
+                  const statsDiv = document.createElement('div');
+                  statsDiv.className = 'routine-stats';
+                  statsDiv.innerHTML = `<span>Duration: <strong>${routine.durationStr}</strong></span> <span>Avg Speed: <strong>${routine.avgSpeed} km/h</strong></span>${incline}`;
+
+                  const rawPre = document.createElement('pre');
+                  rawPre.id = rowId;
+                  rawPre.className = 'routine-raw-view';
+                  rawPre.innerText = routine.rawText;
+
+                  controlsWrapper.appendChild(link);
+                  controlsWrapper.appendChild(toggleBtn);
+                  rowContainer.appendChild(controlsWrapper);
+                  rowContainer.appendChild(statsDiv);
+                  rowContainer.appendChild(rawPre);
+
+                  routineList.appendChild(rowContainer);
+              });
+
+              const modeLabel = isTestMode ? "[Test Mode] " : "";
+              statusText.innerText = `Status: ${modeLabel}Successfully parsed ${routines.length} routine(s).`;
+              routineContainer.style.display = 'block';
+          }
+      }
+
+      /* ================================================================
+         DRIVER MODE INITIALIZATION
+         ================================================================ */
+
+      function initDriverMode(urlParams) {
+          const basePath = window.location.pathname;
+          const isTestMode = urlParams.get('t') === '1';
+
+          routineNameCached = urlParams.get('n') || "Test";
+          if (routineNameCached !== "Test") {
+              routineNameProvided = true;
+          }
+          routineRawCached = urlParams.get('r');
+
+          const testCheckbox = document.getElementById('testModeCheckbox');
+          testCheckbox.checked = isTestMode;
+
+          // Show the simulated start/pause button ONLY in test mode
+          const simBtn = document.getElementById('simStartPauseBtn');
+          if (isTestMode && simBtn) {
+              simBtn.style.display = 'inline-block';
+              simBtn.addEventListener('click', simulateRemoteStartPause);
+          }
+
+          testCheckbox.addEventListener('change', () => {
+              const newParams = new URLSearchParams(urlParams);
+              newParams.set('t', testCheckbox.checked ? '1' : '0');
+              window.location.href = basePath + '?' + newParams.toString();
+          });
+
+          if (isTestMode) {
+              document.getElementById('connectBtn').innerText = "Connect (Test Mode)";
+              document.getElementById('navBackBtn').href = basePath + '?t=1';
+          } else {
+              document.getElementById('navBackBtn').href = basePath;
+          }
+
+          updateRoutineButtonText(false);
+
+          routineTotalDuration = routineTotalDurationGet(routineRawCached);
+          document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
+          renderStepsList();
+
+          const neutralBtn = document.getElementById('mod-neutral');
+          if (neutralBtn) {
+              neutralBtn.classList.add('active');
+          }
+
+          document.getElementById('connectBtn').addEventListener('click', async () => {
+              try {
+                  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+                  if (isTestMode) {
+                      updateStatus("Test Mode active. Bypassing Bluetooth...");
+
+                      ftmsControlCharacteristic = {
+                          writeValue: async (buffer) => {
+                              console.log("Mock BLE Control Write:", buffer);
+                              if (buffer.byteLength === 3 && new DataView(buffer).getUint8(0) === 0x02) {
+                                  const rawSpeed = new DataView(buffer).getUint16(1, true);
+                                  // Keep mock live speed updated
+                                  currentLiveSpeed = rawSpeed / 100; 
+                                  document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)} <span style="font-size:1rem"></span>`;
+                              }
+                          }
+                      };
+
+                      document.getElementById('testModeToggle').style.display = 'none';
+                      document.getElementById('controls').style.display = 'block';
+                      if (routineHasIncline) {
+                          document.getElementById('inclineMetric').style.display = 'block';
+                      }
+
+                      document.getElementById('connectBtn').style.display = 'none';
+                      await requestWakeLock();
+                      return;
+                  }
+
+                  updateStatus("Requesting Bluetooth device...");
+                  bluetoothDevice = await navigator.bluetooth.requestDevice({
+                      filters: [{ services: [FTMS_SERVICE_UUID] }]
+                  });
+
+                  updateStatus("Connecting to GATT Server...");
+                  const server = await bluetoothDevice.gatt.connect();
+
+                  updateStatus("Getting Fitness Machine Service...");
+                  const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+
+                  updateStatus("Getting Control Point Characteristic...");
+                  ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+
+                  try {
+                      updateStatus("Subscribing to Walkpad Data stream...");
+                      const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
+                      await dataChar.startNotifications();
+                      dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
+                      updateStatus("Connected & Ready!");
+                  } catch (dataErr) {
+                      console.warn("Metrics channel initialization skipped: ", dataErr.message);
+                  }
+
+                  document.getElementById('testModeToggle').style.display = 'none';
+                  document.getElementById('controls').style.display = 'block';
+                  if (routineHasIncline) {
+                      document.getElementById('inclineMetric').style.display = 'block';
+                  }
+                  document.getElementById('connectBtn').style.display = 'none';
+                  updateStatus("Connected & Ready!");
+                  updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+                  await requestWakeLock();
+              } catch (error) {
+                  updateStatus("Error: " + error.message);
+              }
+          });
+
+          document.getElementById('routineBtn').addEventListener('click', async () => {
+              resetRoutineState();
+
+              if (routineRawCached) {
+                  try {
+                      currentRoutineSteps = buildRoutineSteps(routineRawCached);
+                  } catch (error) {
+                      alert("Parser fail!");
+                  }
+                  routineTotalDuration = routineTotalDurationGet(routineRawCached);
+                  updateLiveRemainDisplay(routineTotalDuration);
+              } else {
+                  window.location.hash = '#';
+              }
+
+              const routineBtn = document.getElementById('routineBtn');
+              routineBtn.disabled = true;
+              updateRoutineButtonText(true);
+
+              currentStepIndex = 0;
+              secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
+              totalStepDuration = secondsLeftInStep;
+              isRoutineActive = true;
+              updateStepsListVisibility();
+
+              buildGlobalProgressBar(currentRoutineSteps);
+              document.getElementById('timerContainer').style.display = 'block';
+              updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
+
+              await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
+              startClockLoop();
+          });
+
+          document.addEventListener('visibilitychange', async () => {
+              if (wakeLock !== null && document.visibilityState === 'visible') {
+                  await requestWakeLock();
+              }
+          });
+      }
+      </script>
+  </body>
 </html>
