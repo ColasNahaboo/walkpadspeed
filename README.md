@@ -212,7 +212,7 @@ The only features I plan to add would be:
 
 ## Optional: Installation & Deployment
 
-If you do not want to use the walkpadspeed.html hosted here, and want to host it yourself, since the interface is entirely self-contained inside a single file, setup is minimal:
+If you do not want to use the walkpadspeed.html hosted here or on walkpad.fr, host a version modified for your needs, since the interface is entirely self-contained inside a single file, setup is minimal:
 
 1. Clone this repository or just download the single file `walkpadspeed.html`.
 2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
