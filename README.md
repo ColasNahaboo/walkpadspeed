@@ -243,5 +243,5 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 - v0.4.0 2026-06-25 works consistently with the physical play/pause button on the remote.
 - v0.3.6 2026-06-22 back to a single file performing both functions: manager of a library of routines and player of one.
 - v0.2.7 2026-06-21 new file walkpadspeeds.html, the Routines Manager, to manage a set of routines from a text file description.
-- v0.1.6 2026-06-21 released. I know use only walkpadspeed for my workouts.
+- v0.1.6 2026-06-21 released. I now use only walkpadspeed for my workouts.
 - v0.1.0 2026-06-20 initial working version.
