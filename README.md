@@ -113,7 +113,7 @@ This file describes two separate routines: a 17-minute steady walk, and an inter
 
 Save the file and keep it handy — you'll upload it on the Manager screen.
 
-**Note:** As I do not have a walkpad with automatic incline setting, the code to drive the incline on the pad should work, but is not actually tested.
+**Note:** As I do not have a walkpad with automatic incline setting, the code to drive the incline on the pad should work, but is not actually tested. Feedback welcome!
 
 ## Step 2 — Load your routines (Manager screen)
 

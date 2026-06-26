@@ -218,9 +218,15 @@
           box-shadow: 0 8px 16px rgba(0,0,0,0.5);
           border: 1px solid #2c2c2e;
       }
-      #routineLabel { font-size: 3rem; font-weight: 500; color: #0a84ff; margin-bottom: 8px; }
-      #timeDisplay { font-size: 3.5rem; font-weight: bold; font-family: monospace; color: #ffffff; }
-
+      #routineLabel { font-size: 3rem; font-weight: 500; color: #0a84ff;
+                      margin-bottom: 8px; }
+      #flexRow { display: flex; justify-content: space-between;
+                  align-items: flex-start;width: 100%; }
+      #timeDisplay { font-size: 3.5rem; font-weight: bold;
+                     font-family: monospace; color: #ffffff;
+                     margin-left: 0.5rem;
+                   }
+      
       .progress-track {
           width: 100%;
           background-color: #2c2c2e;
@@ -270,16 +276,20 @@
 
       .metrics-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 2px;
-          margin: 20px auto;
-          max-width: 400px;
+          grid-auto-flow: column;
+          grid-auto-columns: 1fr 1fr 1fr;
+          /*  dynamically spaces only the VISIBLE elements */
+          gap: 0.2rem; 
+          width: inherit;
+          box-sizing: border-box;
+          margin: 0px auto;
       }
       .metric-box {
           background: #1c1c1e;
           border: 1px solid #2c2c2e;
           border-radius: 10px;
-          padding: 12px;
+          padding: 12px 0 12px 0;
+          min-width: 0;
       }
       .metric-value {
           font-size: 2.4rem;
@@ -288,14 +298,15 @@
           color: #00fa9a;
           margin-top: 5px;
       }
-      #liveSpeed { color: #aaffff; }
-      #liveIncline { color: #ffffaa; }
       .metric-title {
           font-size: 0.85rem;
           color: #8e8e93;
           text-transform: uppercase;
           letter-spacing: 0.5px;
       }
+      #liveSpeed { color: #aaffff; font-size: 3.5rem; margin-right: 0.5rem;}
+      #liveIncline { color: #ffffaa;}
+      #inclineMetric { flex: 0 0 auto; min-width: 0 ;}
 
       .wpss-nav-menu {
           position: absolute;
@@ -438,23 +449,21 @@
       <div id="controls" style="display:none; margin-top: 20px;">
         <div id="timerContainer">
           <div id="routineLabel">Active</div>
-          <div id="timeDisplay">00:00</div>
+          <span id="flexRow">
+            <span id="timeDisplay">00:00</span>
+            <span><span class="metric-value" id="liveSpeed">0.0</span></span>
+          </span>
           <div class="progress-track">
             <div id="progressBar"></div>
           </div>
         </div>
-
         <div class="metrics-grid">
           <div class="metric-box">
             <div class="metric-title">Elapsed</div>
             <div class="metric-value" id="liveTime">00:00</div>
           </div>
-          <div class="metric-box">
-            <div class="metric-title">Speed</div>
-            <div class="metric-value" id="liveSpeed">0.0</div>
-          </div>
           <div id="inclineMetric" class="metric-box" style="display:none">
-            <div class="metric-title">Incline</div>
+            <div class="metric-title">Incl</div>
             <div class="metric-value" id="liveIncline">0%</div>
           </div>
           <div class="metric-box">
@@ -594,7 +603,7 @@
               // Update our global live speed tracker
               currentLiveSpeed = speedKmh; 
               
-              document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)} <span style="font-size:1rem"></span>`;
+              document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)}`;
               offset += 2;
 
               // Detect remote pause/resume via speed changes
@@ -1689,7 +1698,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                                   const rawSpeed = new DataView(buffer).getUint16(1, true);
                                   // Keep mock live speed updated
                                   currentLiveSpeed = rawSpeed / 100; 
-                                  document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)} <span style="font-size:1rem"></span>`;
+                                  document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)}</span>`;
                               }
                           }
                       };
