@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-        #version:after {content: "v0.4.1";}
+        #version:after {content: "v0.4.2";}
 
         /* Dark Mode Global Styles */
         body {
@@ -156,6 +156,52 @@
                             border-color: #bf5af2; }
         .routine-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px;}
         .routine-btn:disabled { background: #2c2c2e; color: #8e8e93; cursor: not-allowed; transform: none; margin: 0; padding: 2px; font-size: 100%; }
+
+        /* === Step Jump List (Driver View) === */
+        #stepsListContainer {
+            margin: 30px auto 10px;
+            max-width: 450px;
+        }
+        #stepsList {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .step-row {
+            width: 100%;
+            max-width: 440px;
+            display: flex;
+            align-items: center;
+            background: #1c1c1e;
+            border-radius: 8px;
+            border: 1px solid #2c2c2e;
+            overflow: hidden;
+        }
+        .step-link-btn {
+            flex-grow: 1;
+            text-align: left;
+            background: transparent;
+            color: #b0b0b0;
+            border: none;
+            border-radius: 0;
+            padding: 0.8rem 1rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin: 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .step-link-btn:hover { background: #2c2c2e; color: #ffffff; }
+        .step-meta {
+            display: flex;
+            gap: 10px;
+            padding: 0 1rem;
+            font-size: 0.85rem;
+            color: #8e8e93;
+            font-family: monospace;
+            white-space: nowrap;
+        }
 
         .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
         .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
@@ -430,6 +476,12 @@
     </div>
 
     <p id="driverStatus" class="status-text">Status: Disconnected</p>
+
+    <div id="stepsListContainer" style="display:none;">
+        <h3>Routine Steps</h3>
+        <p class="status-text" style="margin-top:0; font-weight:400; font-size:0.85rem;">Tap a step to position the routine there, paused — press RESUME to start moving from that point.</p>
+        <div id="stepsList"></div>
+    </div>
 </div>
 
 <!-- Shared Footer -->
@@ -667,6 +719,7 @@ function resetRoutineState() {
     document.getElementById('timerContainer').style.display = 'none';
 
     hideGlobalProgress();
+    updateStepsListVisibility();
 }
 
 async function togglePauseState() {
@@ -830,6 +883,32 @@ function routineTotalDurationGet(raw) {
     return total;
 }
 
+function buildRoutineSteps(raw) {
+    if (!raw) return [];
+    const totalSteps = raw.split(',').length;
+    return raw.split(',').map((item, index) => {
+        const parts = item.split('-');
+        const speed = parseFloat(parts[0]);
+        const duration = parseInt(parts[1], 10);
+
+        let stepName = '';
+        let setName = '';
+        if (parts.length > 2) {
+            stepName = parts.slice(2).join('-').replace(/_/g, ' ');
+            setName = stepName;
+        } else {
+            stepName = `Step [${index + 1}/${totalSteps}]`;
+            setName = '';
+        }
+        return {
+            speed: speed,
+            duration: duration,
+            name: stepName,
+            setName: setName
+        };
+    });
+}
+
 function updateRoutineUI(label, setLabel, seconds, percentage) {
     if (label.trim() === '-') {
         label = lastValidRoutineLabel;
@@ -933,6 +1012,105 @@ function hideGlobalProgress() {
     track.style.display = 'none';
     eraser.style.width = '0%';
     container.innerHTML = '';
+}
+
+/* ================================================================
+   STEP JUMP LIST (Driver View)
+   Shown whenever the routine is idle (not yet started, or stopped).
+   Tapping a step positions the routine there in a paused state,
+   with every widget updated to match, ready for the user to RESUME.
+   ================================================================ */
+
+function renderStepsList() {
+    const wrapper = document.getElementById('stepsListContainer');
+    const list = document.getElementById('stepsList');
+    if (!wrapper || !list) return;
+
+    if (!routineRawCached) {
+        wrapper.style.display = 'none';
+        return;
+    }
+
+    const steps = buildRoutineSteps(routineRawCached);
+    list.innerHTML = '';
+
+    steps.forEach((step, index) => {
+        const row = document.createElement('div');
+        row.className = 'step-row';
+
+        const btn = document.createElement('button');
+        btn.className = 'step-link-btn';
+        btn.innerText = `${index + 1}. ${step.name}`;
+        btn.title = 'Position the routine here, paused';
+        btn.onclick = () => jumpToStep(index);
+
+        const meta = document.createElement('div');
+        meta.className = 'step-meta';
+        meta.innerHTML = `<span>${step.speed} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
+
+        row.appendChild(btn);
+        row.appendChild(meta);
+        list.appendChild(row);
+    });
+
+    updateStepsListVisibility();
+}
+
+function updateStepsListVisibility() {
+    const wrapper = document.getElementById('stepsListContainer');
+    if (!wrapper) return;
+    wrapper.style.display = (!isRoutineActive && routineRawCached) ? 'block' : 'none';
+}
+
+function jumpToStep(index) {
+    if (!currentRoutineSteps || currentRoutineSteps.length === 0) {
+        currentRoutineSteps = buildRoutineSteps(routineRawCached);
+    }
+    if (index < 0 || index >= currentRoutineSteps.length) return;
+
+    // Stop any running clock and clear pending remote pause/resume detection
+    clearAllIntervals();
+    if (remotePauseDebounce) {
+        clearTimeout(remotePauseDebounce);
+        remotePauseDebounce = null;
+    }
+    ignoreSpeedChanges = false;
+
+    // Recompute total duration in case a previous Stop reset it to 0
+    routineTotalDuration = routineTotalDurationGet(routineRawCached);
+
+    // Sum the duration of every step before this one, to know our elapsed time
+    let elapsed = 0;
+    for (let i = 0; i < index; i++) {
+        elapsed += currentRoutineSteps[i].duration;
+    }
+
+    currentStepIndex = index;
+    totalElapsedSeconds = elapsed;
+    secondsLeftInStep = currentRoutineSteps[index].duration - stepOverhead;
+    totalStepDuration = secondsLeftInStep;
+    currentTargetSpeed = currentRoutineSteps[index].speed;
+
+    isRoutineActive = true;
+    isPaused = true;
+
+    const routineBtn = document.getElementById('routineBtn');
+    routineBtn.disabled = true;
+    updateRoutineButtonText(true);
+
+    const pauseBtn = document.getElementById('pauseToggleBtn');
+    pauseBtn.innerText = "RESUME";
+    pauseBtn.className = "resume-btn";
+
+    document.getElementById('timerContainer').style.display = 'block';
+    buildGlobalProgressBar(currentRoutineSteps);
+    updateGlobalProgress(totalElapsedSeconds);
+    updateLiveTimeDisplay(totalElapsedSeconds);
+    updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+    updateRoutineUI(currentRoutineSteps[index].name, currentRoutineSteps[index].setName, secondsLeftInStep, 100);
+
+    updateStatus(`Positioned at "${currentRoutineSteps[index].name}". Paused — press RESUME to continue.`);
+    updateStepsListVisibility();
 }
 
 /* ================================================================
@@ -1399,6 +1577,7 @@ function initDriverMode(urlParams) {
 
     routineTotalDuration = routineTotalDurationGet(routineRawCached);
     document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
+    renderStepsList();
 
     const neutralBtn = document.getElementById('mod-neutral');
     if (neutralBtn) {
@@ -1471,27 +1650,7 @@ function initDriverMode(urlParams) {
 
         if (routineRawCached) {
             try {
-                const totalSteps = routineRawCached.split(',').length;
-                currentRoutineSteps = routineRawCached.split(',').map((item, index) => {
-                    const parts = item.split('-');
-                    const speed = parseFloat(parts[0]);
-                    const duration = parseInt(parts[1], 10);
-
-                    let stepName = '';
-                    if (parts.length > 2) {
-                        stepName = parts.slice(2).join('-').replace(/_/g, ' ');
-                        setName = stepName;
-                    } else {
-                        stepName = `Step [${index + 1}/${totalSteps}]`;
-                        setName = '';
-                    }
-                    return {
-                        speed: speed,
-                        duration: duration,
-                        name: stepName,
-                        setName: setName
-                    };
-                });
+                currentRoutineSteps = buildRoutineSteps(routineRawCached);
             } catch (error) {
                 alert("Parser fail!");
             }
@@ -1509,6 +1668,7 @@ function initDriverMode(urlParams) {
         secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
         totalStepDuration = secondsLeftInStep;
         isRoutineActive = true;
+        updateStepsListVisibility();
 
         buildGlobalProgressBar(currentRoutineSteps);
         document.getElementById('timerContainer').style.display = 'block';

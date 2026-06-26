@@ -151,6 +151,12 @@ Click any routine button on the Manager screen to jump to the **Player** screen,
 
 Tap the **☰** menu in the top-right corner at any time to go back to the Manager screen and pick a different routine.
 
+### While a routine is paused
+
+You can jump directly to any routine step by clicking on the list or "Routine steps" that appear at the bottom on the connection screen, or on the Player screen when the routine is stopped.
+
+![](docs/screens-v0.4.2/all.webp)
+
 ---
 
 ## Test Mode — try it without a walkpad
@@ -239,6 +245,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.4.2 2026-06-26 released. You can now (re)start to any routine step.
 - v0.4.1 2026-06-25 released. This implements all the features I wanted initially.
 - v0.4.0 2026-06-25 works consistently with the physical play/pause button on the remote.
 - v0.3.6 2026-06-22 back to a single file performing both functions: manager of a library of routines and player of one.
