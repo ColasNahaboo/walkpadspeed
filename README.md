@@ -12,6 +12,7 @@
 - **Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations.
 - **Pause, resume, or stop** at any time, from the app or from your walkpad's own physical remote.
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
+- **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
 - **Try it out in "Test Mode"** with no walkpad at all, to see how everything works first.
 
 ## Prerequisites
