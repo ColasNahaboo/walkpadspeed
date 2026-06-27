@@ -115,6 +115,8 @@ Save the file and keep it handy — you'll upload it on the Manager screen.
 
 **Note:** As I do not have a walkpad with automatic incline setting, the code to drive the incline on the pad should work, but is not actually tested. Feedback welcome!
 
+**Share your routines!** Feel free to share your routines with others as [discussions](https://github.com/ColasNahaboo/walkpadspeed/discussions) on this repository!
+
 ## Step 2 — Load your routines (Manager screen)
 
 1. Open walkpadspeed. You'll land on the **Manager** screen.
