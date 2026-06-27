@@ -54,7 +54,11 @@
       #defLoad { background: #444; color: #aaa;font-weight: 300;
                  width: 80%; max-width: 100vw; padding-bottom: 20px;}
       #defLoad:hover  { background: #222224; color: #ccc;font-weight: 500;}
-
+      #routinesClear { background: #444; color: #aaa;font-weight: 300;
+                 width: 80%; max-width: 100vw; padding-bottom: 20px;}
+      #routinesClear:hover  { background: #222224; color: #ccc;font-weight: 500;}
+    
+      
       .routine-row {
           width: 100%;
           max-width: 100vw;
@@ -433,6 +437,7 @@
       <div id="routineContainer" style="display: none;">
         <h3>Available Routines</h3>
         <div id="routineList"></div>
+        <div class="routine-link-btn" id="routinesClear" onclick="clearRoutineList()">Clear routines</div>
       </div>
     </div>
 
@@ -1574,9 +1579,9 @@ Climb with Inclines // For walkpads with automatic incline settings
                   }
               }
 
-              renderRoutineList(routines, text.trim().length);
+              renderRoutineList(routines, 1);
           }
-
+          
           function renderRoutineList(routines, loaded) {
               routineList.innerHTML = '';
 
@@ -1584,13 +1589,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   if (loaded) {
                       statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
                   }
-                  routineContainer.style.display = 'none';
-                  
-                  // NEW: Show fallback button if no routines are loaded
-                  const defLoadBtn = document.getElementById('defLoad');
-                  if (defLoadBtn) {
-                      defLoadBtn.style.display = 'inline-block';
-                  }
+                  clearRoutineList();
                   return;
               }
 
@@ -1794,6 +1793,16 @@ Climb with Inclines // For walkpads with automatic incline settings
               }
           });
       }
+      
+      async function clearRoutineList() {
+          routineList.innerHTML = '';
+          routineContainer.style.display = 'none';
+          const defLoadBtn = document.getElementById('defLoad');
+          if (defLoadBtn) {
+              defLoadBtn.style.display = 'inline-block';
+          }
+      }
+      
       </script>
   </body>
 </html>
