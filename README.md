@@ -76,7 +76,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 
 - Each workout starts with a **name** on its own line.
 - Every line after that is one **step**: a speed, then how long to hold it, separated by a space.
-- Speed is in **km/h**. Duration is in **seconds**.
+- Speed is in **km/h**. Duration is in **seconds**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph.
 - Optionally a percent of incline can be given between speed and duration as an integer postfixed by `%`.
 - You can optionally add a label after the duration, to name that step (e.g. "Warmup").
 - Leave a **blank line** between two different routines.
@@ -256,6 +256,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.5.1 2026-06-27 released. Cleaned up the UI.
 - v0.5.0 2026-06-27 Support for inclines. But Untested on real walkpads.
 - v0.4.2 2026-06-26 released. You can now (re)start to any routine step.
 - v0.4.1 2026-06-25 released. This implements all the features I wanted initially.
