@@ -24,7 +24,7 @@ To use walkpadspeed, you need:
 
 ## What does it looks like?
 
-[![Screenshots](docs/screens-v0.4.0/all-1024.webp)](docs/screens-v0.4.0/all.webp)
+[![Screenshots](docs/screens-v0.5.1/all-1024.webp)](docs/screens-v0.5.1/all-big.webp)
 
 <table width="100%">
   <colgroup>
@@ -45,10 +45,10 @@ To use walkpadspeed, you need:
 
   <tbody>
     <tr>
-      <td>You load your routines text file, and the manager lets you choose one to play.</td>
+      <td>You load your routines text file, and the manager lets you choose one to play, and see its source file definition</td>
       <td>You connect to your Walking Pad via Bluetooth.</td>
       <td>The routine is now ready to play; click on the blue button with its name.</td>
-      <td>Routine started, now Walk!</td>
+      <td>Routine started, now Walk! This screenshot is of a routine that displays the incline, as the chosen routins defined them.</td>
     </tr>
   </tbody>
 </table>
