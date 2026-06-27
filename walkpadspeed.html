@@ -430,7 +430,7 @@
       </div>
       <div><a target="_blank" href='https://github.com/ColasNahaboo/walkpadspeed#step-1--write-your-routines'> (File format documentation) </a></div>
       <!-- NEW: Fallback default loader -->
-      <button id="defLoad" class="routine-link-btn" style="display: none;">Load sample routines file</button>
+      <button id="defLoad" class="routine-link-btn">Load sample routines file</button>
 
       <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
 
@@ -1469,6 +1469,8 @@ Climb with Inclines // For walkpads with automatic incline settings
                       // Hide button after successful load so it doesn't clutter the UI
                       if (document.getElementById('routineContainer').style.display !== 'none') {
                           defLoadBtn.style.display = 'none';
+                      } else {
+                          defLoadBtn.style.display = 'block';
                       }
                   } catch(err) {
                       console.error("Failed to load default routines:", err);
@@ -1638,6 +1640,8 @@ Climb with Inclines // For walkpads with automatic incline settings
               const modeLabel = isTestMode ? "[Test Mode] " : "";
               statusText.innerText = `Status: ${modeLabel}Successfully parsed ${routines.length} routine(s).`;
               routineContainer.style.display = 'block';
+              document.getElementById('defLoad').style.display = 'none';
+              document.getElementById('routinesClear').style.display = 'block';
           }
       }
 
@@ -1796,11 +1800,8 @@ Climb with Inclines // For walkpads with automatic incline settings
       
       async function clearRoutineList() {
           routineList.innerHTML = '';
-          routineContainer.style.display = 'none';
-          const defLoadBtn = document.getElementById('defLoad');
-          if (defLoadBtn) {
-              defLoadBtn.style.display = 'inline-block';
-          }
+          document.getElementById('defLoad').style.display = 'block';
+          document.getElementById('routinesClear').style.display = 'none';
       }
       
       </script>
