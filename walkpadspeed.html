@@ -16,7 +16,7 @@
           color: #e0e0e0;
       }
       h1 { color: #ffffff; margin-bottom: 0.5rem; }
-      .subtitle { color: #8e8e93; font-size: 1rem; margin-bottom: 0.5rem; }
+      .subtitle { color: #aabbcc; font-size: 1rem; margin-bottom: 0.5rem; }
       h3 { color: #b0b0b0; border-bottom: 1px solid #2d2d2d;
            padding-bottom: 1px; margin-top: 15px; margin-bottom: 5px; }
 
@@ -136,6 +136,7 @@
       }
 
       /* === Driver View Styles === */
+      #controls {width: 400px; margin: auto; align-items: center;}
       button {
           padding: 1.2rem 1.2rem;
           font-size: 1.2rem;
@@ -148,14 +149,16 @@
       }
       button:active { transform: scale(0.98); }
 
-      .connect-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px; }
       .speed-btn { background: #2d2d2d; color: #bf5af2;
                    padding: 1.2rem 0rem; min-width: 2.8rem; margin: 10px 1px;
                    border: 1px solid #444; }
       .speed-btn.active { background: #bf5af2; color: #121212;
                           border-color: #bf5af2; }
-      .routine-btn { background: #0a84ff; color: white; width: 80%; max-width: 400px;}
-      .routine-btn:disabled { background: #2c2c2e; color: #8e8e93; cursor: not-allowed; transform: none; margin: 0; padding: 2px; font-size: 100%; }
+      .connect-btn { background: #0a84ff; color: white;
+                     width: 80%; max-width: 400px; }
+      .routine-btn { background: #0a84ff; color: white;
+                     width: 100%; max-width: 400px; }
+      .routine-btn:disabled { display: none;}
 
       /* === Step Jump List (Driver View) === */
       #stepsListContainer {
@@ -203,6 +206,7 @@
           white-space: nowrap;
       }
 
+      #stoppause {font-size:2rem;}
       .stop-btn { background: #ff453a; color: white; padding: 1.5rem 2rem; }
       .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 2rem; }
       .resume-btn { background: #30d158; color: white; padding: 1.5rem 2rem; }
@@ -292,7 +296,7 @@
           min-width: 0;
       }
       .metric-value {
-          font-size: 2.4rem;
+          font-size: 2.8rem;
           font-weight: bold;
           font-family: monospace;
           color: #00fa9a;
@@ -543,7 +547,6 @@
       let maxSpeed = 0;
 
       let routineNameCached = "";
-      let routineNameProvided = false;
       let routineRawCached = "";
       let routineTotalDuration = 0;
       let lastValidRoutineLabel = '';
@@ -554,17 +557,10 @@
 
       function updateRoutineButtonText(running = false) {
           const button = document.getElementById('routineBtn');
-          const prefix = running ? "" : "Start: ";
-
-          if (routineNameProvided) {
-              button.innerText = `${prefix}${routineNameCached}`;
-          } else {
-              if (routineRawCached) {
-                  button.innerText = `${prefix}${routineNameCached} (${routineRawCached})`;
-              } else {
-                  button.innerText = `${prefix}Test`;
-              }
-          }
+          const prefix = running ? "Running: " : "Start: ";
+          button.innerText = `${prefix}${routineNameCached}`;
+          const label = document.getElementById('subtitleText');
+          label.innerText = `Routine: ${routineNameCached}`;
       }
 
       function playBeep() {
@@ -1058,7 +1054,6 @@
               container.appendChild(seg);
           });
 
-          subtitle.style.display = 'none';
           track.style.display = 'block';
       }
 
@@ -1356,7 +1351,6 @@
 
           if (urlParams.get('t') === '1') {
               isTestMode = true;
-              document.getElementById('subtitleText').innerText = "Walkpad Routines Manager (Test Mode)";
               statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
           }
 
@@ -1645,9 +1639,6 @@ Climb with Inclines // For walkpads with automatic incline settings
           const isTestMode = urlParams.get('t') === '1';
 
           routineNameCached = urlParams.get('n') || "Test";
-          if (routineNameCached !== "Test") {
-              routineNameProvided = true;
-          }
           routineRawCached = urlParams.get('r');
 
           const testCheckbox = document.getElementById('testModeCheckbox');
