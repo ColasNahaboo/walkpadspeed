@@ -51,7 +51,8 @@
       .file-zone p { margin: 0; color: #e0e0e0; font-size: 1rem; }
       .file-zone span { color: #0a84ff; font-weight: bold; font-size:1.2rem;}
       #fileInput { display: none; }
-      #defLoad { background: #444; color: #aaa;font-weight: 300;}
+      #defLoad { background: #444; color: #aaa;font-weight: 300;
+                 width: 80%; max-width: 100vw; padding-bottom: 20px;}
       #defLoad:hover  { background: #222224; color: #ccc;font-weight: 500;}
 
       .routine-row {
@@ -425,7 +426,7 @@
       </div>
       <div><a target="_blank" href='https://github.com/ColasNahaboo/walkpadspeed#step-1--write-your-routines'> (File format documentation) </a></div>
       <!-- NEW: Fallback default loader -->
-      <button id="defLoad" class="routine-link-btn" style="display: none; width: 80%; max-width: 100vw; margin: 0 auto 10px;">Load sample routines file</button>
+      <button id="defLoad" class="routine-link-btn" style="display: none;">Load sample routines file</button>
 
       <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
 
@@ -1573,14 +1574,16 @@ Climb with Inclines // For walkpads with automatic incline settings
                   }
               }
 
-              renderRoutineList(routines);
+              renderRoutineList(routines, text.trim().length);
           }
 
-          function renderRoutineList(routines) {
+          function renderRoutineList(routines, loaded) {
               routineList.innerHTML = '';
 
               if (routines.length === 0) {
-                  statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
+                  if (loaded) {
+                      statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
+                  }
                   routineContainer.style.display = 'none';
                   
                   // NEW: Show fallback button if no routines are loaded
