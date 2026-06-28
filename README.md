@@ -202,7 +202,7 @@ For instance:
 
 And a screenshot:
 
-[Session log screenshot](docs/screens-v0.6.0/1.webp)
+![Session log screenshot](docs/screens-v0.6.0/1.webp)
 
 ---
 
