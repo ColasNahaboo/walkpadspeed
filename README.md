@@ -14,6 +14,7 @@
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
 - **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
 - **Try it out in "Test Mode"** with no walkpad at all, to see how everything works first.
+- **Keep a log of past sessions** as a simple text file in Markdown format.
 
 ## Prerequisites
 
@@ -172,6 +173,37 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 
 ![](docs/screens-v0.4.2/all.webp)
 
+## Log of past sessions
+
+On the manager screen, you can see the log of past sessions as Markdown text file that you can copy to wherte you want to store it, as it is only kept in the local storage of the browser having run the session. The log consist of:
+- a `##` title: the date and time of the session and the routine name, foplloweb by a bullet list of:
+- Time elapsed
+- Has the routine be completed?
+- list of the modifiers set and at what time and step
+
+For instance:
+
+```
+## 2026-06-28 18:14 — Fat Burn
+- Time elapsed: 00:20
+- Completed: No
+- Modifiers used:
+  - +20% @ 00:02 (step 1)
+  - 0% @ 00:04 (step 1)
+  - -20% @ 00:05 (step 1)
+  - +5% @ 00:10 (step 1)
+
+## 2026-06-28 18:12 — Quick Test
+- Time elapsed: 00:26
+- Completed: Yes
+- Modifiers used: none
+
+```
+
+And a screenshot:
+
+[Session log screenshot](docs/screens-v0.6.0/1.webp)
+
 ---
 
 ## Test Mode — try it without a walkpad
@@ -261,6 +293,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.6.0 2026-06-28 released. Log sessions as Markdown texts shown on the manager screen, that you can then copy into your personal log.
 - v0.5.1 2026-06-27 released. Cleaned up the UI.
 - v0.5.0 2026-06-27 Support for inclines. But Untested on real walkpads.
 - v0.4.2 2026-06-26 released. You can now (re)start to any routine step.

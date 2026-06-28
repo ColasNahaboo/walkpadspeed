@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.5.1";}
+      #version:after {content: "v0.6.0";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -57,7 +57,7 @@
       #routinesClear { background: #444; color: #aaa;font-weight: 300;
                  width: 80%; max-width: 100vw; padding-bottom: 20px;}
       #routinesClear:hover  { background: #222224; color: #ccc;font-weight: 500;}
-    
+      #viewSessionLogBtn { color: #bbb;}
       
       .routine-row {
           width: 100%;
@@ -964,7 +964,11 @@
           let total = 0;
           raw.split(',').forEach(item => {
               const parts = item.split('-');
-              const duration = parseInt(parts[1], 10);
+              let durationPart = parts[1];
+              if (durationPart && durationPart.includes('%_')) {
+                  durationPart = durationPart.split('%_')[1];
+              }
+              const duration = parseInt(durationPart, 10);
               if (!isNaN(duration)) total += duration;
           });
           return total;
@@ -1363,7 +1367,7 @@
       }
 
       function buildSessionLogEntry(session, elapsedSeconds, completed) {
-          let md = `## ${formatSessionDate(session.date)} — ${session.name}\n\n`;
+          let md = `## ${formatSessionDate(session.date)} — ${session.name}\n`;
 
           if (session.startStepIndex > 0 || session.startElapsedSeconds > 0) {
               md += `- Started at: step ${session.startStepIndex + 1}, ${minutesSeconds(session.startElapsedSeconds)} into routine\n`;
