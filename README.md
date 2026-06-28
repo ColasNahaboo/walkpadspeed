@@ -209,14 +209,14 @@ I bought a simple, entry level walking pad (A [Fousae ZX-390](https://gemini.goo
 
 I wanted however an app where it was easy to program various routines, as it was my first pad, and I wanted to experiment a lot with the possible routines. I discovered that apps either required expensive subscriptions, or were super complex to program. or had bugs because they tried to cater to very complex treadmills of to provide full health tracking plans. 
 
-[MyHomeFit](https://myhomefit.de/) was the closest I could find to satisfy my needs, but writing programs in their XML format or built-in editor was horrible, and it could not manage simply setting a speed, as speeds drifted because it was relying on data from the device and trying to perform complex computations and accumulated rounding errors in the process.
+[MyHomeFit](https://myhomefit.de/) was the closest I could find to satisfy my needs, but writing programs in their XML format or built-in editor was horrible (you cannot even duplicate a routine or a step), and it could not manage simply setting a speed, as speeds drifted because it was relying on data from the device and trying to perform complex computations and accumulated rounding errors in the process.
 
 So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/scratch-your-own-itch-how-to-build-and-ship-50a9) and create an app that would be useful for me, and I think all the people like me wanting freedom to control simply their simple walking pads.
 
-- **setting speeds** only.
-- **easy to program** routines as series of "steps", where the pad runs at some speed for some time.
+- **setting speeds and inclines** only.
+- **easy to program** routines as series of "steps", where the pad runs at some speed and incline for some time.
 - **easy to manage** these programs, by having them is a simple terse text form, to edit easily in any editor, and not some XML abomination.
-- **easy to install** as it consists of only a single HTML file (embedding CSS and modern vanilla javascript code) that you just open in your phone browser (if supported, see Requirements below) or any computer with Bluetooth capabilities.
+- **easy to install** as it consists of only a single HTML file (embedding CSS and modern vanilla javascript code) that you just open in your phone browser (if supported, see Requirements below) or any computer with Bluetooth capabilities. And I can also host a version for the whole world to use directly from this github repo or my server at https://walkpad.fr since hosting a single static web page is so light.
 - **easy to use** simple controls implementing my needs simply.
 - **opiniotated** keep bloat away by refusing to add non-essential features that could be found in other, more complex apps.
 
@@ -226,7 +226,8 @@ Bugs and suggestions are always welcome, but know that I will resist adding feat
 
 The only features I plan to add would be:
 
-- Usability enhancements
+- Bug fixes, obiously.
+- Usability enhancements.
 - Support for some hardware quirks when reported, if possible.
 
 ## Optional: Installation & Deployment
@@ -240,11 +241,13 @@ If you do not want to use the walkpadspeed.html hosted here or on walkpad.fr, ho
 ## Implementation
 
 - **Pure modern Javascript** is used to interpret your routine, use the browser Web Bluetooth API and manage the timers to send the steps to drive your walking pad.
+- **Standard HTML + CSS + Javascript** a.k.a Vanilla Web Development (or simply "Vanilla JS").
 - **Bluetooth FTMS Integration:** Connects directly via Web Bluetooth API to native Fitness Machine Service characteristics (`0x1826`).
 - **Dynamic URL Routines (`?r=`)**: The Manager passes the routine definition as URL parameters n (routine name), t (test mode), and r the complete definition of the routine.
 - **Persistent Storage:** Leverages the modern Browser Screen to store your loaded routines locally, soo you do not have to re-load them each time.
 - **Audio Cues:** Features low-latency predictive audio chime indicators generated via the Web Audio API precisely 1 second prior to interval changes.
 - **Precise Timer Mechanics:** High-accuracy state machine managing active countdown intervals, automated variable motor warm-up delays (`spinUpTime`), and live metric tracking.
+- **Flexible operation** You can at any time before or during a routine slow it down or speed it up without restarting it. Also if in mid-routine you realise you'd prefer another one, you can just start the other routine from any of its  steps, you are not forced to start it from the beginning.
 
 Hardware Support & Core Blueprint: This control system operates across standard FTMS profile architectures:
 

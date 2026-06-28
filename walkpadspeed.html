@@ -439,6 +439,18 @@
         <div id="routineList"></div>
         <div class="routine-link-btn" id="routinesClear" onclick="clearRoutineList()">Clear routines</div>
       </div>
+
+      <button id="viewSessionLogBtn" class="routine-link-btn" style="background:#444; margin-top:20px;" onclick="viewSessionLog()">View Session Log</button>
+
+      <div id="sessionLogContainer" style="display:none; text-align:left; margin-top:15px;">
+        <h3>Session Log</h3>
+        <pre id="sessionLogText" class="routine-raw-view" style="display:block; max-height:300px; overflow-y:auto; border-radius:8px;"></pre>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button onclick="copySessionLog()">Copy</button>
+          <button onclick="clearSessionLog()">Clear Log</button>
+          <button onclick="viewSessionLog()">Close</button>
+        </div>
+      </div>
     </div>
 
     <!-- ==================== DRIVER VIEW ==================== -->
@@ -569,6 +581,10 @@
       // Suppress false remote pause/resume detection during our own BLE speed changes
       let ignoreSpeedChanges = false;
       let remotePauseDebounce = null;
+
+      // Tracks the in-progress workout session for the Session Log feature.
+      // null when no session is currently active (idle, or between routines).
+      let currentSession = null;
 
       function updateRoutineButtonText(running = false) {
           const button = document.getElementById('routineBtn');
@@ -820,6 +836,18 @@
                   btn.innerText = "PAUSE";
                   btn.className = "pause-btn";
 
+                  // If this resume is the first movement after positioning via the
+                  // step-jump list, this is where the session actually begins.
+                  if (!currentSession) {
+                      currentSession = {
+                          name: routineNameCached,
+                          date: new Date(),
+                          startStepIndex: currentStepIndex,
+                          startElapsedSeconds: totalElapsedSeconds,
+                          modifierHistory: []
+                      };
+                  }
+
                   const resumeBuffer = new Uint8Array([0x07]);
                   await ftmsControlCharacteristic.writeValue(resumeBuffer);
 
@@ -842,9 +870,13 @@
           }
       }
 
-      async function stopTreadmill() {
+      async function stopTreadmill(completed = false) {
           if (!ftmsControlCharacteristic) return;
           try {
+              // Capture and persist the session log entry before resetRoutineState()
+              // wipes totalElapsedSeconds and the other state it depends on.
+              finalizeSessionLog(completed);
+
               ignoreSpeedChanges = true;
               resetRoutineState();
               updateStatus("Stopping walkpad...");
@@ -885,7 +917,7 @@
 
                   if (currentStepIndex >= currentRoutineSteps.length) {
                       updateStatus("Routine Completed!");
-                      stopTreadmill();
+                      stopTreadmill(true);
                       return;
                   }
 
@@ -1147,6 +1179,10 @@
           }
           if (index < 0 || index >= currentRoutineSteps.length) return;
 
+          // A fresh position means a fresh session — any prior one was already
+          // finalized via Stop before the step list became clickable again.
+          currentSession = null;
+
           // Stop any running clock and clear pending remote pause/resume detection
           clearAllIntervals();
           if (remotePauseDebounce) {
@@ -1259,6 +1295,17 @@
               btn.innerText = "PAUSE";
               btn.className = "pause-btn";
               updateStatus("Resumed via remote.");
+
+              if (!currentSession) {
+                  currentSession = {
+                      name: routineNameCached,
+                      date: new Date(),
+                      startStepIndex: currentStepIndex,
+                      startElapsedSeconds: totalElapsedSeconds,
+                      modifierHistory: []
+                  };
+              }
+
               // The physical remote defaults to 1.0 km/h when resumed.
               // We must tell the walkpad to change to the actual routine step speed.
               if (currentTargetSpeed > 0) {
@@ -1289,6 +1336,70 @@
           if (btnElement) {
               btnElement.classList.add('active');
           }
+
+          // Record this modifier change in the active session's history, if any
+          if (currentSession && isRoutineActive) {
+              const pct = Math.round((mod - 1) * 100);
+              const label = pct === 0 ? '0%' : (pct > 0 ? `+${pct}%` : `${pct}%`);
+              currentSession.modifierHistory.push({
+                  mod: label,
+                  elapsed: Math.max(0, totalElapsedSeconds - currentSession.startElapsedSeconds),
+                  step: currentStepIndex + 1
+              });
+          }
+      }
+
+      /* ================================================================
+         SESSION LOG
+         Builds a Markdown record of each workout session (date, name,
+         where it started, how long it ran, whether it completed, and
+         every speed-modifier change), and accumulates it in localStorage
+         so it persists across visits on this device/browser.
+         ================================================================ */
+
+      function formatSessionDate(d) {
+          const pad = n => n.toString().padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function buildSessionLogEntry(session, elapsedSeconds, completed) {
+          let md = `## ${formatSessionDate(session.date)} — ${session.name}\n\n`;
+
+          if (session.startStepIndex > 0 || session.startElapsedSeconds > 0) {
+              md += `- Started at: step ${session.startStepIndex + 1}, ${minutesSeconds(session.startElapsedSeconds)} into routine\n`;
+          }
+
+          md += `- Time elapsed: ${minutesSeconds(elapsedSeconds)}\n`;
+          md += `- Completed: ${completed ? 'Yes' : 'No'}\n`;
+
+          if (session.modifierHistory.length > 0) {
+              md += `- Modifiers used:\n`;
+              session.modifierHistory.forEach(m => {
+                  md += `  - ${m.mod} @ ${minutesSeconds(m.elapsed)} (step ${m.step})\n`;
+              });
+          } else {
+              md += `- Modifiers used: none\n`;
+          }
+
+          md += `\n`;
+          return md;
+      }
+
+      function appendSessionLog(entryMd) {
+          try {
+              const existing = localStorage.getItem('wpss_session_log') || '';
+              // Newest entry first, so the most recent session is visible at a glance
+              localStorage.setItem('wpss_session_log', entryMd + existing);
+          } catch (e) {
+              console.warn('Failed to persist session log:', e);
+          }
+      }
+
+      function finalizeSessionLog(completed) {
+          if (!currentSession) return;
+          const elapsedThisSession = Math.max(0, totalElapsedSeconds - currentSession.startElapsedSeconds);
+          appendSessionLog(buildSessionLogEntry(currentSession, elapsedThisSession, completed));
+          currentSession = null;
       }
 
       async function requestWakeLock() {
@@ -1783,6 +1894,14 @@ Climb with Inclines // For walkpads with automatic incline settings
               isRoutineActive = true;
               updateStepsListVisibility();
 
+              currentSession = {
+                  name: routineNameCached,
+                  date: new Date(),
+                  startStepIndex: 0,
+                  startElapsedSeconds: 0,
+                  modifierHistory: []
+              };
+
               buildGlobalProgressBar(currentRoutineSteps);
               document.getElementById('timerContainer').style.display = 'block';
               updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
@@ -1799,9 +1918,42 @@ Climb with Inclines // For walkpads with automatic incline settings
       }
       
       async function clearRoutineList() {
-          routineList.innerHTML = '';
+          document.getElementById('routineList').innerHTML = '';
           document.getElementById('defLoad').style.display = 'block';
           document.getElementById('routinesClear').style.display = 'none';
+      }
+
+      function viewSessionLog() {
+          const container = document.getElementById('sessionLogContainer');
+          const textEl = document.getElementById('sessionLogText');
+          const isOpen = container.style.display === 'block';
+
+          if (isOpen) {
+              container.style.display = 'none';
+              return;
+          }
+
+          const log = localStorage.getItem('wpss_session_log') || '';
+          textEl.innerText = log.trim().length > 0 ? log : 'No sessions logged yet.';
+          container.style.display = 'block';
+      }
+
+      async function copySessionLog() {
+          const log = localStorage.getItem('wpss_session_log') || '';
+          try {
+              await navigator.clipboard.writeText(log);
+              const statusText = document.getElementById('managerStatus');
+              if (statusText) statusText.innerText = 'Status: Session log copied to clipboard.';
+          } catch (err) {
+              console.error('Clipboard copy failed:', err);
+              alert('Could not copy automatically — please select and copy the text manually.');
+          }
+      }
+
+      function clearSessionLog() {
+          if (!confirm('Clear the entire session log? This cannot be undone.')) return;
+          localStorage.removeItem('wpss_session_log');
+          document.getElementById('sessionLogText').innerText = 'No sessions logged yet.';
       }
       
       </script>
