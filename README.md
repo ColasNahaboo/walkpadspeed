@@ -16,6 +16,10 @@
 - **Try it out in "Test Mode"** with no walkpad at all, to see how everything works first.
 - **Keep a log of past sessions** as a simple text file in Markdown format.
 
+### What it won't do
+- Manage your health, or interface with systems like Google Health. Walkpadspeed does not help you to conceive or track your routines, workouts or health goals and results, it simply provides a powerfully customizable way to implement your routines.
+- Provide entertainement, such as music, videos, landcapes... I use a walkpad because it allows me to watch interesting videos or series on a computer or TV screen, to keep healthy, I am not interested in focusing on my performance.
+
 ## Prerequisites
 
 To use walkpadspeed, you need:
