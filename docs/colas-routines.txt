@@ -1,0 +1,61 @@
+Digestive walk 9% 85 spm // 9% incline: 10 to 20mn at 85 steps/mn = 2.7 km/h for me
+2.0 60 warmup // for muscles
+2.7 19mn walk // no cardio → no cooldown, stop when you want
+
+Digestive walk flat 100 spm // 0% incline: 10 to 20mn at 100 steps/mn = 4.5 km/h for me
+3.0 60 warmup // for muscles
+4.5 19m walk // no cardio → no cooldown, stop when you want
+
+# My main cardio routine
+34mn 6.0,[5.5, 4.8]x6 // start with a 6.9 peak, then alternates with 6 groups of 2.5mn 5.5 and 2.5mn 4.8
+3.0 60 warmup // gradual
+4.0 30 -
+4.5 30 -
+5.0 30 -
+5.5 30 -
+6.0 30 sprint max // boost the cardio
+5.9 30 sprint cool
+5.8 30 -
+5.7 30 -
+5.6 30 -
+5.5 30 peak #1 // then regular peak/rest intervals
+4.8 150 rest #1
+5.5 150 peak #2
+4.8 150 rest #2
+5.5 150 peak #3
+4.8 150 rest #3
+5.5 150 peak #4
+4.8 150 rest #4
+5.5 150 peak #5
+4.8 150 rest #5
+5.5 150 peak #6 Final
+4.0 60 cooldown
+3.5 60 -
+3.0 60 final cooldown
+
+# cardio routine for 9% incline
+40mn 6.0 for incline
+3.0 60 warmup // gradual
+4.5 60 -
+5.0 60 -
+5.5 60 -
+6.0 60 sprint max // boost the cardio
+5.8 30 sprint cooling
+5.7 30 -
+5.6 30 -
+5.5 30 sprint end
+4.8 150 rest
+5.5 150 peak #1/6
+4.8 150 rest #1/6
+5.4 150 peak #2/6
+4.7 150 rest #2
+5.3 150 peak #3/6
+4.6 150 rest #3
+5.2 150 peak #4/6
+4.6 150 rest #4
+5.1 150 peak #5/6
+4.5 150 rest #5
+5.0 150 peak #6/6 Final
+4.0 30 cooldown
+3.5 30 -
+3.0 120 final cooldown
