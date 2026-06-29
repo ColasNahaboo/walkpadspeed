@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.6.1";}
+      #version:after {content: "v0.6.2";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -454,6 +454,9 @@
       <div><a target="_blank" href='https://github.com/ColasNahaboo/walkpadspeed#step-1--write-your-routines'> (File format documentation) </a></div>
       <!-- NEW: Fallback default loader -->
       <button id="defLoad" class="routine-link-btn">Load sample routines file</button>
+
+      <button id="gistLoadBtn" class="routine-link-btn" style="background:#444;">Load Gist from Clipboard</button>
+      <div class="status-text" style="font-weight:400; font-size:0.85rem; margin-top:4px;">Paste your routine file into a <a target="_blank" href="https://gist.github.com/">GitHub Gist</a>, copy its URL (normal or raw view), then click above.</div>
 
       <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
 
@@ -1507,9 +1510,14 @@
               statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
           }
 
-          const cachedData = localStorage.getItem('wpss_cached_routines');
-          if (cachedData) {
-              parseAndGenerateLinks(cachedData);
+          const gistParam = urlParams.get('gist');
+          if (gistParam) {
+              loadGistRoutines(gistParam, statusText);
+          } else {
+              const cachedData = localStorage.getItem('wpss_cached_routines');
+              if (cachedData) {
+                  parseAndGenerateLinks(cachedData);
+              }
           }
 
           ['dragenter', 'dragover'].forEach(eventName => {
@@ -1614,6 +1622,82 @@ Climb with Inclines // For walkpads with automatic incline settings
                       console.error("Failed to load default routines:", err);
                   }
               });
+          }
+
+          // NEW: Load routine file from a GitHub Gist URL on the clipboard
+          const gistLoadBtn = document.getElementById('gistLoadBtn');
+          if (gistLoadBtn) {
+              gistLoadBtn.addEventListener('click', async () => {
+                  let clipboardText = null;
+                  try {
+                      clipboardText = await navigator.clipboard.readText();
+                  } catch (err) {
+                      // Clipboard access blocked (permissions/insecure context/unsupported
+                      // browser) — fall back to asking the user to paste it manually.
+                      clipboardText = window.prompt('Clipboard access blocked. Please paste your URL here instead:');
+                  }
+
+                  if (!clipboardText || !clipboardText.trim()) {
+                      statusText.innerText = 'Status: No gist URL provided.';
+                      return;
+                  }
+
+                  const gistId = extractGistId(clipboardText);
+                  if (!gistId) {
+                      statusText.innerHTML = '<span class="error-msg">That doesn\'t look like a Gist URL.</span>';
+                      return;
+                  }
+
+                  await loadGistRoutines(gistId, statusText);
+              });
+          }
+
+          // NEW: Gist ID extraction, bookmarkable URL, and fetch+parse logic
+          function extractGistId(url) {
+              if (!url) return null;
+              const match = url.trim().match(/gist\.github(?:usercontent)?\.com\/(?:[^\/\s]+\/)?([0-9a-f]{10,})/i);
+              return match ? match[1] : null;
+          }
+
+          function setGistUrlParam(gistId) {
+              const params = new URLSearchParams(window.location.search);
+              params.set('gist', gistId);
+              const newUrl = window.location.pathname + '?' + params.toString();
+              history.replaceState(null, '', newUrl);
+          }
+
+          async function loadGistRoutines(gistId, statusEl) {
+              statusEl.innerText = 'Status: Fetching gist...';
+              try {
+                  const response = await fetch(`https://api.github.com/gists/${gistId}`);
+                  if (!response.ok) {
+                      throw new Error(`GitHub API returned ${response.status}`);
+                  }
+                  const data = await response.json();
+                  const files = Object.values(data.files || {});
+                  if (files.length === 0) {
+                      throw new Error('Gist has no files.');
+                  }
+
+                  const file = files[0];
+                  let content = file.content;
+
+                  // Very large files aren't inlined by the API — fetch the raw URL instead
+                  if (file.truncated || content === undefined) {
+                      const rawResponse = await fetch(file.raw_url);
+                      if (!rawResponse.ok) {
+                          throw new Error(`Could not fetch raw file content (${rawResponse.status}).`);
+                      }
+                      content = await rawResponse.text();
+                  }
+
+                  localStorage.setItem('wpss_cached_routines', content);
+                  parseAndGenerateLinks(content);
+                  setGistUrlParam(gistId);
+                  statusEl.innerText = `Status: Loaded routines from gist "${file.filename}".`;
+              } catch (err) {
+                  statusEl.innerHTML = `<span class="error-msg">Gist load failed: ${err.message}</span>`;
+              }
           }
 
           function parseAndGenerateLinks(text) {
