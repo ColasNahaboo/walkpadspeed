@@ -1376,6 +1376,14 @@
               btnElement.classList.add('active');
           }
 
+          // Apply the new modifier to the walkpad right away, instead of waiting
+          // for the next step transition. currentTargetSpeed already holds the
+          // current step's base (pre-modifier) speed, so re-sending it lets
+          // sendSpeed() recompute speedRaw with the freshly-updated speedMod.
+          if (isRoutineActive && !isPaused) {
+              sendSpeed(currentTargetSpeed, false);
+          }
+
           // Record this modifier change in the active session's history, if any
           if (currentSession && isRoutineActive) {
               const pct = Math.round((mod - 1) * 100);

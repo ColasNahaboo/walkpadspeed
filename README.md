@@ -137,6 +137,17 @@ Your file is automatically remembered by the browser, so the next time you open 
 
 **Tip:** Each routine button is actually a unique link containing the whole routine. You can bookmark it, or share it with someone else — they don't need your original file, the link has everything baked in.
 
+### Loading your routines for a Gist
+
+You can also maintain your routines file in a <a href='https://gist.github.com/'>GitHub Gist</a>, a simple way to publish texts on the web:
+1. Paste your routines files into a public Gist (not a secret one)
+2. Copy the URL of your Gist 
+3. On walkpadspeed click the button "Import from a copied URL of a Gist"
+4. walkpadspeed will then load the routines, and change its URL to memorize the gist URL as a `gist` URL parameter
+5. You can then bookmark this URL. This way you can edit your routines in your gist, running walkpadspeed from this bookmark will automatically reload it!
+
+Note: We use Gist because it is specifically designed to allow other web apps to import its contents, as modern browsers tend to have security rules preventing this. 
+
 ## Step 3 — Run a routine (Player screen)
 
 Click any routine button on the Manager screen to jump to the **Player** screen, pre-loaded with that routine.
@@ -234,9 +245,6 @@ Make sure it's powered on and not already connected to another phone/app — mos
 **"No valid routines detected in file."**
 Double check each routine has a name line followed by at least one step line, and that step lines look like `speed duration` (e.g. `5 60`), with a blank line between separate routines.
 
-**The speed seems to ignore my Speed Modifier setting after I changed it.**
-The modifier applies to the *next* speed change sent to the pad — if you're in the middle of a long step, it will apply as soon as that step ends, or you can stop and restart to apply it immediately.
-
 ## Privacy
 
 Everything happens entirely inside your browser. Your routine file, your Bluetooth connection, and your routine history never leave your device — there's no server, no account, and no tracking.
@@ -299,6 +307,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.6.2 2026-06-30 released. routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next stepo to begin.
 - v0.6.1 2026-06-29 released. in the routines files, durations can be specified in minutes, and speeds in mph.
 - v0.6.0 2026-06-28 released. Log sessions as Markdown texts shown on the manager screen, that you can then copy into your personal log.
 - v0.5.1 2026-06-27 released. Cleaned up the UI.
