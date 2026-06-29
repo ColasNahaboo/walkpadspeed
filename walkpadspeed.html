@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.6.0";}
+      #version:after {content: "v0.6.1";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -1633,13 +1633,28 @@ Climb with Inclines // For walkpads with automatic incline settings
                   for (let i = 0; i < processedLines.length; i++) {
                       const line = processedLines[i];
 
-                      rawTextLines.push(line.content + line.comment);
-
-                      if (i === 0) continue;
+                      if (i === 0) {
+                          rawTextLines.push(line.content + line.comment);
+                          continue;
+                      }
 
                       const stepTokens = line.content.split(/\s+/);
                       if (stepTokens.length >= 2) {
-                          const speed = parseFloat(stepTokens[0]);
+                          // Speed may be plain km/h, or suffixed with "mph" (no
+                          // space) to be entered in miles per hour, e.g. "5mph".
+                          // Once converted, the mph original is discarded — all
+                          // downstream encoding/display uses the km/h value.
+                          const mphMatch = stepTokens[0].match(/^(\d+(?:\.\d+)?)mph$/i);
+                          let speed, speedToken;
+                          if (mphMatch) {
+                              speed = parseFloat(mphMatch[1]) * 1.60934;
+                              speedToken = speed.toFixed(1);
+                              speed = parseFloat(speedToken);
+                          } else {
+                              speed = parseFloat(stepTokens[0]);
+                              speedToken = stepTokens[0];
+                          }
+
                           let tokenIndex = 1;
                           let incline = null;
                           if (/^\d+%$/.test(stepTokens[tokenIndex])) {
@@ -1652,14 +1667,22 @@ Climb with Inclines // For walkpads with automatic incline settings
                                   maxIncline = incline;
                               }
                           }
-                          const duration = parseInt(stepTokens[tokenIndex], 10);
+
+                          // Duration may be plain seconds, or suffixed with "m"/"mn"
+                          // (no space) for minutes, e.g. "60m" or "60mn" = 3600s.
+                          const durationToken = stepTokens[tokenIndex];
+                          const minuteMatch = durationToken ? durationToken.match(/^(\d+)(mn|m)$/) : null;
+                          const duration = minuteMatch
+                              ? parseInt(minuteMatch[1], 10) * 60
+                              : parseInt(durationToken, 10);
+
                           if (!isNaN(speed) && !isNaN(duration)) {
                               totalDuration += duration;
                               distanceAccumulator += (speed * duration);
                           }
                           let labelStart = tokenIndex + 1;
                           let stepLabel = stepTokens.slice(labelStart).join('_');
-                          let packedStep = `${stepTokens[0]}-`;
+                          let packedStep = `${speedToken}-`;
                           if (incline !== null) {
                               packedStep += `${incline}%_`;
                           }
@@ -1668,6 +1691,26 @@ Climb with Inclines // For walkpads with automatic incline settings
                               packedStep += `-${stepLabel}`;
                           }
                           stepsArray.push(packedStep);
+
+                          // Rebuild this line for the raw-text display, normalizing
+                          // the duration back to "Xm" when it's a round number of
+                          // minutes (regardless of how it was originally typed).
+                          if (!isNaN(duration)) {
+                              const durationDisplay = (duration > 0 && duration % 60 === 0)
+                                  ? `${duration / 60}m`
+                                  : `${duration}`;
+
+                              const displayTokens = [speedToken];
+                              if (incline !== null) displayTokens.push(`${incline}%`);
+                              displayTokens.push(durationDisplay);
+                              displayTokens.push(...stepTokens.slice(labelStart));
+
+                              rawTextLines.push(displayTokens.join(' ') + line.comment);
+                          } else {
+                              rawTextLines.push(line.content + line.comment);
+                          }
+                      } else {
+                          rawTextLines.push(line.content + line.comment);
                       }
                   }
                   if (stepsArray.length > 0) {
@@ -1681,8 +1724,18 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                       const mins = Math.floor(totalDuration / 60);
                       const secs = totalDuration % 60;
-                      const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-
+                      let durationStr = mins > 0 ? `${mins}m` : '';
+                      if (secs > 0) {
+                          if (durationStr !== '') {
+                              durationStr += ` ${secs}s`;
+                          } else {
+                              durationStr += `${secs}s`;
+                          }
+                      } else {
+                          if (durationStr == '') {
+                              durationStr += `${secs}s`;
+                          }
+                      }
                       const avgSpeed = totalDuration > 0 ? (distanceAccumulator / totalDuration).toFixed(2) : "0.0";
 
                       routines.push({

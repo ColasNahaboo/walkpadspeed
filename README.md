@@ -76,19 +76,21 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 **The rules are simple:**
 
 - Each workout starts with a **name** on its own line.
-- Every line after that is one **step**: a speed, then how long to hold it, separated by a space.
-- Speed is in **km/h**. Duration is in **seconds**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph.
-- Optionally a percent of incline can be given between speed and duration as an integer postfixed by `%`.
-- You can optionally add a label after the duration, to name that step (e.g. "Warmup").
-- Leave a **blank line** between two different routines.
-- Lines starting with `#` or `//` are notes for yourself and are ignored, as is anything after `//` on a line.
+- Every line after that is one **step** of space-separated values:
+  - **speed**, a number which can have a decimal, expressed in **km/h**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph. \
+  To express a speed in miles per hour, just append **mph** to it
+  - **incline** (optional) a percent of incline as an integer postfixed by `%`.
+  - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
+  - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
+- **blank lines** separates the routines in the file.
+- **Comments:** Lines starting with `#` or `//` are notes for yourself and are ignored, as is anything after `//` on a line.
 
 **Example file:**
 
 ```
-Morning Walk
-3.0 300 Warmup
-5.0 600
+Morning small jog
+3.0 5mn Warmup
+5.0mph 10m // 5mph ⇒ 8.0 km/h
 3.0 120 Cooldown
 
 HIIT Sprints
@@ -99,7 +101,7 @@ HIIT Sprints
 6 30 sprint #2
 3 30
 6 30 sprint #3
-3 120 Cooldown
+3 2m Cooldown
 
 Climb some hills // for walkpads with automatic incline change
 3 120 warmup
@@ -293,6 +295,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.6.1 2026-06-29 released. in the routines files, durations can be specified in minutes, and speeds in mph.
 - v0.6.0 2026-06-28 released. Log sessions as Markdown texts shown on the manager screen, that you can then copy into your personal log.
 - v0.5.1 2026-06-27 released. Cleaned up the UI.
 - v0.5.0 2026-06-27 Support for inclines. But Untested on real walkpads.
