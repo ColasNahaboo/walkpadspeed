@@ -146,7 +146,21 @@ You can also maintain your routines file in a <a href='https://gist.github.com/'
 4. walkpadspeed will then load the routines, and change its URL to memorize the gist URL as a `gist` URL parameter
 5. You can then bookmark this URL. This way you can edit your routines in your gist, running walkpadspeed from this bookmark will automatically reload it!
 
-Note: We use Gist because it is specifically designed to allow other web apps to import its contents, as modern browsers tend to have security rules preventing this. 
+**Note:** In principle, this could be done with any way to store a text file on the web at some URL. In practice, we use Gist because it is specifically designed to allow other web apps to import its contents, as modern browsers tend to have security rules preventing this. 
+
+**Example of use:**
+- I create a new Gist at https://gist.github.com/
+_ I get one at URL https://gist.github.com/ColasNahaboo/058bbe224c26b5c157bbc3d30225a18b
+- I paste my routines file into it (the ones in `docs/colas-routines.txt`)
+- I clone this gist locally as it is a Github repository:\
+  `git clone git@gist.github.com:058bbe224c26b5c157bbc3d30225a18b.git ~/git/walkpadspeed-colas-routines`
+- I can thus edit my routines at will here and publish them by a:\
+  `git commit -ma "routines published"`
+- On my phone, I do once:
+  - I open https://gists.github.com in a browser, go to the gist, **copy** its URL which is: https://gist.github.com/ColasNahaboo/058bbe224c26b5c157bbc3d30225a18b
+  - I open the [walkpadspeed.html](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html) app, and click on the "Import from a copied URL of a Gist" button
+  - I see that the routines are loaded, and I bookmark this page.
+- I open walkpadspeed by using the bookmark I created above.
 
 ## Step 3 — Run a routine (Player screen)
 
