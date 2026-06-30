@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.6.2";}
+      #version:after {content: "v0.6.3";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -592,7 +592,7 @@
       let currentTargetIncline = 0;
       let routineHasIncline = false;
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
-      let speedThreshold = 0.8; // Over this speed, pad is running. between 0 and 1 exclusive.
+      let speedThreshold = 0.8; // Fraction (0-1 exclusive) of the routine's minSpeed; below this, pad is considered stopped.
       let speedMod = 1;
       let audioCtx = null;
       let stepOverhead = 1;
@@ -605,7 +605,7 @@
       let isRoutineActive = false;
       let totalElapsedSeconds = 0;
       let isPaused = false;
-      let minSpeed = Infinity; // minimum speed of the routine. Less means pad stopped
+      let minSpeed = Infinity; // slowest step speed in the routine — used ONLY for progress-bar color scaling
       let maxSpeed = 0;
 
       let routineNameCached = "";
@@ -1271,12 +1271,24 @@
          REMOTE PAUSE / RESUME DETECTION
          ================================================================ */
 
+      function stopDetectThreshold() {
+          // speedThreshold (0–1 exclusive) is a fraction of the routine's
+          // own slowest scheduled speed, not an absolute km/h value — this
+          // keeps the "pad has stopped" cutoff proportional to whatever
+          // speed is actually expected at the current step, while still
+          // tolerating normal sensor jitter around that target.
+          // Falls back to the pad's practical ~1.0 km/h minimum if minSpeed
+          // hasn't been computed yet (e.g. no routine loaded).
+          const base = (isFinite(minSpeed) && minSpeed > 0) ? minSpeed : 1.0;
+          return base * speedThreshold;
+      }
+
       function checkRemoteStateChange(currentSpeed) {
           if (ignoreSpeedChanges) return;
 
-          // Detect Pause: Running, expecting speed, but pad drops below minSpeed
+          // Detect Pause: Running, expecting speed, but pad drops below threshold
           if (isRoutineActive && !isPaused && currentTargetSpeed > 0) {
-              if (currentSpeed < minSpeed) {
+              if (currentSpeed < stopDetectThreshold()) {
                   // Start timer if not already started
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
@@ -1285,7 +1297,7 @@
                       }, 1500);
                   }
               } else {
-                  // Speed recovered above speedThreshold, cancel pause detection
+                  // Speed recovered above threshold, cancel pause detection
                   if (remotePauseDebounce) {
                       clearTimeout(remotePauseDebounce);
                       remotePauseDebounce = null;
@@ -1293,9 +1305,9 @@
               }
           }
 
-          // Detect Resume: Paused, but pad speeds up above speedThreshold
+          // Detect Resume: Paused, but pad speeds up above threshold
           if (isRoutineActive && isPaused) {
-              if (currentSpeed > speedThreshold) {
+              if (currentSpeed > stopDetectThreshold()) {
                   // Start timer if not already started
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
@@ -1304,7 +1316,7 @@
                       }, 1500);
                   }
               } else {
-                  // Speed dropped back below speedThreshold, cancel resume detection
+                  // Speed dropped back below threshold, cancel resume detection
                   if (remotePauseDebounce) {
                       clearTimeout(remotePauseDebounce);
                       remotePauseDebounce = null;
@@ -1315,7 +1327,7 @@
 
       async function handleRemoteStateChange(currentSpeed) {
           // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
-          if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < minSpeed) {
+          if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < stopDetectThreshold()) {
               console.log("Remote pause detected");
               isPaused = true;
               clearAllIntervals();
@@ -1327,7 +1339,7 @@
           }
 
           // Remote resume: we're paused, and pad reports speed coming back
-          if (isRoutineActive && isPaused && currentSpeed > speedThreshold) {
+          if (isRoutineActive && isPaused && currentSpeed > stopDetectThreshold()) {
               console.log("Remote resume detected");
               isPaused = false;
               const btn = document.getElementById('pauseToggleBtn');
