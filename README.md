@@ -137,7 +137,7 @@ Your file is automatically remembered by the browser, so the next time you open 
 
 **Tip:** Each routine button is actually a unique link containing the whole routine. You can bookmark it, or share it with someone else — they don't need your original file, the link has everything baked in.
 
-### Loading your routines for a Gist
+### Loading your routines from a GitHub Gist
 
 You can also maintain your routines file in a <a href='https://gist.github.com/'>GitHub Gist</a>, a simple way to publish texts on the web:
 1. Paste your routines files into a public Gist (not a secret one)
