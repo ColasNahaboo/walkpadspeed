@@ -322,7 +322,8 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
-- v0.6.2 2026-06-30 released. routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next stepo to begin.
+- v0.6.3 2026-06-30 released. prevent hardware jitters to trigger pauses during slowest step.
+- v0.6.2 2026-06-30 routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next stepo to begin.
 - v0.6.1 2026-06-29 released. in the routines files, durations can be specified in minutes, and speeds in mph.
 - v0.6.0 2026-06-28 released. Log sessions as Markdown texts shown on the manager screen, that you can then copy into your personal log.
 - v0.5.1 2026-06-27 released. Cleaned up the UI.
