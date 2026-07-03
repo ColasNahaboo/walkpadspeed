@@ -355,6 +355,13 @@
       #liveIncline { color: #ffffaa;}
       #inclineMetric { flex: 0 0 auto; min-width: 0 ;}
 
+      /* Heart Rate Monitor metric box */
+      #hrmMetric { cursor: pointer; transition: border-color 0.3s; }
+      #hrmMetric:hover { border-color: #ff6b6b55; }
+      #hrmValue { color: #555; }
+      #hrmValue.connected { color: #ff6b6b; }
+      #hrmTitle { transition: color 0.3s; }
+
       #navBackBtn {
           position: absolute;
           top: 15px;
@@ -532,6 +539,11 @@
             <div class="metric-title">Incl</div>
             <div class="metric-value" id="liveIncline">0%</div>
           </div>
+          <div class="metric-box" id="hrmMetric" onclick="handleHrmBoxClick()"
+               title="Tap to connect Heart Rate Monitor">
+            <div class="metric-title" id="hrmTitle">❤ HR</div>
+            <div class="metric-value" id="hrmValue">- -</div>
+          </div>
           <div class="metric-box">
             <div class="metric-title">Remain</div>
             <div class="metric-value" id="liveRemain">00:00</div>
@@ -588,6 +600,10 @@
       let wakeLock = null;
       let ftmsControlCharacteristic = null;
       let bluetoothDevice = null;
+
+      // Heart Rate Monitor (standard BLE Heart Rate Profile, service 0x180D)
+      let hrmDevice = null;
+      let hrmCharacteristic = null;
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
       let routineHasIncline = false;
@@ -783,7 +799,95 @@
 
           await ftmsControlCharacteristic.writeValue(buffer);
       }
-      
+
+      /* ================================================================
+         HEART RATE MONITOR (BLE Heart Rate Profile, service 0x180D)
+         The metric box starts as a connect button; once connected it
+         displays the live BPM. Tapping while connected disconnects.
+         ================================================================ */
+
+      function handleHrmBoxClick() {
+          if (hrmDevice && hrmDevice.gatt.connected) {
+              disconnectHRM();
+          } else {
+              connectHRM();
+          }
+      }
+
+      async function connectHRM() {
+          updateHrmUI('connecting');
+          try {
+              hrmDevice = await navigator.bluetooth.requestDevice({
+                  filters: [{ services: ['heart_rate'] }]
+              });
+
+              hrmDevice.addEventListener('gattserverdisconnected', () => {
+                  hrmCharacteristic = null;
+                  updateHrmUI('idle');
+                  updateStatus('Heart Rate Monitor disconnected.');
+              });
+
+              const server = await hrmDevice.gatt.connect();
+              const service = await server.getPrimaryService('heart_rate');
+              hrmCharacteristic = await service.getCharacteristic('heart_rate_measurement');
+
+              hrmCharacteristic.addEventListener('characteristicvaluechanged', handleHrmNotification);
+              await hrmCharacteristic.startNotifications();
+
+              updateHrmUI('connected', '--');
+              updateStatus(`HRM connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`);
+          } catch (err) {
+              hrmDevice = null;
+              hrmCharacteristic = null;
+              updateHrmUI('idle');
+              if (err.name !== 'NotFoundError') {
+                  // NotFoundError means the user simply cancelled the picker — no need to warn
+                  updateStatus('HRM connection failed: ' + err.message);
+              }
+          }
+      }
+
+      function disconnectHRM() {
+          if (hrmDevice) {
+              if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
+              hrmDevice = null;
+              hrmCharacteristic = null;
+          }
+          updateHrmUI('idle');
+      }
+
+      function handleHrmNotification(event) {
+          const data = event.target.value; // DataView
+          const flags = data.getUint8(0);
+          // Bit 0 of flags: 0 = HR value is uint8, 1 = uint16 (little-endian)
+          const bpm = (flags & 0x01) ? data.getUint16(1, true) : data.getUint8(1);
+          updateHrmUI('connected', bpm);
+      }
+
+      function updateHrmUI(state, bpm) {
+          const box   = document.getElementById('hrmMetric');
+          const title = document.getElementById('hrmTitle');
+          const value = document.getElementById('hrmValue');
+          if (!box) return;
+
+          if (state === 'idle') {
+              title.textContent = '❤ HR';
+              value.textContent = '- -';
+              value.className = 'metric-value';
+              box.title = 'Tap to connect Heart Rate Monitor';
+          } else if (state === 'connecting') {
+              title.textContent = '❤ HR';
+              value.textContent = '…';
+              value.className = 'metric-value';
+              box.title = 'Connecting…';
+          } else if (state === 'connected') {
+              title.textContent = 'BPM';
+              value.textContent = bpm;
+              value.className = 'metric-value connected';
+              box.title = 'Tap to disconnect Heart Rate Monitor';
+          }
+      }
+
       function clearAllIntervals() {
           if (routineInterval) {
               clearInterval(routineInterval);
