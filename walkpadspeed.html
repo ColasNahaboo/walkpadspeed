@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.6.3";}
+      #version:after {content: "v0.6.4";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -2063,6 +2063,12 @@ Climb with Inclines // For walkpads with automatic incline settings
           });
 
           document.getElementById('routineBtn').addEventListener('click', async () => {
+              if (!isTestMode && !ftmsControlCharacteristic) {
+                  updateStatus("Not connected — please connect to your WalkPad first.");
+                  document.getElementById('connectBtn').scrollIntoView({ behavior: 'smooth' });
+                  return;
+              }
+
               resetRoutineState();
 
               if (routineRawCached) {

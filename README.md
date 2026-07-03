@@ -150,7 +150,7 @@ You can also maintain your routines file in a <a href='https://gist.github.com/'
 
 **Example of use:**
 - I create a new Gist at https://gist.github.com/
-_ I get one at URL https://gist.github.com/ColasNahaboo/058bbe224c26b5c157bbc3d30225a18b
+- I get one at URL https://gist.github.com/ColasNahaboo/058bbe224c26b5c157bbc3d30225a18b
 - I paste my routines file into it (the ones in `docs/colas-routines.txt`)
 - I clone this gist locally as it is a Github repository:\
   `git clone git@gist.github.com:058bbe224c26b5c157bbc3d30225a18b.git ~/git/walkpadspeed-colas-routines` \
@@ -290,6 +290,7 @@ The only features I plan to add would be:
 - Bug fixes, obiously.
 - Usability enhancements.
 - Support for some hardware quirks when reported, if possible.
+- Export of the log data in a CSV format that can be used in Health tracking systems like Google Health. 
 
 ## Optional: Installation & Deployment
 
@@ -322,6 +323,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.6.4 2026-07-03 released. When launching a routine, if the walkpad is not connected anymore (e.g. app is resumed after some hours), show the connection screen instead of running disconnected.
 - v0.6.3 2026-06-30 released. prevent hardware jitters to trigger pauses during slowest step.
 - v0.6.2 2026-06-30 routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next stepo to begin.
 - v0.6.1 2026-06-29 released. in the routines files, durations can be specified in minutes, and speeds in mph.
