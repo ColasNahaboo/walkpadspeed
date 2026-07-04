@@ -361,7 +361,7 @@
       #hrZoneMetric {
           display: none;
           flex: 0 0 auto;
-          min-width: 2.8rem;
+          min-width: 4rem;
           padding: 12px 6px;
           border-right: 1px solid #2c2c2e;
           background-color: #111;
@@ -369,7 +369,7 @@
           text-align: center;
       }
       #hrZoneMetric .metric-title { color: #8e8e93; }
-      #hrZoneMetric .metric-value { color: #ffffff; font-size: 1.4rem; }
+      #hrZoneMetric .metric-value { color: #ffffff; }
       #hrmMetric {
           flex: 1;
           padding: 12px 0;
@@ -642,7 +642,8 @@
       // persisted across the manager→driver view transition via re-parsing
       // from the localStorage cached file. Used later for HR zones, calories, etc.
       let metaName = null;           // #name:             rider name (string)
-      let metaAge = null;            // #age:              years (integer)
+      let metaBirthYear = null;      // #birth:            birth year YYYY
+      let metaAge = null;            // computed from #birth: and current year
       let metaWeight = null;         // #weight:           kg (number)
       let metaRestHeartRate = null;  // #rest-heart-rate:  BPM at rest (integer)
       let metaMaxHeartRate = null;   // #max-heart-rate:   BPM at max effort (integer)
@@ -947,14 +948,14 @@
       ---------------------------------------------------------------- */
       const HR_ZONE_COLORS = {
           null: '#111111',
-          0:    '#00ced1',  // turquoise
-          1:    '#1155dd',  // blue
-          2:    '#22aa44',  // green
-          3:    '#cccc00',  // yellow
-          4:    '#ff8800',  // orange
-          5:    '#cc2200',  // red
+          1:    '#1155dd',  // Z1  50–60%  recovery/light    blue
+          12:   '#00ced1',  // Z12 60–65%  digestive/glycemic turquoise
+          2:    '#22aa44',  // Z2  65–70%  aerobic/fat burn  green
+          3:    '#cccc00',  // Z3  70–80%  endurance         yellow
+          4:    '#ff8800',  // Z4  80–90%  threshold         orange
+          5:    '#cc2200',  // Z5  90–100% VO2 max           red
       };
-      const HR_ZONE_LABELS = { null: '--', 0: 'Z0', 1: 'Z1', 2: 'Z2', 3: 'Z3', 4: 'Z4', 5: 'Z5' };
+      const HR_ZONE_LABELS = { null: '--', 1: 'Z1', 12: 'Z12', 2: 'Z2', 3: 'Z3', 4: 'Z4', 5: 'Z5' };
 
       function getHRZone(bpm) {
           if (!metaMaxHeartRate || !metaRestHeartRate) return null;
@@ -963,10 +964,10 @@
           if (pct >= 0.90) return 5;
           if (pct >= 0.80) return 4;
           if (pct >= 0.70) return 3;
-          if (pct >= 0.60) return 2;
+          if (pct >= 0.65) return 2;
+          if (pct >= 0.60) return 12;
           if (pct >= 0.50) return 1;
-          if (pct >= 0.35 && pct < 0.45) return 0;
-          return null; // resting or in the 45–50% gap between Z0 and Z1
+          return null; // below Z1
       }
 
       function updateHrZone(bpm) {
@@ -1200,7 +1201,7 @@
          ================================================================ */
       function parseMetadata(text) {
           // Reset all metadata globals so loading a new file starts clean
-          metaName = null; metaAge = null; metaWeight = null;
+          metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
           metaRestHeartRate = null; metaMaxHeartRate = null;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
 
@@ -1212,7 +1213,10 @@
               const val = m[2].trim();
               switch (key) {
                   case 'name':             metaName           = val;               break;
-                  case 'age':              metaAge            = parseInt(val, 10); break;
+                  case 'birth':
+                      metaBirthYear = parseInt(val, 10);
+                      metaAge = new Date().getFullYear() - metaBirthYear;
+                      break;
                   case 'weight':           metaWeight         = parseFloat(val);   break;
                   case 'rest-heart-rate':  metaRestHeartRate  = parseInt(val, 10); break;
                   case 'max-heart-rate':   metaMaxHeartRate   = parseInt(val, 10); break;
