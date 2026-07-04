@@ -1085,6 +1085,8 @@
                           modifierHistory: []
                       };
                   }
+                  /* ★★★ Re-acquire wake lock on every resume ★★★ */
+                  await requestWakeLock();
 
                   const resumeBuffer = new Uint8Array([0x07]);
                   await ftmsControlCharacteristic.writeValue(resumeBuffer);
