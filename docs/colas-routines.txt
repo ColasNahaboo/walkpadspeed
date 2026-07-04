@@ -3,14 +3,10 @@
 // 2026-06: digest = 2.7 km/h, Z2 = 4.5 km/h
 // cardio: sprints 140-145bpm = 5.8km/h, rest <120bpm =4.2km/h 
 Short Digestive
-2.0 1m
-3.0 1m
-2.7 10m
-
-Long Digestive
-2.0 1m
-3.0 1m
-2.7 18m
+3.0 30
+4.0 30
+4.5 1m
+3.9 10m
 
 Z2
 2.0 30
