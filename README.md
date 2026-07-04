@@ -326,7 +326,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 - v0.7.0 tracks the heart rate with any device using the standard BLE heart_rate service (I use a coros armband)
 - v0.6.4 2026-07-03 released. When launching a routine, if the walkpad is not connected anymore (e.g. app is resumed after some hours), show the connection screen instead of running disconnected.
 - v0.6.3 2026-06-30 released. prevent hardware jitters to trigger pauses during slowest step.
-- v0.6.2 2026-06-30 routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next stepo to begin.
+- v0.6.2 2026-06-30 routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next step to begin.
 - v0.6.1 2026-06-29 released. in the routines files, durations can be specified in minutes, and speeds in mph.
 - v0.6.0 2026-06-28 released. Log sessions as Markdown texts shown on the manager screen, that you can then copy into your personal log.
 - v0.5.1 2026-06-27 released. Cleaned up the UI.
