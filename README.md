@@ -239,7 +239,7 @@ Values:
 
 Here is how the **❤ HR** display, initially empty on the left view, will appear in different zones:
 
-[Zones screenshots](docs/zones-screenshot.webp)
+![Zones screenshots](docs/zones-screenshot.webp)
 
 ## Log of past sessions
 
