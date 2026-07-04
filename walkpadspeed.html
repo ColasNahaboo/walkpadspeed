@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.6.4";}
+      #version:after {content: "v0.7.0";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -323,12 +323,9 @@
 
       .metrics-grid {
           display: grid;
-          grid-auto-flow: column;
-          grid-auto-columns: 1fr 1fr 1fr;
-          /*  dynamically spaces only the VISIBLE elements */
-          gap: 0.2rem; 
+          grid-template-columns: 1fr 1fr;
+          gap: 0.2rem;
           box-sizing: border-box;
-          container-type: inline-size;
           margin: 0px auto;
       }
       .metric-box {
@@ -353,13 +350,12 @@
       }
       #liveSpeed { color: #aaffff; font-size: 3.5rem; margin-right: 0.5rem;}
       #liveIncline { color: #ffffaa;}
-      #inclineMetric { flex: 0 0 auto; min-width: 0 ;}
 
       /* Heart Rate Monitor metric box */
       #hrmMetric { cursor: pointer; transition: border-color 0.3s; }
-      #hrmMetric:hover { border-color: #ff6b6b55; }
+      #hrmMetric:hover { border-color: #ff85c255; }
       #hrmValue { color: #555; }
-      #hrmValue.connected { color: #ff6b6b; }
+      #hrmValue.connected { color: #ff85c2; }
       #hrmTitle { transition: color 0.3s; }
 
       #navBackBtn {
@@ -531,11 +527,7 @@
           </div>
         </div>
         <div class="metrics-grid">
-          <div class="metric-box">
-            <div class="metric-title">Elapsed</div>
-            <div class="metric-value" id="liveTime">00:00</div>
-          </div>
-          <div id="inclineMetric" class="metric-box" style="display:none">
+          <div id="inclineMetric" class="metric-box" style="visibility:hidden">
             <div class="metric-title">Incl</div>
             <div class="metric-value" id="liveIncline">0%</div>
           </div>
@@ -543,6 +535,10 @@
                title="Tap to connect Heart Rate Monitor">
             <div class="metric-title" id="hrmTitle">❤ HR</div>
             <div class="metric-value" id="hrmValue">- -</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-title">Elapsed</div>
+            <div class="metric-value" id="liveTime">00:00</div>
           </div>
           <div class="metric-box">
             <div class="metric-title">Remain</div>
@@ -607,6 +603,19 @@
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
       let routineHasIncline = false;
+
+      // Routine file metadata — set by #key: value lines at parse time,
+      // persisted across the manager→driver view transition via re-parsing
+      // from the localStorage cached file. Used later for HR zones, calories, etc.
+      let metaName = null;           // #name:             rider name (string)
+      let metaAge = null;            // #age:              years (integer)
+      let metaWeight = null;         // #weight:           kg (number)
+      let metaRestHeartRate = null;  // #rest-heart-rate:  BPM at rest (integer)
+      let metaMaxHeartRate = null;   // #max-heart-rate:   BPM at max effort (integer)
+      let metaSpeedUnit = null;      // #speed-unit:       "mph" or "km/h" (file-wide default)
+      let metaFileVersion = null;    // #version:          routines file format version (string)
+      let metaIncline = null;        // #incline:          fixed treadmill incline % (number);
+                                     //                    suppresses the incline metric in the UI
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
       let speedThreshold = 0.8; // Fraction (0-1 exclusive) of the routine's minSpeed; below this, pad is considered stopped.
       let speedMod = 1;
@@ -1090,6 +1099,39 @@
           const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
           const secs = (totalSeconds % 60).toString().padStart(2, '0');
           document.getElementById('liveRemain').innerText = `${mins}:${secs}`;
+      }
+
+      /* ================================================================
+         ROUTINE FILE METADATA  (#key: value lines)
+         Scans the entire file text for metadata declarations and sets
+         the corresponding global variables. Called both in the manager
+         view (on file load/gist load) and in the driver view (on init,
+         re-reading from the localStorage cache so globals survive the
+         manager → driver page navigation).
+         ================================================================ */
+      function parseMetadata(text) {
+          // Reset all metadata globals so loading a new file starts clean
+          metaName = null; metaAge = null; metaWeight = null;
+          metaRestHeartRate = null; metaMaxHeartRate = null;
+          metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
+
+          const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
+          for (const line of text.split('\n')) {
+              const m = line.trim().match(metaRegex);
+              if (!m) continue;
+              const key = m[1].toLowerCase();
+              const val = m[2].trim();
+              switch (key) {
+                  case 'name':             metaName           = val;               break;
+                  case 'age':              metaAge            = parseInt(val, 10); break;
+                  case 'weight':           metaWeight         = parseFloat(val);   break;
+                  case 'rest-heart-rate':  metaRestHeartRate  = parseInt(val, 10); break;
+                  case 'max-heart-rate':   metaMaxHeartRate   = parseInt(val, 10); break;
+                  case 'speed-unit':       metaSpeedUnit      = val.toLowerCase(); break;
+                  case 'version':          metaFileVersion    = val;               break;
+                  case 'incline':          metaIncline        = parseFloat(val);   break;
+              }
+          }
       }
 
       function minutesSeconds(totalSeconds) {
@@ -1834,6 +1876,7 @@ Climb with Inclines // For walkpads with automatic incline settings
           }
 
           function parseAndGenerateLinks(text) {
+              parseMetadata(text);
               const blocks = text.split(/\n\s*\n/);
               const routines = [];
 
@@ -1882,12 +1925,15 @@ Climb with Inclines // For walkpads with automatic incline settings
                       if (stepTokens.length >= 2) {
                           // Speed may be plain km/h, or suffixed with "mph" (no
                           // space) to be entered in miles per hour, e.g. "5mph".
+                          // Also, if #speed-unit: mph is set as file metadata,
+                          // all unsuffixed speeds are treated as mph by default.
                           // Once converted, the mph original is discarded — all
                           // downstream encoding/display uses the km/h value.
                           const mphMatch = stepTokens[0].match(/^(\d+(?:\.\d+)?)mph$/i);
                           let speed, speedToken;
-                          if (mphMatch) {
-                              speed = parseFloat(mphMatch[1]) * 1.60934;
+                          if (mphMatch || metaSpeedUnit === 'mph') {
+                              const rawSpeed = parseFloat(mphMatch ? mphMatch[1] : stepTokens[0]);
+                              speed = rawSpeed * 1.60934;
                               speedToken = speed.toFixed(1);
                               speed = parseFloat(speedToken);
                           } else {
@@ -2091,6 +2137,12 @@ Climb with Inclines // For walkpads with automatic incline settings
 
           routineTotalDuration = routineTotalDurationGet(routineRawCached);
           document.getElementById('liveRemain').innerText = minutesSeconds(routineTotalDuration);
+
+          // Re-parse metadata from the cached file so globals like metaIncline,
+          // metaRestHeartRate etc. are available in the driver view.
+          const cachedForMeta = localStorage.getItem('wpss_cached_routines');
+          if (cachedForMeta) parseMetadata(cachedForMeta);
+
           renderStepsList();
 
           const neutralBtn = document.getElementById('mod-neutral');
@@ -2119,8 +2171,8 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                       document.getElementById('testModeToggle').style.display = 'none';
                       document.getElementById('controls').style.display = 'block';
-                      if (routineHasIncline) {
-                          document.getElementById('inclineMetric').style.display = 'block';
+                      if (routineHasIncline && !metaIncline) {
+                          document.getElementById('inclineMetric').style.visibility = 'visible';
                       }
 
                       document.getElementById('connectBtn').style.display = 'none';
@@ -2154,8 +2206,8 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                   document.getElementById('testModeToggle').style.display = 'none';
                   document.getElementById('controls').style.display = 'block';
-                  if (routineHasIncline) {
-                      document.getElementById('inclineMetric').style.display = 'block';
+                  if (routineHasIncline && !metaIncline) {
+                      document.getElementById('inclineMetric').style.visibility = 'visible';
                   }
                   document.getElementById('connectBtn').style.display = 'none';
                   updateStatus("Connected & Ready!");
