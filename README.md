@@ -237,6 +237,10 @@ Values:
 - Z4  80–90%  threshold         orange
 - Z5  90–100% VO2 max           red
 
+Here is how the **❤ HR** display, initially empty on the left view, will appear in different zones:
+
+[Zones screenshots](docs/zones-screenshot.webp)
+
 ## Log of past sessions
 
 On the manager screen, you can see the log of past sessions as Markdown text file that you can copy to wherte you want to store it, as it is only kept in the local storage of the browser having run the session. The log consist of:
