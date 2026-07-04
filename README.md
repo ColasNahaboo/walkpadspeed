@@ -9,7 +9,8 @@
 ## What can it do?
 
 - **Connect to your walkpad over Bluetooth** directly from your browser — no extra app needed.
-- **Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations, and optionally incline changes.
+- **Use your heart monitoring device** if it uses the standard "BLE Heart Rate Service", e.g: Coros, Coospo, Garmin, Polar, Wahoo...
+- **Allow to Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations, and optionally incline changes. Walkpadspeed has an open design, it does not jail you behing cumbersome interfaces or proprietary protocoles or APIs.
 - **Pause, resume, or stop** at any time, from the app or from your walkpad's own physical remote.
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
 - **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
@@ -26,6 +27,7 @@ To use walkpadspeed, you need:
 
 1. **A compatible walking pad / treadmill.** It must support Bluetooth using the standard "FTMS" (Fitness Machine) protocol. Most walking pads sold with a companion phone app (the kind without a console full of buttons) use this protocol.
 2. **A smartphone or tablet with Bluetooth**: Its browser must support [Web Bluetooth](https://github.com/WebBluetoothCG/web-bluetooth#web-bluetooth). Currently: Google Chrome, Samsung Internet, Opera, Opera Mobile, Microsoft Edge, Vivaldi, Brave, Bluefy, BLE Link, WebBLE... but currently **not Firefox nor Safari** (although some [extensions](https://addons.mozilla.org/en-US/firefox/addon/webbt/) exist). See the [current state of Web Bluetooth browser support](https://github.com/WebBluetoothCG/web-bluetooth/blob/main/implementation-status.md).
+3. Optionally, a heart tracking device using the standard "BLE Heart Rate Service", e.g: Coros, Coospo, Garmin, Polar, Wahoo...
 
 ## What does it looks like?
 
@@ -61,7 +63,7 @@ To use walkpadspeed, you need:
 ### 2. Opening the App
 
 You can just use the [walkpadspeed.html](https://colasnahaboo.github.io/walkpadspeed/walkpadspeed.html) file of this repository directly, without installing anything, by using its GitHub pages URL from Google Chrome on your phone.
-Alternatively, you can also open [https://walkpad.fr](https://walkpad.fr) which is easier to enter in your phone browser.
+Alternatively, you can also open [https://walkpad.fr](https://walkpad.fr) which is easier to enter in your phone browser, but you cannot load routines files from a GitHub Gist (see below) this way.
 
 Save it in your phone browser bookmarks!
 
@@ -88,6 +90,11 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
 - **blank lines** separates the routines in the file.
 - **Comments:** Lines starting with `#` or `//` are notes for yourself and are ignored, as is anything after `//` on a line.
+- Some optional (global settings) can be specified at the start of the file as `Hname: value` lines.
+  - `#name:` your name, for displaying in messages, e.g. Colas.
+  - `#rest-heart-rate:` your heart rate at rest, e.g. `70`.
+  - `#max-heart-rate:` you maximum heart rate, normally 220 minus your age, e.g. if you are 50yo, `170`. But it can vary.
+  - `#speed-unit:` if set to `mph`, all the speeds will be interpreted as mph instead of km/h.
 
 **Example file:**
 
@@ -123,6 +130,9 @@ Save the file and keep it handy — you'll upload it on the Manager screen.
 **Note:** As I do not have a walkpad with automatic incline setting, the code to drive the incline on the pad should work, but is not actually tested. Feedback welcome!
 
 **Share your routines!** Feel free to share your routines with others as [discussions](https://github.com/ColasNahaboo/walkpadspeed/discussions/categories/your-routines) on this repository!
+
+**Use AI!** I strongly advise using AIs to design your routines. You can ask it questions like: *What is the optimal range of heart rate (in % of max) for lowering glycemic levels in a postprandial exercise of 10 to 15mn on a walking pad at 9% incline? Can you write me a walkpadspeed routine for this?*
+It provides you detailed explanations and even can write the routines for you (you may have to copy/paste this file format doc if needed).
 
 ## Step 2 — Load your routines (Manager screen)
 
@@ -163,15 +173,22 @@ You can also maintain your routines file in a <a href='https://gist.github.com/'
   - I see that the routines are loaded, and I bookmark this page.
 - I open walkpadspeed by using the bookmark I created above.
 
+### Loading your routines from a web site
+
+You can also host your routines file in the same way, but as a text file of a web server, but it will work only if it is in the same domain, due to the security restrictions of browsers. E.g.
+- if you host a copy of `walkpadspeed.html` at https://my.domain.net/somewhere.../walkpadspeed.html
+- you can copy the URL of the routines if you host the file at  https://my.domain.net/anywhere.../my-routines.txt
+
 ## Step 3 — Run a routine (Player screen)
 
 Click any routine button on the Manager screen to jump to the **Player** screen, pre-loaded with that routine.
 
 1. Press **Connect to WalkPad**. Your browser will ask you to pick your device from a list — choose your walkpad and approve the connection.
-2. Once connected, you'll see three live numbers:
+2. Once connected, you'll see live numbers:
+   - **Incline** - a percentage if the routine has any incline changes defined
+   - **❤ HR** - the heart rate monitor. If you wear one, **connect to it** by clicking on the indicator (the `- -`). Re-clicking disconnects.
    - **Elapsed** — how long you've been moving
    - **Speed** — your pad's current actual speed
-   - **Incline** - if the routine has any incline changes defined
    - **Remain** — how much time is left in the whole routine
 3. Press the big blue button (named after your routine) to **start**. The pad will begin moving and speed up/slow down automatically on schedule.
 4. A thin **progress bar** above shows the whole routine at a glance — colored from green (slower, easier sections) to red (faster, harder sections) — with the elapsed portion "wiped clean" as you go.
@@ -204,6 +221,21 @@ Tap the **☰** menu in the top-right corner at any time to go back to the Manag
 You can jump directly to any routine step by clicking on the list or "Routine steps" that appear at the bottom on the connection screen, or on the Player screen when the routine is stopped.
 
 ![](docs/screens-v0.4.2/all.webp)
+
+## Heart rate monitoring
+
+If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left:
+
+Walkpadspeed adds a pseudo zone "digestive" between the Z1 and Z2 zone, for the optimal digestive effort to reduce glycemic peaks after meals. The indicator will show it as `Z1d` (for the part inside Z1), and `Z2d` (for the part insize zone2).
+
+Values:
+- Z1  50–55%  recovery/light    blue
+- Z1d 55-60%  Z1 digestive      blue-green
+- Z2d 60–65%  Z2 digestive      green-blue
+- Z2  65–70%  aerobic/fat burn  green
+- Z3  70–80%  endurance         yellow
+- Z4  80–90%  threshold         orange
+- Z5  90–100% VO2 max           red
 
 ## Log of past sessions
 
@@ -290,6 +322,7 @@ The only features I plan to add would be:
 - Bug fixes, obiously.
 - Usability enhancements.
 - Support for some hardware quirks when reported, if possible.
+- Modulate the speed based on target heart rates, if using an heart rate monitor device.
 - Export of the log data in a CSV format that can be used in Health tracking systems like Google Health. 
 
 ## Optional: Installation & Deployment
