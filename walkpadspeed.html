@@ -493,9 +493,9 @@
       <!-- NEW: Fallback default loader -->
 
       <button id="gistLoadBtn" class="routine-link-btn">
-        Import from a copied URL of a Gist
+        Import from a copied URL
       </button>
-      <div class="status-text" style="font-weight:400; font-size:0.85rem; margin-top:4px;">Paste your routine file into a <a target="_blank" href="https://gist.github.com/">GitHub Gist</a>, copy its URL (normal or raw view), then click above, and bookmark the result.</div>
+      <div class="status-text" style="font-weight:400; font-size:0.85rem; margin-top:4px;">Paste your routine file into a <a target="_blank" href="https://gist.github.com/">GitHub Gist</a>, copy its URL (normal or raw view), then click above, and bookmark the result. Or copy the URL of a file hosted in the same domain as this app.</div>
 
       <button id="defLoad" class="routine-link-btn">Test: Load sample routines file</button>
       <p id="managerStatus" class="status-text">Status: Waiting for local configuration file...</p>
@@ -1915,16 +1915,21 @@ Climb with Inclines // For walkpads with automatic incline settings
                   }
 
                   const gistId = extractGistId(clipboardText);
-                  if (!gistId) {
-                      statusText.innerHTML = '<span class="error-msg">That doesn\'t look like a Gist URL.</span>';
-                      return;
+                  if (gistId) {
+                      await loadGistRoutines(gistId, statusText);
+                  } else {
+                    const httpsId = extractHttpsId(clipboardText);
+                    if (httpsId) {
+                    await loadHttpsRoutines(httpsId, statusText);
+                    } else {
+                      statusText.innerHTML = '<span class="error-msg">That doesn\'t look like a Gist or an URL in the same domain.</span>';
+                    return;
+                    }
                   }
-
-                  await loadGistRoutines(gistId, statusText);
               });
           }
 
-          // NEW: Gist ID extraction, bookmarkable URL, and fetch+parse logic
+          // Gist ID extraction, bookmarkable URL, and fetch+parse logic
           function extractGistId(url) {
               if (!url) return null;
               const match = url.trim().match(/gist\.github(?:usercontent)?\.com\/(?:[^\/\s]+\/)?([0-9a-f]{10,})/i);
@@ -1969,6 +1974,43 @@ Climb with Inclines // For walkpads with automatic incline settings
                   statusEl.innerText = `Status: Loaded routines from gist "${file.filename}".`;
               } catch (err) {
                   statusEl.innerHTML = `<span class="error-msg">Gist load failed: ${err.message}</span>`;
+              }
+          }
+
+          // Https ID extraction, bookmarkable URL, and fetch+parse logic
+          function extractHttpsId(url) {
+              try {
+                  const clipboardUrl = new URL(url.trim());
+                  if (clipboardUrl.origin !== window.location.origin) {
+                      return null;
+                  }
+              } catch (error) {
+                  return null;
+              }
+              return url.trim();
+          }
+
+          function setHttpsUrlParam(httpsId) {
+              const params = new URLSearchParams(window.location.search);
+              params.set('https', httpsId);
+              const newUrl = window.location.pathname + '?' + params.toString();
+              history.replaceState(null, '', newUrl);
+          }
+
+          async function loadHttpsRoutines(httpsId, statusEl) {
+              statusEl.innerText = 'Status: Fetching https...';
+              try {
+                  const response = await fetch(`${httpsId}`);
+                  if (!response.ok) {
+                      throw new Error(`Https URL returned ${response.status}`);
+                  }
+                  content = await response.text();
+                  localStorage.setItem('wpss_cached_routines', content);
+                  parseAndGenerateLinks(content);
+                  setHttpsUrlParam(httpsId);
+                  statusEl.innerText = `Status: Loaded routines from "${httpsId}".`;
+              } catch (err) {
+                  statusEl.innerHTML = `<span class="error-msg">Https load of ${httpsId} failed: ${err.message}</span>`;
               }
           }
 
