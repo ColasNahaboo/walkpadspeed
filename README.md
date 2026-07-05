@@ -229,7 +229,7 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 An **❤ HR** display is available under the speed display.
 If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left:
 
-Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
+Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.turquoise
 
 Values:
 - Z0  38-50%  digestive/glucose purple
@@ -362,7 +362,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
-- v0.7.2 speeds can be specified also with a target Zone. New Zo zone for digestive walks (38-50% HRR)
+- v0.7.2 speeds can be specified also with a target Zone. New Z0 zone for digestive walks (38-50% HRR)
 - v0.7.1 heart rate display is disabled if metadata `#hrm: 0` is in the routines file.
 - v0.7.0 tracks the heart rate with any device using the standard BLE heart_rate service (I use a coros armband)
 - v0.6.4 2026-07-03 released. When launching a routine, if the walkpad is not connected anymore (e.g. app is resumed after some hours), show the connection screen instead of running disconnected.
