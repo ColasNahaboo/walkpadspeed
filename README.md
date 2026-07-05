@@ -362,9 +362,9 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
-- v0.7.2 speeds can be specified also with a target Zone. New Z0 zone for digestive walks (38-50% HRR)
-- v0.7.1 heart rate display is disabled if metadata `#hrm: 0` is in the routines file.
-- v0.7.0 tracks the heart rate with any device using the standard BLE heart_rate service (I use a coros armband)
+- v0.7.2 2026-06-05 speeds can be specified also with a target Zone. New Z0 zone for digestive walks (38-50% HRR)
+- v0.7.1 2026-06-05 heart rate display is disabled if metadata `#hrm: 0` is in the routines file.
+- v0.7.0 2026-06-04 tracks the heart rate with any device using the standard BLE heart_rate service (I use a coros armband)
 - v0.6.4 2026-07-03 released. When launching a routine, if the walkpad is not connected anymore (e.g. app is resumed after some hours), show the connection screen instead of running disconnected.
 - v0.6.3 2026-06-30 released. prevent hardware jitters to trigger pauses during slowest step.
 - v0.6.2 2026-06-30 routines file can be loaded from a GitHub Gist. setting a modifier now changes the speed immediately without waiting for the next step to begin.
