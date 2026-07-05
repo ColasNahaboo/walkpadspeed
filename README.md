@@ -84,7 +84,8 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 - Each workout starts with a **name** on its own line.
 - Every line after that is one **step** of space-separated values:
   - **speed**, a number which can have a decimal, expressed in **km/h**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph. \
-  To express a speed in miles per hour, just append **mph** to it
+  To express a speed in miles per hour, just append **mph** to it.\
+    - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted every 30s so that your heart rate stays in the chosen zone. E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
   - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
@@ -228,12 +229,11 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 An **❤ HR** display is available under the speed display.
 If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left:
 
-Walkpadspeed adds a pseudo zone "digestive" between the Z1 and Z2 zone, for the optimal digestive effort to reduce glycemic peaks after meals. The indicator will show it as `Z1d` (for the part inside Z1), and `Z2d` (for the part insize zone2).
+Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
 
 Values:
+- Z0  38-50%  digestive/glucose purple
 - Z1  50–55%  recovery/light    blue
-- Z1d 55-60%  Z1 digestive      blue-green
-- Z2d 60–65%  Z2 digestive      green-blue
 - Z2  65–70%  aerobic/fat burn  green
 - Z3  70–80%  endurance         yellow
 - Z4  80–90%  threshold         orange
@@ -362,6 +362,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.7.2 speeds can be specified also with a target Zone. New Zo zone for digestive walks (38-50% HRR)
 - v0.7.1 heart rate display is disabled if metadata `#hrm: 0` is in the routines file.
 - v0.7.0 tracks the heart rate with any device using the standard BLE heart_rate service (I use a coros armband)
 - v0.6.4 2026-07-03 released. When launching a routine, if the walkpad is not connected anymore (e.g. app is resumed after some hours), show the connection screen instead of running disconnected.
