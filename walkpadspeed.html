@@ -956,9 +956,8 @@
          HR ZONE  (Karvonen / Heart Rate Reserve method)
          Requires #rest-heart-rate and #max-heart-rate in the routines
          file. Zone boundaries as % of HRR:
-           Z0  35–45%   digestive walk (turquoise)
+           Z0  38–50%   digestive walk (purple)
            Z1  50–60%   recovery/light (blue)
-           Zd  55-65%   digestinve/glycemic (bluegreen)
            Z2  60-70%   aerobic/fat burn (green)
            Z3  70–80%   endurance (yellow)
            Z4  80–90%   threshold (orange)
@@ -966,28 +965,44 @@
       ---------------------------------------------------------------- */
       const HR_ZONE_COLORS = {
           null: '#111111',
-          1:    '#1155dd',  // Z1  50–55%  recovery/light    blue
-          2:    '#1771aa',  // Z1d 55-60%  Z1 digestive
-          3:    '#1c8e77',  // Z2d 60–65%  Z2 digestive
-          4:    '#22aa44',  // Z2  65–70%  aerobic/fat burn  green
+          0:    '#7744cc',  // Z0  38-50%  digestive/glucose purple
+          1:    '#1155dd',  // Z1  50–60%  recovery/light    blue
+          4:    '#22aa44',  // Z2  60–70%  aerobic/fat burn  green
           5:    '#cccc00',  // Z3  70–80%  endurance         yellow
           6:    '#ff8800',  // Z4  80–90%  threshold         orange
           7:    '#cc2200',  // Z5  90–100% VO2 max           red
       };
-      const HR_ZONE_LABELS = { null: '--', 1: 'Z1', 2: 'Z1d', 3: 'Z2d', 4: 'Z2', 5: 'Z3', 6: 'Z4', 7: 'Z5' };
+      const HR_ZONE_LABELS = {
+          null: '--',
+          0: 'Z0',
+          1: 'Z1',
+          2: 'Z2',
+          3: 'Z3',
+          4: 'Z4',
+          5: 'Z5' };
+
+      // Zone boundaries as % of Heart Rate Reserve (HRR)
+      const ZONE_BOUNDARIES = {
+          0: [0.35, 0.50],
+          1: [0.50, 0.60],
+          2: [0.60, 0.70],
+          3: [0.70, 0.80],
+          4: [0.80, 0.90],
+          5: [0.90, 1.00]
+      };
 
       function getHRZone(bpm) {
           if (!metaMaxHeartRate || !metaRestHeartRate) return null;
           if (bpm >= metaMaxHeartRate) return 5; // at/above max → Z5 + alert
           const pct = (bpm - metaRestHeartRate) / (metaMaxHeartRate - metaRestHeartRate);
-          if (pct >= 0.90) return 7;
-          if (pct >= 0.80) return 6;
-          if (pct >= 0.70) return 5;
-          if (pct >= 0.65) return 4;
-          if (pct >= 0.60) return 3;
-          if (pct >= 0.55) return 2;
-          if (pct >= 0.50) return 1;
-          return null; // below Z1
+          let matchedZone = null;
+          // On overlaps (e.g. 0.60), take the higher zone
+          for (const [zone, bounds] of Object.entries(ZONE_BOUNDARIES)) {
+              if (pct >= bounds[0] && pct <= bounds[1]) {
+                  matchedZone = Number(zone);
+              }
+          }
+          return matchedZone; // Returns null if pct falls in a gap
       }
 
       function updateHrZone(bpm) {
