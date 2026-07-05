@@ -649,6 +649,9 @@
       // Heart Rate Monitor (standard BLE Heart Rate Profile, service 0x180D)
       let hrmDevice = null;
       let hrmCharacteristic = null;
+      let currentHeartRate = 0;         // Latest BPM received from HRM notifications
+      let hrmStepTargetZone = null;     // Zone number (0–5) for current step, null if not zone-controlled
+      let hrmZoneAdjustTimer = null;    // setInterval handle for the zone compensation loop
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
       let routineHasIncline = false;
@@ -921,8 +924,96 @@
           const flags = data.getUint8(0);
           // Bit 0 of flags: 0 = HR value is uint8, 1 = uint16 (little-endian)
           const bpm = (flags & 0x01) ? data.getUint16(1, true) : data.getUint8(1);
+          currentHeartRate = bpm;
           updateHrmUI('connected', bpm);
           updateHrZone(bpm);
+      }
+
+      /* ================================================================
+         HRM ZONE SPEED CONTROL
+         When a step specifies a target zone (e.g. "4.5/Z2") and the HRM
+         is connected, every HRM_ZONE_INTERVAL_MS the app checks the live
+         HR against the zone bounds and nudges the belt speed to push HR
+         into the target zone.
+
+         Interval: 30 s (not 15 s) — HR takes ~30–60 s to fully respond
+         to a speed change, so 15 s risks oscillation / "hunting".
+
+         Asymmetric adjustment steps:
+           Below zone (too slow → raise HR): larger steps (safer — more
+             speed is just inefficiency, not a health risk)
+           Above zone (too fast → lower HR): smaller steps (conservative
+             — we never want to overshoot downward past the zone on a
+             tired heart)
+         Below zone  <5 BPM: +0.1   Above zone  <5 BPM: −0.1
+         Below zone  5–10:   +0.2   Above zone  5–10:   −0.1
+         Below zone  >10:    +0.3   Above zone  >10:    −0.2
+         ================================================================ */
+
+      const HRM_ZONE_INTERVAL_MS = 30000;
+      const HRM_SPEED_MIN = 0.5;
+      const HRM_SPEED_MAX = 20.0;
+
+      function getZoneBpmBounds(zone) {
+          if (!metaMaxHeartRate || !metaRestHeartRate) return null;
+          const bounds = ZONE_BOUNDARIES[zone];
+          if (!bounds) return null;
+          const hrr = metaMaxHeartRate - metaRestHeartRate;
+          return {
+              low:  Math.round(metaRestHeartRate + hrr * bounds[0]),
+              high: Math.round(metaRestHeartRate + hrr * bounds[1])
+          };
+      }
+
+      function startHrmZoneControl(zone) {
+          stopHrmZoneControl();
+          if (zone === null || zone === undefined) return;
+          if (!hrmCharacteristic) return;
+          const bounds = getZoneBpmBounds(zone);
+          if (!bounds) {
+              updateStatus(`Zone Z${zone} control inactive — set #rest-heart-rate and #max-heart-rate in your routines file.`);
+              return;
+          }
+          hrmStepTargetZone = zone;
+          updateStatus(`Zone Z${zone} control active (target ${bounds.low}–${bounds.high} BPM).`);
+          hrmZoneAdjustTimer = setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS);
+      }
+
+      function stopHrmZoneControl() {
+          if (hrmZoneAdjustTimer) {
+              clearInterval(hrmZoneAdjustTimer);
+              hrmZoneAdjustTimer = null;
+          }
+          hrmStepTargetZone = null;
+      }
+
+      function applyHrmZoneAdjust() {
+          if (!isRoutineActive || isPaused) return;
+          if (hrmStepTargetZone === null || currentHeartRate <= 0) return;
+          const bounds = getZoneBpmBounds(hrmStepTargetZone);
+          if (!bounds) return;
+
+          let delta = 0;
+          if (currentHeartRate < bounds.low) {
+              // Below zone — raise speed (more aggressive: HR too low is just inefficiency)
+              const deficit = bounds.low - currentHeartRate;
+              delta = deficit <= 5 ? +0.1 : deficit <= 10 ? +0.2 : +0.3;
+          } else if (currentHeartRate > bounds.high) {
+              // Above zone — lower speed (conservative: never overshoot downward)
+              const excess = currentHeartRate - bounds.high;
+              delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.1 : -0.2;
+          }
+
+          if (delta === 0) return;
+
+          const newSpeed = Math.max(HRM_SPEED_MIN,
+                           Math.min(HRM_SPEED_MAX, currentTargetSpeed + delta));
+          if (Math.abs(newSpeed - currentTargetSpeed) < 0.001) return;
+
+          const dir = delta > 0 ? '↑' : '↓';
+          updateStatus(`Z${hrmStepTargetZone} control: ${currentHeartRate} BPM → speed ${dir}${newSpeed.toFixed(1)} km/h`);
+          currentTargetSpeed = newSpeed;
+          sendSpeed(newSpeed, false);
       }
 
       function updateHrmUI(state, bpm) {
@@ -965,21 +1056,16 @@
       ---------------------------------------------------------------- */
       const HR_ZONE_COLORS = {
           null: '#111111',
-          0:    '#7744cc',  // Z0  38-50%  digestive/glucose purple
-          1:    '#1155dd',  // Z1  50–60%  recovery/light    blue
-          4:    '#22aa44',  // Z2  60–70%  aerobic/fat burn  green
-          5:    '#cccc00',  // Z3  70–80%  endurance         yellow
-          6:    '#ff8800',  // Z4  80–90%  threshold         orange
-          7:    '#cc2200',  // Z5  90–100% VO2 max           red
+          0:    '#00ced1',  // Z0  35–50%  digestive         turquoise
+          1:    '#1155dd',  // Z1  50–59%  recovery/light    blue
+          2:    '#22aa44',  // Z2  60–69%  aerobic/fat burn  green
+          3:    '#cccc00',  // Z3  70–79%  endurance         yellow
+          4:    '#ff8800',  // Z4  80–89%  threshold         orange
+          5:    '#cc2200',  // Z5  90–100% VO2 max           red
       };
       const HR_ZONE_LABELS = {
           null: '--',
-          0: 'Z0',
-          1: 'Z1',
-          2: 'Z2',
-          3: 'Z3',
-          4: 'Z4',
-          5: 'Z5' };
+          0: 'Z0', 1: 'Z1', 2: 'Z2', 3: 'Z3', 4: 'Z4', 5: 'Z5' };
 
       // Zone boundaries as % of Heart Rate Reserve (HRR)
       const ZONE_BOUNDARIES = {
@@ -1027,6 +1113,7 @@
               clearInterval(routineInterval);
               routineInterval = null;
           }
+          stopHrmZoneControl();
       }
 
       function resetRoutineState() {
@@ -1135,6 +1222,10 @@
                   if (isRoutineActive && !routineInterval) {
                       startClockLoop();
                   }
+                  const resumingStep = currentRoutineSteps[currentStepIndex];
+                  if (resumingStep?.targetZone !== null && hrmCharacteristic) {
+                      startHrmZoneControl(resumingStep.targetZone);
+                  }
 
                   // Re-enable after speed stabilizes post-resume
                   setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
@@ -1203,6 +1294,10 @@
                   if (step.incline !== undefined &&
                       step.incline !== currentTargetIncline) {
                       await sendIncline(step.incline);
+                  }
+                  stopHrmZoneControl();
+                  if (step.targetZone !== null && hrmCharacteristic) {
+                      startHrmZoneControl(step.targetZone);
                   }
               }
 
@@ -1294,7 +1389,12 @@
           routineHasIncline = false;
           return raw.split(',').map((item, index) => {
               const parts = item.split('-');
-              const speed = parseFloat(parts[0]);
+              // Speed token may include a zone suffix: "4.5" or "4.5Z2"
+              const speedStr = parts[0];
+              const szMatch = speedStr.match(/^(\d+(?:\.\d+)?)(Z([0-5]))?$/i);
+              const speed = szMatch ? parseFloat(szMatch[1]) : parseFloat(speedStr);
+              const targetZone = (szMatch && szMatch[3] !== undefined)
+                  ? parseInt(szMatch[3], 10) : null;
               let durationPart = parts[1];
               let incline = previousIncline;
               if (durationPart.includes('%_')) {
@@ -1323,6 +1423,7 @@
                   speed,
                   duration,
                   incline,
+                  targetZone,
                   name: stepName,
                   setName
               };
@@ -1473,7 +1574,7 @@
               if (step.incline) {
                   incline = `${step.incline}% `;
               }
-              meta.innerHTML = `<span>${incline}${step.speed.toFixed(1)} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
+              meta.innerHTML = `<span>${incline}${step.speed.toFixed(1)}${step.targetZone !== null ? `/Z${step.targetZone}` : ''} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
 
               row.appendChild(btn);
               row.appendChild(meta);
@@ -1641,6 +1742,10 @@
               }
               if (isRoutineActive && !routineInterval) {
                   startClockLoop();
+              }
+              const remotedStep = currentRoutineSteps[currentStepIndex];
+              if (remotedStep?.targetZone !== null && hrmCharacteristic) {
+                  startHrmZoneControl(remotedStep.targetZone);
               }
               return;
           }
@@ -2096,23 +2201,41 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                       const stepTokens = line.content.split(/\s+/);
                       if (stepTokens.length >= 2) {
+                          // Speed token may have a zone target suffix: "4.5/Z2" or "3.5mph/Z2"
+                          // The /Zn part is stripped for mph/speed parsing then re-attached
+                          // to the packed step as a suffix on the speed: "4.5Z2".
+                          let rawSpeedToken = stepTokens[0];
+                          let targetZone = null;
+                          const zoneSlashMatch = rawSpeedToken.match(/^(.+?)\/(Z([0-5]))$/i);
+                          if (zoneSlashMatch) {
+                              rawSpeedToken = zoneSlashMatch[1];
+                              targetZone = parseInt(zoneSlashMatch[3], 10);
+                          }
+
                           // Speed may be plain km/h, or suffixed with "mph" (no
                           // space) to be entered in miles per hour, e.g. "5mph".
                           // Also, if #speed-unit: mph is set as file metadata,
                           // all unsuffixed speeds are treated as mph by default.
                           // Once converted, the mph original is discarded — all
                           // downstream encoding/display uses the km/h value.
-                          const mphMatch = stepTokens[0].match(/^(\d+(?:\.\d+)?)mph$/i);
+                          const mphMatch = rawSpeedToken.match(/^(\d+(?:\.\d+)?)mph$/i);
                           let speed, speedToken;
                           if (mphMatch || metaSpeedUnit === 'mph') {
-                              const rawSpeed = parseFloat(mphMatch ? mphMatch[1] : stepTokens[0]);
+                              const rawSpeed = parseFloat(mphMatch ? mphMatch[1] : rawSpeedToken);
                               speed = rawSpeed * 1.60934;
                               speedToken = speed.toFixed(1);
                               speed = parseFloat(speedToken);
                           } else {
-                              speed = parseFloat(stepTokens[0]);
-                              speedToken = stepTokens[0];
+                              speed = parseFloat(rawSpeedToken);
+                              speedToken = rawSpeedToken;
                           }
+
+                          // Display token shows speed + zone (before we append zone to packed)
+                          const displaySpeedToken = targetZone !== null
+                              ? `${speedToken}/Z${targetZone}` : speedToken;
+
+                          // Append zone to packed speed token so buildRoutineSteps can read it
+                          if (targetZone !== null) speedToken += `Z${targetZone}`;
 
                           let tokenIndex = 1;
                           let incline = null;
@@ -2159,7 +2282,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                                   ? `${duration / 60}m`
                                   : `${duration}`;
 
-                              const displayTokens = [speedToken];
+                              const displayTokens = [displaySpeedToken];
                               if (incline !== null) displayTokens.push(`${incline}%`);
                               displayTokens.push(durationDisplay);
                               displayTokens.push(...stepTokens.slice(labelStart));
@@ -2438,6 +2561,9 @@ Climb with Inclines // For walkpads with automatic incline settings
               updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
               await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
+              if (currentRoutineSteps[currentStepIndex].targetZone !== null && hrmCharacteristic) {
+                  startHrmZoneControl(currentRoutineSteps[currentStepIndex].targetZone);
+              }
               startClockLoop();
           });
 
