@@ -92,9 +92,10 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 - **Comments:** Lines starting with `#` or `//` are notes for yourself and are ignored, as is anything after `//` on a line.
 - Some optional (global settings) can be specified at the start of the file as `Hname: value` lines.
   - `#name:` your name, for displaying in messages, e.g. Colas.
-  - `#rest-heart-rate:` your heart rate at rest, e.g. `70`.
-  - `#max-heart-rate:` you maximum heart rate, normally 220 minus your age, e.g. if you are 50yo, `170`. But it can vary.
-  - `#speed-unit:` if set to `mph`, all the speeds will be interpreted as mph instead of km/h.
+  - `#hrm:` set it to 0 (default: 1) to remove the Heart Rate Monitor (HRM) [(see below)](#heart-rate-monitoring) display, useful if you never use one.
+  - `#rest-heart-rate:` your heart rate at rest, e.g. `70`. Used for HRM zones.
+  - `#max-heart-rate:` you maximum heart rate, normally 220 (men) or 226 (women) minus your age, e.g. if you are a 50yo man, `170`. But it can vary. Used for HRTM zones.
+  - `#speed-unit:` if set to `mph`, all the speeds will be interpreted as mph instead of km/h by default in the routines files.
 
 **Example file:**
 
@@ -186,7 +187,7 @@ Click any routine button on the Manager screen to jump to the **Player** screen,
 1. Press **Connect to WalkPad**. Your browser will ask you to pick your device from a list — choose your walkpad and approve the connection.
 2. Once connected, you'll see live numbers:
    - **Incline** - a percentage if the routine has any incline changes defined
-   - **❤ HR** - the heart rate monitor. If you wear one, **connect to it** by clicking on the indicator (the `- -`). Re-clicking disconnects.
+   - **❤ HR** - the heart rate monitor, if not disabled by `#hrm: 0`. If you wear one, **connect to it** by clicking on the indicator (the `- -`). Re-clicking disconnects.
    - **Elapsed** — how long you've been moving
    - **Speed** — your pad's current actual speed
    - **Remain** — how much time is left in the whole routine
@@ -224,6 +225,7 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 
 ## Heart rate monitoring
 
+An **❤ HR** display is available under the speed display.
 If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left:
 
 Walkpadspeed adds a pseudo zone "digestive" between the Z1 and Z2 zone, for the optimal digestive effort to reduce glycemic peaks after meals. The indicator will show it as `Z1d` (for the part inside Z1), and `Z2d` (for the part insize zone2).
@@ -360,6 +362,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.7.1 heart rate display is disabled if metadata `#hrm: 0` is in the routines file.
 - v0.7.0 tracks the heart rate with any device using the standard BLE heart_rate service (I use a coros armband)
 - v0.6.4 2026-07-03 released. When launching a routine, if the walkpad is not connected anymore (e.g. app is resumed after some hours), show the connection screen instead of running disconnected.
 - v0.6.3 2026-06-30 released. prevent hardware jitters to trigger pauses during slowest step.

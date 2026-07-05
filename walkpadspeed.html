@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.0";}
+      #version:after {content: "v0.7.1";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -321,14 +321,24 @@
           z-index: 1;
       }
 
-      .metrics-grid {
+      /* Outer wrapper: sets container context for cqw font scaling.
+         Two inner rows are each a 2-column grid.
+         Top row auto-collapses via :has() when both cells are .metric-off. */
+      #metricsWrapper {
+          container-type: inline-size;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          box-sizing: border-box;
+          margin: 0 auto;
+      }
+      #topMetrics, #bottomMetrics {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 0.2rem;
-          box-sizing: border-box;
-          margin: 0px auto;
-          container-type: inline-size; /* constrain sons */
       }
+      .metric-off { visibility: hidden; }
+      #topMetrics:has(#inclineMetric.metric-off):has(#hrmCell.metric-off) { display: none; }
       .metric-box {
           background: #1c1c1e;
           border: 1px solid #2c2c2e;
@@ -555,29 +565,33 @@
             <div id="progressBar"></div>
           </div>
         </div>
-        <div class="metrics-grid">
-          <div id="inclineMetric" class="metric-box" style="visibility:hidden">
-            <div class="metric-title">Incl</div>
-            <div class="metric-value" id="liveIncline">0%</div>
-          </div>
-          <div class="metric-box" id="hrmCell">
-            <div id="hrZoneMetric">
-              <div class="metric-title">Zone</div>
-              <div class="metric-value" id="hrZoneValue">--</div>
+        <div id="metricsWrapper">
+          <div id="topMetrics">
+            <div id="inclineMetric" class="metric-box metric-off">
+              <div class="metric-title">Incl</div>
+              <div class="metric-value" id="liveIncline">0%</div>
             </div>
-            <div id="hrmMetric" onclick="handleHrmBoxClick()"
-                 title="Tap to connect Heart Rate Monitor">
-              <div class="metric-title" id="hrmTitle">❤ HR</div>
-              <div class="metric-value" id="hrmValue">- -</div>
+            <div class="metric-box" id="hrmCell">
+              <div id="hrZoneMetric">
+                <div class="metric-title">Zone</div>
+                <div class="metric-value" id="hrZoneValue">--</div>
+              </div>
+              <div id="hrmMetric" onclick="handleHrmBoxClick()"
+                   title="Tap to connect Heart Rate Monitor">
+                <div class="metric-title" id="hrmTitle">❤ HR</div>
+                <div class="metric-value" id="hrmValue">- -</div>
+              </div>
             </div>
           </div>
-          <div class="metric-box">
-            <div class="metric-title">Elapsed</div>
-            <div class="metric-value" id="liveTime">00:00</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-title">Remain</div>
-            <div class="metric-value" id="liveRemain">00:00</div>
+          <div id="bottomMetrics">
+            <div class="metric-box">
+              <div class="metric-title">Elapsed</div>
+              <div class="metric-value" id="liveTime">00:00</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-title">Remain</div>
+              <div class="metric-value" id="liveRemain">00:00</div>
+            </div>
           </div>
         </div>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
@@ -651,7 +665,9 @@
       let metaSpeedUnit = null;      // #speed-unit:       "mph" or "km/h" (file-wide default)
       let metaFileVersion = null;    // #version:          routines file format version (string)
       let metaIncline = null;        // #incline:          fixed treadmill incline % (number);
-                                     //                    suppresses the incline metric in the UI
+      //                    suppresses the incline metric in the UI
+      let metaHRML = 1; // #hrm: enable HRM metric in the UI
+
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
       let speedThreshold = 0.8; // Fraction (0-1 exclusive) of the routine's minSpeed; below this, pad is considered stopped.
       let speedMod = 1;
@@ -1207,7 +1223,7 @@
       function parseMetadata(text) {
           // Reset all metadata globals so loading a new file starts clean
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
-          metaRestHeartRate = null; metaMaxHeartRate = null;
+          metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = null;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
 
           const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
@@ -1228,6 +1244,7 @@
                   case 'speed-unit':       metaSpeedUnit      = val.toLowerCase(); break;
                   case 'version':          metaFileVersion    = val;               break;
                   case 'incline':          metaIncline        = parseFloat(val);   break;
+                  case 'hrm':              metaHRM            = parseInt(val, 10); break; 
               }
           }
       }
@@ -2312,7 +2329,10 @@ Climb with Inclines // For walkpads with automatic incline settings
                       document.getElementById('testModeToggle').style.display = 'none';
                       document.getElementById('controls').style.display = 'block';
                       if (routineHasIncline && !metaIncline) {
-                          document.getElementById('inclineMetric').style.visibility = 'visible';
+                          document.getElementById('inclineMetric').classList.remove('metric-off');
+                      }
+                      if (!metaHRM) {
+                          document.getElementById('hrmCell').classList.add('metric-off');
                       }
 
                       document.getElementById('connectBtn').style.display = 'none';
@@ -2347,7 +2367,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   document.getElementById('testModeToggle').style.display = 'none';
                   document.getElementById('controls').style.display = 'block';
                   if (routineHasIncline && !metaIncline) {
-                      document.getElementById('inclineMetric').style.visibility = 'visible';
+                      document.getElementById('inclineMetric').classList.remove('metric-off');
                   }
                   document.getElementById('connectBtn').style.display = 'none';
                   updateStatus("Connected & Ready!");
