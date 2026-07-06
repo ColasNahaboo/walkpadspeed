@@ -652,7 +652,8 @@
       let currentHeartRate = 0; // Latest BPM received from HRM
       let hrmStepTargetZone = null; // Zone number (0–5) for zone-controled step
       let hrmZoneAdjustTimer = null; // setInterval handle for zone-control
-      let lastHrmZoneAdjust = 0;
+      let lastHrmZoneAdjust = 0; // time of last HRM auto-adjust
+      let lastHrmZoneBpm = 0; // BPM at time of last HRM auto-adjust
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
       let routineHasIncline = false;
@@ -953,6 +954,8 @@
 
       const HRM_ZONE_INTERVAL_MS = 20000;
       const HRM_ZONE_MIN_MS = 10000;
+      const HRM_ZONE_LOOKAHEAD = 2; // number of future intervals to anticipate
+      const HRM_ZONE_DAMPEN = 1; // dampen correction when anticipating
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
 
@@ -1007,6 +1010,8 @@
               // Above zone — lower speed (conservative: never overshoot downward)
               const excess = currentHeartRate - bounds.high;
               delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.2 : -0.3;
+          } else if (lastHrmZoneBpm) {
+              delta = avoidHrmZoneBounds(bounds);
           }
 
           if (delta === 0) return;
@@ -1015,12 +1020,26 @@
                            Math.min(HRM_SPEED_MAX, currentTargetSpeed + delta));
           if (Math.abs(newSpeed - currentTargetSpeed) < 0.001) return;
           lastHrmZoneAdjust = Date.now();
+          lastHrmZoneBpm = currentHeartRate;
           const dir = delta > 0 ? '↑' : '↓';
           updateStatus(`Z${hrmStepTargetZone} control: ${currentHeartRate} BPM → speed ${dir}${newSpeed.toFixed(1)} km/h`);
           currentTargetSpeed = newSpeed;
           sendSpeed(newSpeed, false);
       }
 
+      // correct course if we are going to exit the zone at next tick
+      function avoidHrmZoneBounds(bounds) {
+          const bpmChange = (currentHeartRate - lastHrmZoneBpm) / (Date.now() - lastHrmZoneAdjust) * HRM_ZONE_INTERVAL_MS;
+          const nextBPM = currentHeartRate + bpmChange * HRM_ZONE_LOOKAHEAD;
+          const bpmRatio = bpmChange / HRM_ZONE_DAMPEN;
+          if (nextBPM < bounds.low) {
+              return bpmRatio >= -1 ? +0.1 : bpmRatio >= -2 ? +0.2 : +0.3;
+          } else if  (nextBPM > bounds.high) {
+              return bpmRatio <= 1 ? -0.1 : bpmRatio <= 2 ? -0.2 : -0.3;
+          }
+          return 0;
+      }
+      
       function updateHrmUI(state, bpm) {
           const title = document.getElementById('hrmTitle');
           const value = document.getElementById('hrmValue');
