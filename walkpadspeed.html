@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.3";}
+      #version:after {content: "v0.7.3+";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -952,6 +952,7 @@
       const HRM_ZONE_LA_DAMPEN_DN = 1; // dampen down-correction on anticipating
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
+      const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
 
       function getZoneBpmBounds(zone) {
           if (!metaMaxHeartRate || !metaRestHeartRate) return null;
@@ -964,17 +965,20 @@
           };
       }
 
-      function startHrmZoneControl(zone) {
+      function startHrmZoneControl(zoneStr) {
           stopHrmZoneControl();
-          if (zone === null || zone === undefined) return;
+          if (zoneStr === null || zoneStr === undefined) return;
           if (!hrmCharacteristic) return;
-          const bounds = getZoneBpmBounds(zone);
+          const zoneNum = zoneMap[zoneStr] !== undefined ? zoneMap[zoneStr] : parseInt(zoneStr, 10);
+          if (isNaN(zoneNum)) return;
+          const bounds = getZoneBpmBounds(zoneNum);
           if (!bounds) {
-              updateStatus(`Zone Z${zone} control inactive — set #rest-heart-rate and #max-heart-rate in your routines file.`);
+              updateStatus(`Zone ${zoneStr} control inactive — set #rest-heart-rate and #max-heart-rate in your routines file.`);
               return;
           }
-          hrmStepTargetZone = zone;
-          updateStatus(`Zone Z${zone} control active (target ${bounds.low}–${bounds.high} BPM).`);
+          hrmStepTargetZone = zoneNum;
+          updateStatus(`Zone ${zoneStr} control active (target ${bounds.low}–${bounds.high} BPM).`);
+          lastHrmZoneBpm = currentHeartRate;
           applyHrmZoneAdjust(); // execute now, then every HRM_ZONE_INTERVAL_MS
           hrmZoneAdjustTimer = setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS);
       }
@@ -997,14 +1001,12 @@
 
           let delta = 0;
           if (currentHeartRate < bounds.low) {
-              // Below zone — raise speed (more aggressive: HR too low is just inefficiency)
               const deficit = (bounds.low - currentHeartRate) / HRM_ZONE_DAMPEN_UP;
               delta = deficit <= 5 ? +0.1 : deficit <= 10 ? +0.2 : +0.3;
           } else if (currentHeartRate > bounds.high) {
-              // Above zone — lower speed (conservative: never overshoot downward)
               const excess = (currentHeartRate - bounds.high) / HRM_ZONE_DAMPEN_DN;
               delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.2 : -0.3;
-          } else if (lastHrmZoneBpm) {
+          } else if (lastHrmZoneBpm !== null) {
               delta = avoidHrmZoneBounds(bounds);
           }
 
