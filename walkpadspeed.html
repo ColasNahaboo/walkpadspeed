@@ -951,7 +951,7 @@
          Below zone  >10:    +0.3   Above zone  >10:    −0.2
          ================================================================ */
 
-      const HRM_ZONE_INTERVAL_MS = 30000;
+      const HRM_ZONE_INTERVAL_MS = 20000;
       const HRM_ZONE_MIN_MS = 10000;
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
@@ -1006,7 +1006,7 @@
           } else if (currentHeartRate > bounds.high) {
               // Above zone — lower speed (conservative: never overshoot downward)
               const excess = currentHeartRate - bounds.high;
-              delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.1 : -0.2;
+              delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.2 : -0.3;
           }
 
           if (delta === 0) return;
