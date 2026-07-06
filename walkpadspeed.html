@@ -976,6 +976,7 @@
           }
           hrmStepTargetZone = zone;
           updateStatus(`Zone Z${zone} control active (target ${bounds.low}–${bounds.high} BPM).`);
+          applyHrmZoneAdjust(); // execute now, then every HRM_ZONE_INTERVAL_MS
           hrmZoneAdjustTimer = setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS);
       }
 
