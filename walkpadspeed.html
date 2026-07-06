@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.2";}
+      #version:after {content: "v0.7.3";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -649,9 +649,10 @@
       // Heart Rate Monitor (standard BLE Heart Rate Profile, service 0x180D)
       let hrmDevice = null;
       let hrmCharacteristic = null;
-      let currentHeartRate = 0;         // Latest BPM received from HRM notifications
-      let hrmStepTargetZone = null;     // Zone number (0–5) for current step, null if not zone-controlled
-      let hrmZoneAdjustTimer = null;    // setInterval handle for the zone compensation loop
+      let currentHeartRate = 0; // Latest BPM received from HRM
+      let hrmStepTargetZone = null; // Zone number (0–5) for zone-controled step
+      let hrmZoneAdjustTimer = null; // setInterval handle for zone-control
+      let lastHrmZoneAdjust = 0;
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
       let routineHasIncline = false;
@@ -951,6 +952,7 @@
          ================================================================ */
 
       const HRM_ZONE_INTERVAL_MS = 30000;
+      const HRM_ZONE_MIN_MS = 10000;
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
 
@@ -991,6 +993,8 @@
       function applyHrmZoneAdjust() {
           if (!isRoutineActive || isPaused) return;
           if (hrmStepTargetZone === null || currentHeartRate <= 0) return;
+          // Safeguard: Ignore if the last adjustment was too recent
+          if (Date.now() - lastHrmZoneAdjust < HRM_ZONE_MIN_MS) return;
           const bounds = getZoneBpmBounds(hrmStepTargetZone);
           if (!bounds) return;
 
@@ -1010,7 +1014,7 @@
           const newSpeed = Math.max(HRM_SPEED_MIN,
                            Math.min(HRM_SPEED_MAX, currentTargetSpeed + delta));
           if (Math.abs(newSpeed - currentTargetSpeed) < 0.001) return;
-
+          lastHrmZoneAdjust = Date.now();
           const dir = delta > 0 ? '↑' : '↓';
           updateStatus(`Z${hrmStepTargetZone} control: ${currentHeartRate} BPM → speed ${dir}${newSpeed.toFixed(1)} km/h`);
           currentTargetSpeed = newSpeed;
