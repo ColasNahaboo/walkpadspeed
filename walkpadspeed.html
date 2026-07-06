@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
+      :root {
+          --hrm-pillar-width:      2px;
+          --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
+          --hrm-track-opacity:     0.10;       /* ghost "glass tube" behind pillar */
+          --hrm-fill-transition:   height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
       #version:after {content: "v0.7.3b";}
       :root {
           --app-max-width: 500px;  /* max width */
@@ -378,9 +384,36 @@
           background-color: #111;
           transition: background-color 0.4s;
           text-align: center;
+          position: relative;
+          overflow: hidden;
       }
       #hrZoneMetric .metric-title { color: #8e8e93; }
       #hrZoneMetric .metric-value { color: #ffffff; }
+
+      /* Mercury pillar tracks — left and right inner edges */
+      .hrm-pillar {
+          position: absolute;
+          top: 5px; bottom: 5px;
+          width: var(--hrm-pillar-width);
+          pointer-events: none;
+      }
+      .hrm-pillar-left  { left:  3px; }
+      .hrm-pillar-right { right: 3px; }
+      .hrm-track {
+          position: absolute;
+          inset: 0;
+          background: var(--hrm-pillar-color);
+          opacity: var(--hrm-track-opacity);
+          border-radius: 1px;
+      }
+      .hrm-fill {
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 0%;
+          background: var(--hrm-pillar-color);
+          border-radius: 1px;
+          transition: var(--hrm-fill-transition);
+      }
       #hrmMetric {
           flex: 1;
           padding: 12px 0;
@@ -573,8 +606,16 @@
             </div>
             <div class="metric-box" id="hrmCell">
               <div id="hrZoneMetric">
+                <div class="hrm-pillar hrm-pillar-left">
+                  <div class="hrm-track"></div>
+                  <div class="hrm-fill"></div>
+                </div>
                 <div class="metric-title">Zone</div>
                 <div class="metric-value" id="hrZoneValue">--</div>
+                <div class="hrm-pillar hrm-pillar-right">
+                  <div class="hrm-track"></div>
+                  <div class="hrm-fill"></div>
+                </div>
               </div>
               <div id="hrmMetric" onclick="handleHrmBoxClick()"
                    title="Tap to connect Heart Rate Monitor">
@@ -1048,9 +1089,14 @@
               value.textContent = '- -';
               value.className = 'metric-value';
               box.title = 'Tap to connect Heart Rate Monitor';
-              // Hide zone strip on disconnect
+              // Hide zone strip and reset pillars on disconnect
               const zone = document.getElementById('hrZoneMetric');
               if (zone) { zone.style.display = 'none'; zone.className = ''; }
+              document.querySelectorAll('#hrZoneMetric .hrm-fill').forEach(f => {
+                  f.style.transition = 'none';
+                  f.style.height = '0%';
+                  delete f.dataset.zone;
+              });
           } else if (state === 'connecting') {
               title.textContent = '❤ HR';
               value.textContent = '…';
@@ -1127,6 +1173,46 @@
           zoneEl.style.flexDirection = 'column';
           zoneEl.style.justifyContent = 'center';
           zoneEl.classList.toggle('hr-max-alert', atMax);
+
+          updateHrmPillars(bpm, zone);
+      }
+
+      function updateHrmPillars(bpm, zone) {
+          const fills = document.querySelectorAll('#hrZoneMetric .hrm-fill');
+          if (!fills.length) return;
+
+          // Compute fill % within the current zone's BPM range
+          let fillPct = 0;
+          if (zone !== null) {
+              const bounds = getZoneBpmBounds(zone);
+              if (bounds) {
+                  fillPct = Math.max(0, Math.min(100,
+                      (bpm - bounds.low) / (bounds.high - bounds.low) * 100));
+              }
+          }
+
+          // Fill color: zone color if in a zone, otherwise the CSS variable default
+          const fillColor = zone !== null
+              ? (HR_ZONE_COLORS[zone] ?? 'var(--hrm-pillar-color)')
+              : 'var(--hrm-pillar-color)';
+
+          fills.forEach(fill => {
+              // Detect zone change via data attribute — on change: instant reset to
+              // 0% (no transition), force reflow, then animate up to new fill level
+              const prevZone = fill.dataset.zone ?? 'none';
+              const curZone  = zone === null ? 'null' : String(zone);
+
+              if (prevZone !== curZone) {
+                  fill.style.transition = 'none';
+                  fill.style.height = '0%';
+                  fill.dataset.zone = curZone;
+                  fill.offsetHeight;              // force reflow
+                  fill.style.transition = '';     // restore CSS transition
+              }
+
+              fill.style.height = `${fillPct.toFixed(1)}%`;
+              fill.style.backgroundColor = fillColor;
+          });
       }
 
       function clearAllIntervals() {
