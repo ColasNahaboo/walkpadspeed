@@ -941,21 +941,15 @@
          Interval: 30 s (not 15 s) — HR takes ~30–60 s to fully respond
          to a speed change, so 15 s risks oscillation / "hunting".
 
-         Asymmetric adjustment steps:
-           Below zone (too slow → raise HR): larger steps (safer — more
-             speed is just inefficiency, not a health risk)
-           Above zone (too fast → lower HR): smaller steps (conservative
-             — we never want to overshoot downward past the zone on a
-             tired heart)
-         Below zone  <5 BPM: +0.1   Above zone  <5 BPM: −0.1
-         Below zone  5–10:   +0.2   Above zone  5–10:   −0.1
-         Below zone  >10:    +0.3   Above zone  >10:    −0.2
          ================================================================ */
 
       const HRM_ZONE_INTERVAL_MS = 20000;
       const HRM_ZONE_MIN_MS = 10000;
+      const HRM_ZONE_DAMPEN_UP = 1; // dampen up-correction when outside zones
+      const HRM_ZONE_DAMPEN_DN = 1; // dampen down-correction when outside zones
       const HRM_ZONE_LOOKAHEAD = 2; // number of future intervals to anticipate
-      const HRM_ZONE_DAMPEN = 1; // dampen correction when anticipating
+      const HRM_ZONE_LA_DAMPEN_UP = 1; // dampen up-correction on anticipating
+      const HRM_ZONE_LA_DAMPEN_DN = 1; // dampen down-correction on anticipating
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
 
@@ -1004,11 +998,11 @@
           let delta = 0;
           if (currentHeartRate < bounds.low) {
               // Below zone — raise speed (more aggressive: HR too low is just inefficiency)
-              const deficit = bounds.low - currentHeartRate;
+              const deficit = (bounds.low - currentHeartRate) / HRM_ZONE_DAMPEN_UP;
               delta = deficit <= 5 ? +0.1 : deficit <= 10 ? +0.2 : +0.3;
           } else if (currentHeartRate > bounds.high) {
               // Above zone — lower speed (conservative: never overshoot downward)
-              const excess = currentHeartRate - bounds.high;
+              const excess = (currentHeartRate - bounds.high) / HRM_ZONE_DAMPEN_DN;
               delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.2 : -0.3;
           } else if (lastHrmZoneBpm) {
               delta = avoidHrmZoneBounds(bounds);
@@ -1031,10 +1025,11 @@
       function avoidHrmZoneBounds(bounds) {
           const bpmChange = (currentHeartRate - lastHrmZoneBpm) / (Date.now() - lastHrmZoneAdjust) * HRM_ZONE_INTERVAL_MS;
           const nextBPM = currentHeartRate + bpmChange * HRM_ZONE_LOOKAHEAD;
-          const bpmRatio = bpmChange / HRM_ZONE_DAMPEN;
           if (nextBPM < bounds.low) {
+              const bpmRatio = bpmChange / HRM_ZONE_LA_DAMPEN_UP;
               return bpmRatio >= -1 ? +0.1 : bpmRatio >= -2 ? +0.2 : +0.3;
           } else if  (nextBPM > bounds.high) {
+              const bpmRatio = bpmChange / HRM_ZONE_LA_DAMPEN_DN;
               return bpmRatio <= 1 ? -0.1 : bpmRatio <= 2 ? -0.2 : -0.3;
           }
           return 0;
