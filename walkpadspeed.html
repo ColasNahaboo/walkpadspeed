@@ -11,7 +11,7 @@
           --hrm-track-opacity:     0.10;       /* ghost "glass tube" behind pillar */
           --hrm-fill-transition:   height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
       }
-      #version:after {content: "v0.7.3b";}
+      #version:after {content: "v0.7.3c";}
       :root {
           --app-max-width: 500px;  /* max width */
       }
@@ -1006,6 +1006,21 @@
           };
       }
 
+      /* Send a step's stated speed — but skip it (keeping the current belt
+         speed and currentTargetSpeed) when zone control is active AND the
+         live HR is already within the target zone. This prevents a jarring
+         speed reset when you transition into a zone-targeted step while
+         already comfortably inside that zone. */
+      async function enterStepSpeed(step, isInitialStart) {
+          if (step.targetZone !== null && hrmCharacteristic && currentHeartRate > 0) {
+              const bounds = getZoneBpmBounds(step.targetZone);
+              if (bounds && currentHeartRate >= bounds.low && currentHeartRate <= bounds.high) {
+                  return; // already in zone — let zone control drive from here
+              }
+          }
+          await sendSpeed(step.speed, isInitialStart);
+      }
+
       function startHrmZoneControl(zoneStr) {
           stopHrmZoneControl();
           if (zoneStr === null || zoneStr === undefined) return;
@@ -1397,7 +1412,7 @@
                   secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
                   totalStepDuration = secondsLeftInStep;
                   const step = currentRoutineSteps[currentStepIndex];
-                  await sendSpeed(step.speed, false);
+                  await enterStepSpeed(step, false);
                   if (step.incline !== undefined &&
                       step.incline !== currentTargetIncline) {
                       await sendIncline(step.incline);
@@ -2667,7 +2682,7 @@ Climb with Inclines // For walkpads with automatic incline settings
               document.getElementById('timerContainer').style.display = 'block';
               updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
-              await sendSpeed(currentRoutineSteps[currentStepIndex].speed, true);
+              await enterStepSpeed(currentRoutineSteps[currentStepIndex], true);
               if (currentRoutineSteps[currentStepIndex].targetZone !== null && hrmCharacteristic) {
                   startHrmZoneControl(currentRoutineSteps[currentStepIndex].targetZone);
               }
