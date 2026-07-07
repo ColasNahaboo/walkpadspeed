@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.4-rc.5";}
+      #version:after {content: "v0.7.4-rc.6";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -690,10 +690,13 @@
       let wakeLock = null;
       let ftmsControlCharacteristic = null;
       let bluetoothDevice = null;
+      let isTestMode = false;
 
       // Heart Rate Monitor (standard BLE Heart Rate Profile, service 0x180D)
       let hrmDevice = null;
       let hrmCharacteristic = null;
+      let testHrData = []; // HRM simulation array from hr.txt: [{bpm: 85, time: 30}, ...]
+      let testHrInterval = null; // setInterval handle for the simulation tick
       let currentHeartRate = 0; // Latest BPM received from HRM
       let hrmStepTargetZone = null; // Zone number (0–5) for zone-controled step
       let hrmZoneAdjustTimer = null; // setInterval handle for zone-control
@@ -924,9 +927,88 @@
               connectHRM();
           }
       }
+      
+      /* ================================================================
+         TEST MODE HRM SIMULATION
+         Reads hr.txt and injects fake BPMs based on totalElapsedSeconds
+         ================================================================ */
+      async function fetchTestHrData() {
+          try {
+              // Build absolute path to hr.txt relative to the app's root
+              const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+              const url = window.location.origin + basePath + 'hr.txt';
+              
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`HTTP ${response.status} - Ensure hr.txt is in the app root.`);
+              
+              const text = await response.text();
+              const lines = text.trim().split('\n');
+              
+              testHrData = lines.map(line => {
+                  const parts = line.trim().split(/\s+/);
+                  if (parts.length >= 2) {
+                      return { bpm: parseInt(parts[0], 10), time: parseInt(parts[1], 10) };
+                  }
+                  return null;
+              }).filter(Boolean);
 
-      async function connectHRM() {
+              // Sort by time just in case the file is out of order
+              testHrData.sort((a, b) => a.time - b.time);
+              return true;
+          } catch (err) {
+              console.error("Failed to load hr.txt:", err);
+              updateStatus("Test HRM failed: " + err.message);
+              return false;
+          }
+      }
+
+      function simulateHrTick() {
+          if (testHrData.length === 0) return;
+
+          // Find the appropriate BPM for the current routine elapsed time
+          let currentBpm = testHrData[0].bpm; // Default to first entry
+          for (let i = testHrData.length - 1; i >= 0; i--) {
+              if (testHrData[i].time <= totalElapsedSeconds) {
+                  currentBpm = testHrData[i].bpm;
+                  break;
+              }
+          }
+
+          // Construct a fake DataView matching the BLE Heart Rate Measurement format
+          // Flags = 0x00 (means HR value is uint8 at offset 1)
+          const buffer = new ArrayBuffer(2);
+          const view = new DataView(buffer);
+          view.setUint8(0, 0x00); 
+          view.setUint8(1, currentBpm);
+
+          // Feed it directly into the existing handler
+          handleHrmNotification({ target: { value: view } });
+      }
+
+            async function connectHRM() {
           updateHrmUI('connecting');
+          
+          // ★ TEST MODE BRANCH ★
+          if (isTestMode) {
+              const success = await fetchTestHrData();
+              if (success) {
+                  // Set a truthy value so zone control logic (!hrmCharacteristic) passes
+                  hrmCharacteristic = true; 
+                  
+                  updateHrmUI('connected', testHrData[0]?.bpm ?? '--');
+                  updateStatus(`Test HRM connected (${testHrData.length} data points from hr.txt).`);
+                  
+                  // Start the simulation loop (checks every 1 second)
+                  if (testHrInterval) clearInterval(testHrInterval);
+                  testHrInterval = setInterval(simulateHrTick, 1000);
+                  simulateHrTick(); // Run once immediately to show first BPM
+              } else {
+                  updateHrmUI('idle');
+              }
+              return;
+          }
+
+          // ★ REAL BLE BRANCH (Your existing code) ★
           try {
               hrmDevice = await navigator.bluetooth.requestDevice({
                   filters: [{ services: ['heart_rate'] }]
@@ -956,8 +1038,21 @@
               }
           }
       }
-
+      
       function disconnectHRM() {
+          // ★ TEST MODE CLEANUP ★
+          if (isTestMode) {
+              if (testHrInterval) {
+                  clearInterval(testHrInterval);
+                  testHrInterval = null;
+              }
+              hrmCharacteristic = null;
+              testHrData = [];
+              updateHrmUI('idle');
+              return;
+          }
+
+          // ★ REAL BLE CLEANUP (Your existing code) ★
           if (hrmDevice) {
               if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
               hrmDevice = null;
@@ -2035,7 +2130,7 @@
           const routineContainer = document.getElementById('routineContainer');
           const routineList = document.getElementById('routineList');
 
-          let isTestMode = false;
+          isTestMode = false;
 
           if (urlParams.get('t') === '1') {
               isTestMode = true;
@@ -2522,7 +2617,7 @@ Climb with Inclines // For walkpads with automatic incline settings
 
       function initDriverMode(urlParams) {
           const basePath = window.location.pathname;
-          const isTestMode = urlParams.get('t') === '1';
+          isTestMode = urlParams.get('t') === '1';
 
           routineNameCached = urlParams.get('n') || "Test";
           routineRawCached = urlParams.get('r');
