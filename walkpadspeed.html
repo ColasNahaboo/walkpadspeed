@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.5";}
+      #version:after {content: "v0.7.6-rc.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -810,6 +810,25 @@
           5: [0.90, 1.00]
       };
 
+      // --- State Variables ---
+      let lastHr = null;
+      let lastSmoothedTrend = 0; // Stored as BPM per second
+      let lastTimestamp = null;
+      
+      // --- Tuning Parameters ---
+      // tweak the HR_CONTROL_CONFIG values:
+      // If the system still feels too jumpy when you are outside the zone, decrease the proportionalGain.
+      // If it takes too long to ramp up to your target heart rate at the start of a session, increase the maxSpeedChange.
+      //    If the trend calculation is overreacting to minor heart rate skips, lower the emaAlpha towards 0.1 or 0.15.
+      const HR_CONTROL_CONFIG = {
+          emaAlpha: 0.3,              // Smoothing factor (0.0 to 1.0). Lower = more smoothing, less reactive to noise.
+          lookaheadSeconds: 30,       // How far into the future to project the heart rate drift.
+          maxSpeedChange: 0.5,        // Maximum km/h change allowed in a single Acquisition Phase adjustment.
+          proportionalGain: 0.05,     // km/h adjustment per BPM off target center.
+          brakeThreshold: 0.3,        // BPM/sec velocity that triggers the "brakes" (ignoring further acceleration).
+          nudgeDown: -0.2,            // Corrective nudge when drifting above zone.
+          nudgeUp: 0.1                // Corrective nudge when drifting below zone.
+      };
       
       //=======================================================================
       
@@ -1193,42 +1212,111 @@
           const bounds = getZoneBpmBounds(hrmStepTargetZone);
           if (!bounds) return;
 
-          let delta = 0;
-          if (currentHeartRate < bounds.low) {
-              const deficit = (bounds.low - currentHeartRate) / HRM_ZONE_DAMPEN_UP;
-              delta = deficit <= 5 ? +0.1 : deficit <= 10 ? +0.2 : +0.3;
-          } else if (currentHeartRate > bounds.high) {
-              const excess = (currentHeartRate - bounds.high) / HRM_ZONE_DAMPEN_DN;
-              delta = excess <= 5 ? -0.1 : excess <= 10 ? -0.2 : -0.3;
-          } else if (lastHrmZoneBpm !== null) {
-              delta = avoidHrmZoneBounds(bounds);
-          }
-
+          let delta = calculateSpeedAdjustment(currentHeartRate, bounds.low, bounds.high);
           if (delta === 0) return;
 
           const newSpeed = Math.max(HRM_SPEED_MIN,
                            Math.min(HRM_SPEED_MAX, currentTargetSpeed + delta));
           if (Math.abs(newSpeed - currentTargetSpeed) < 0.001) return;
           lastHrmZoneAdjust = Date.now();
-          lastHrmZoneBpm = currentHeartRate;
           const dir = delta > 0 ? '↑' : '↓';
           updateStatus(`Z${hrmStepTargetZone} control: ${currentHeartRate} BPM → speed ${dir}${newSpeed.toFixed(1)} km/h`);
           currentTargetSpeed = newSpeed;
           sendSpeed(newSpeed, false);
       }
 
-      // correct course if we are going to exit the zone at next tick
-      function avoidHrmZoneBounds(bounds) {
-          const bpmChange = (currentHeartRate - lastHrmZoneBpm) / (Date.now() - lastHrmZoneAdjust) * HRM_ZONE_INTERVAL_MS;
-          const nextBPM = currentHeartRate + bpmChange * HRM_ZONE_LOOKAHEAD;
-          if (nextBPM < bounds.low) {
-              const bpmRatio = bpmChange / HRM_ZONE_LA_DAMPEN_UP;
-              return bpmRatio >= -1 ? +0.1 : bpmRatio >= -2 ? +0.2 : +0.3;
-          } else if  (nextBPM > bounds.high) {
-              const bpmRatio = bpmChange / HRM_ZONE_LA_DAMPEN_DN;
-              return bpmRatio <= 1 ? -0.1 : bpmRatio <= 2 ? -0.2 : -0.3;
+      /**
+       * Calculates the smoothed rate of change (BPM per second) using EMA.
+       * @param {number} currentHr - The current heart rate reading.
+       * @returns {number} The smoothed trend (positive means HR is rising, negative means dropping).
+       */
+      function updateHrTrend(currentHr) {
+          const now = Date.now();
+          
+          // First run initialization
+          if (lastHr === null || lastTimestamp === null) {
+              lastHr = currentHr;
+              lastTimestamp = now;
+              return 0; 
           }
-          return 0;
+
+          const deltaHr = currentHr - lastHr;
+          const deltaSeconds = (now - lastTimestamp) / 1000;
+
+          // Failsafe to prevent division by zero if called too rapidly
+          if (deltaSeconds <= 0) return lastSmoothedTrend;
+
+          const currentRateOfChange = deltaHr / deltaSeconds;
+
+          // Apply Exponential Moving Average
+          lastSmoothedTrend = (HR_CONTROL_CONFIG.emaAlpha * currentRateOfChange) + 
+              ((1 - HR_CONTROL_CONFIG.emaAlpha) * lastSmoothedTrend);
+
+          // Update state for the next tick
+          lastHr = currentHr;
+          lastTimestamp = now;
+
+          return lastSmoothedTrend;
+      }
+
+      /**
+       * Calculates the required speed adjustment to hit or maintain the target HR zone.
+       * @param {number} currentHr - The current heart rate reading.
+       * @param {number} zoneLow - The lower bound of the target HR zone.
+       * @param {number} zoneHigh - The upper bound of the target HR zone.
+       * @returns {number} The speed adjustment in km/h (e.g., -0.2, 0.0, 0.5).
+       */
+      function calculateSpeedAdjustment(currentHr, zoneLow, zoneHigh) {
+          const trend = updateHrTrend(currentHr);
+          
+          const zoneRange = zoneHigh - zoneLow;
+          const targetCenter = zoneLow + (zoneRange / 2);
+          
+          // Define the central 1/3 deadband
+          const deadbandLow = targetCenter - (zoneRange / 6);
+          const deadbandHigh = targetCenter + (zoneRange / 6);
+
+          // --- PHASE 2: MAINTENANCE (Inside the Zone bounds) ---
+          if (currentHr >= zoneLow && currentHr <= zoneHigh) {
+              
+              // 1. Deadband Check
+              if (currentHr >= deadbandLow && currentHr <= deadbandHigh) {
+                  return 0.0; // Perfect. Do absolutely nothing.
+              }
+
+              // 2. Drift Check (We are in the outer thirds of the zone)
+              const projectedHr = currentHr + (trend * HR_CONTROL_CONFIG.lookaheadSeconds);
+
+              if (projectedHr > zoneHigh) {
+                  return HR_CONTROL_CONFIG.nudgeDown; // Drifting too high, gentle brake
+              } else if (projectedHr < zoneLow) {
+                  return HR_CONTROL_CONFIG.nudgeUp;   // Drifting too low, gentle gas
+              }
+
+              // Stable within the outer 1/3, no breach projected yet
+              return 0.0;
+          } 
+          
+          // --- PHASE 1: ACQUISITION (Outside the Zone bounds) ---
+          
+          const errorFromCenter = targetCenter - currentHr;
+          
+          // 1. Proportional Adjustment
+          let speedAdjustment = errorFromCenter * HR_CONTROL_CONFIG.proportionalGain;
+
+          // Clamp to the absolute safety maximums
+          speedAdjustment = Math.max(-HR_CONTROL_CONFIG.maxSpeedChange, 
+                                     Math.min(HR_CONTROL_CONFIG.maxSpeedChange, speedAdjustment));
+
+          // 2. Braking System (D-Controller logic)
+          // If we are below the zone but HR is rising fast, or above the zone but dropping fast, coast.
+          if ((errorFromCenter > 0 && trend > HR_CONTROL_CONFIG.brakeThreshold) || 
+              (errorFromCenter < 0 && trend < -HR_CONTROL_CONFIG.brakeThreshold)) {
+              return 0.0; // The body is catching up to the current speed. Hold steady.
+          }
+
+          // Return the final clamped and rounded adjustment
+          return Number(speedAdjustment.toFixed(2));
       }
       
       function updateHrmUI(state, bpm) {
