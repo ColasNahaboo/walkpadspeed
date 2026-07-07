@@ -751,6 +751,67 @@
       // null when no session is currently active (idle, or between routines).
       let currentSession = null;
 
+
+      /* ================================================================
+         HRM ZONE SPEED CONTROL
+         When a step specifies a target zone (e.g. "4.5/Z2") and the HRM
+         is connected, every HRM_ZONE_INTERVAL_MS the app checks the live
+         HR against the zone bounds and nudges the belt speed to push HR
+         into the target zone.
+
+         Interval: 30 s (not 15 s) — HR takes ~30–60 s to fully respond
+         to a speed change, so 15 s risks oscillation / "hunting".
+
+         ================================================================ */
+
+      const HRM_ZONE_INTERVAL_MS = 20000;
+      const HRM_ZONE_MIN_MS = 10000;
+      const HRM_ZONE_DAMPEN_UP = 1; // dampen up-correction when outside zones
+      const HRM_ZONE_DAMPEN_DN = 2; // dampen down-correction when outside zones
+      const HRM_ZONE_LOOKAHEAD = 2; // number of future intervals to anticipate
+      const HRM_ZONE_LA_DAMPEN_UP = 2; // dampen up-correction on anticipating
+      const HRM_ZONE_LA_DAMPEN_DN = 3; // dampen down-correction on anticipating
+      const HRM_SPEED_MIN = 0.5;
+      const HRM_SPEED_MAX = 20.0;
+      const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
+
+      /* ----------------------------------------------------------------
+         HR ZONE  (Karvonen / Heart Rate Reserve method)
+         Requires #rest-heart-rate and #max-heart-rate in the routines
+         file. Zone boundaries as % of HRR:
+           Z0  38–50%   digestive walk (purple)
+           Z1  50–60%   recovery/light (blue)
+           Z2  60-70%   aerobic/fat burn (green)
+           Z3  70–80%   endurance (yellow)
+           Z4  80–90%   threshold (orange)
+           Z5  90–100%  VO2 max / max (red, flashes at maxHR)
+      ---------------------------------------------------------------- */
+      const HR_ZONE_COLORS = {
+          null: '#111111',
+          0:    '#7744cc',  // Z0  35–50%  digestive         purple
+          1:    '#1155dd',  // Z1  50–59%  recovery/light    blue
+          2:    '#22aa44',  // Z2  60–69%  aerobic/fat burn  green
+          3:    '#cccc00',  // Z3  70–79%  endurance         yellow
+          4:    '#ff8800',  // Z4  80–89%  threshold         orange
+          5:    '#cc2200',  // Z5  90–100% VO2 max           red
+      };
+      const HR_ZONE_LABELS = {
+          null: '--',
+          0: 'Z0', 1: 'Z1', 2: 'Z2', 3: 'Z3', 4: 'Z4', 5: 'Z5' };
+
+      // Zone boundaries as % of Heart Rate Reserve (HRR)
+      const ZONE_BOUNDARIES = {
+          0: [0.38, 0.50],
+          1: [0.50, 0.60],
+          2: [0.60, 0.70],
+          3: [0.70, 0.80],
+          4: [0.80, 0.90],
+          5: [0.90, 1.00]
+      };
+
+      
+      //=======================================================================
+      
       function updateRoutineButtonText(running = false) {
           const button = document.getElementById('routineBtn');
           const prefix = running ? "Running: " : "Start: ";
@@ -1071,29 +1132,6 @@
           updateHrZone(bpm);
       }
 
-      /* ================================================================
-         HRM ZONE SPEED CONTROL
-         When a step specifies a target zone (e.g. "4.5/Z2") and the HRM
-         is connected, every HRM_ZONE_INTERVAL_MS the app checks the live
-         HR against the zone bounds and nudges the belt speed to push HR
-         into the target zone.
-
-         Interval: 30 s (not 15 s) — HR takes ~30–60 s to fully respond
-         to a speed change, so 15 s risks oscillation / "hunting".
-
-         ================================================================ */
-
-      const HRM_ZONE_INTERVAL_MS = 20000;
-      const HRM_ZONE_MIN_MS = 10000;
-      const HRM_ZONE_DAMPEN_UP = 1; // dampen up-correction when outside zones
-      const HRM_ZONE_DAMPEN_DN = 2; // dampen down-correction when outside zones
-      const HRM_ZONE_LOOKAHEAD = 2; // number of future intervals to anticipate
-      const HRM_ZONE_LA_DAMPEN_UP = 2; // dampen up-correction on anticipating
-      const HRM_ZONE_LA_DAMPEN_DN = 3; // dampen down-correction on anticipating
-      const HRM_SPEED_MIN = 0.5;
-      const HRM_SPEED_MAX = 20.0;
-      const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
-
       function getZoneBpmBounds(zone) {
           if (!metaMaxHeartRate || !metaRestHeartRate) return null;
           const bounds = ZONE_BOUNDARIES[zone];
@@ -1223,40 +1261,6 @@
               box.title = 'Tap to disconnect Heart Rate Monitor';
           }
       }
-
-      /* ----------------------------------------------------------------
-         HR ZONE  (Karvonen / Heart Rate Reserve method)
-         Requires #rest-heart-rate and #max-heart-rate in the routines
-         file. Zone boundaries as % of HRR:
-           Z0  38–50%   digestive walk (purple)
-           Z1  50–60%   recovery/light (blue)
-           Z2  60-70%   aerobic/fat burn (green)
-           Z3  70–80%   endurance (yellow)
-           Z4  80–90%   threshold (orange)
-           Z5  90–100%  VO2 max / max (red, flashes at maxHR)
-      ---------------------------------------------------------------- */
-      const HR_ZONE_COLORS = {
-          null: '#111111',
-          0:    '#7744cc',  // Z0  35–50%  digestive         purple
-          1:    '#1155dd',  // Z1  50–59%  recovery/light    blue
-          2:    '#22aa44',  // Z2  60–69%  aerobic/fat burn  green
-          3:    '#cccc00',  // Z3  70–79%  endurance         yellow
-          4:    '#ff8800',  // Z4  80–89%  threshold         orange
-          5:    '#cc2200',  // Z5  90–100% VO2 max           red
-      };
-      const HR_ZONE_LABELS = {
-          null: '--',
-          0: 'Z0', 1: 'Z1', 2: 'Z2', 3: 'Z3', 4: 'Z4', 5: 'Z5' };
-
-      // Zone boundaries as % of Heart Rate Reserve (HRR)
-      const ZONE_BOUNDARIES = {
-          0: [0.38, 0.50],
-          1: [0.50, 0.60],
-          2: [0.60, 0.70],
-          3: [0.70, 0.80],
-          4: [0.80, 0.90],
-          5: [0.90, 1.00]
-      };
 
       function getHRZone(bpm) {
           if (!metaMaxHeartRate || !metaRestHeartRate) return null;
