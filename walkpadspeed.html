@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
+      #version:after {content: "v0.7.4-rc.5";}
       :root {
-          --hrm-pillar-width:      2px;
+          --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
           --hrm-track-opacity:     0.10;       /* ghost "glass tube" behind pillar */
           --hrm-fill-transition:   height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      }
-      #version:after {content: "v0.7.3c";}
-      :root {
           --app-max-width: 500px;  /* max width */
       }
       /* Dark Mode Global Styles */
@@ -370,6 +368,7 @@
 
       /* Heart Rate Monitor metric box — flex wrapper holds [zone | HR] */
       #hrmCell {
+          position: relative;
           padding: 0;
           overflow: hidden;
           display: flex;
@@ -379,16 +378,16 @@
           display: none;
           flex: 0 0 auto;
           min-width: 4rem;
-          padding: 12px 6px;
+          padding: 12px 10px;
           border-right: 1px solid #2c2c2e;
           background-color: #111;
           transition: background-color 0.4s;
           text-align: center;
-          position: relative;
-          overflow: hidden;
+          position: relative;  /* Anchors the absolute pillars */
+          overflow: visible;   /* Prevents clipping the 5px overhang */
       }
-      #hrZoneMetric .metric-title { color: #8e8e93; }
-      #hrZoneMetric .metric-value { color: #ffffff; }
+      #hrZoneMetric .metric-title { color: #8e8e93; padding: 0 4px;}
+      #hrZoneMetric .metric-value { color: #ffffff; padding: 0 4px;}
 
       /* Mercury pillar tracks — left and right inner edges */
       .hrm-pillar {
@@ -605,13 +604,18 @@
               <div class="metric-value" id="liveIncline">0%</div>
             </div>
             <div class="metric-box" id="hrmCell">
+              <!-- Pillars moved FROM here -->
+              
               <div id="hrZoneMetric">
+                <!-- Pillars moved TO here -->
                 <div class="hrm-pillar hrm-pillar-left">
                   <div class="hrm-track"></div>
                   <div class="hrm-fill"></div>
                 </div>
+                
                 <div class="metric-title">Zone</div>
                 <div class="metric-value" id="hrZoneValue">--</div>
+                
                 <div class="hrm-pillar hrm-pillar-right">
                   <div class="hrm-track"></div>
                   <div class="hrm-fill"></div>
@@ -987,10 +991,10 @@
       const HRM_ZONE_INTERVAL_MS = 20000;
       const HRM_ZONE_MIN_MS = 10000;
       const HRM_ZONE_DAMPEN_UP = 1; // dampen up-correction when outside zones
-      const HRM_ZONE_DAMPEN_DN = 1; // dampen down-correction when outside zones
+      const HRM_ZONE_DAMPEN_DN = 2; // dampen down-correction when outside zones
       const HRM_ZONE_LOOKAHEAD = 2; // number of future intervals to anticipate
-      const HRM_ZONE_LA_DAMPEN_UP = 1; // dampen up-correction on anticipating
-      const HRM_ZONE_LA_DAMPEN_DN = 1; // dampen down-correction on anticipating
+      const HRM_ZONE_LA_DAMPEN_UP = 2; // dampen up-correction on anticipating
+      const HRM_ZONE_LA_DAMPEN_DN = 4; // dampen down-correction on anticipating
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
       const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
@@ -1205,12 +1209,7 @@
                       (bpm - bounds.low) / (bounds.high - bounds.low) * 100));
               }
           }
-
-          // Fill color: zone color if in a zone, otherwise the CSS variable default
-          const fillColor = zone !== null
-              ? (HR_ZONE_COLORS[zone] ?? 'var(--hrm-pillar-color)')
-              : 'var(--hrm-pillar-color)';
-
+          const fillColor = 'var(--hrm-pillar-color)';
           fills.forEach(fill => {
               // Detect zone change via data attribute — on change: instant reset to
               // 0% (no transition), force reflow, then animate up to new fill level
