@@ -227,7 +227,9 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 ## Heart rate monitoring
 
 An **❤ HR** display is available under the speed display.
-If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left:
+If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left.
+
+The zone indicator show two meters (bars) on each side that show where in the zone we currently are.
 
 Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.turquoise
 
@@ -285,6 +287,8 @@ Don't have your walkpad on hand, or just want to see how the app behaves first? 
 
 This is purely a practice/preview mode — it won't move anything, since there's nothing real to move.
 
+Note: you can also simulate an heart rate monitor device, see below "Optional: Installation & Deployment"
+
 ---
 
 ## Troubleshooting
@@ -337,7 +341,21 @@ If you do not want to use the walkpadspeed.html hosted here or on walkpad.fr, ho
 
 1. Clone this repository or just download the single file `walkpadspeed.html`.
 2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
-3. Access the file using your browser on your Bluetooth-enabled device (your phone, tablet, computer...) over an `https://` connection.
+3. Access the file using your browser on your Bluetooth-enabled device (your phone, tablet, computer...) over an `https://` connection. E.g: `https://my-domain.org/walkpad/wps.html`
+
+**Heart rate monitor simulation** In test mode (enabled by a switch in the manager view), you can also simulate an hear rate monitor device, such as an armband or chest band. For this, you need to make a text file `hr.txt` that will be downloadable at the same place  as the application is hosted. In the example above, `https://my-domain.org/walkpad/hr.txt`
+
+The file must contain lines of pairs of number: the pulse (bpm) to report and the time in seconds from the start of the tested routine at which it is reached. For instance:
+
+```
+70 0
+80 10
+90 25
+100 43
+102 48
+105 60
+```
+
 
 ## Implementation
 
@@ -362,6 +380,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.7.4 2026-07-07 small meters on each side of the Zone indicator. HRM simulation in test mode.
 - v0.7.3 2026-07-06 tweaked the zone-targeting algorithm.
 - v0.7.2 2026-07-05 speeds can be specified also with a target Zone. New Z0 zone for digestive walks (38-50% HRR)
 - v0.7.1 2026-07-05 heart rate display is disabled if metadata `#hrm: 0` is in the routines file.

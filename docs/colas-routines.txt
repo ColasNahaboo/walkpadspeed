@@ -67,3 +67,7 @@ Z2 40mn
 3.5 1m
 3.0 1m cooldown
 2.5 1m final cooldown
+
+# test of the speed zone auto-adjust
+Test Zone 2
+3.2/Z2 10m
