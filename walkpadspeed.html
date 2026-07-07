@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.4";}
+      #version:after {content: "v0.7.5";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -701,6 +701,7 @@
       let hrmStepTargetZone = null; // Zone number (0–5) for zone-controled step
       let hrmZoneAdjustTimer = null; // setInterval handle for zone-control
       let lastHrmZoneAdjust = 0; // time of last HRM auto-adjust
+      let lastHrZone = undefined; // most recent zone from getHRZone; undefined = not yet seen
       let lastHrmZoneBpm = 0; // BPM at time of last HRM auto-adjust
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
@@ -1284,6 +1285,12 @@
 
           const zone = getHRZone(bpm);
           const atMax = bpm >= metaMaxHeartRate;
+
+          // When zone changes and zone control is active, react immediately
+          if (zone !== lastHrZone) {
+              lastHrZone = zone;
+              if (hrmStepTargetZone !== null) applyHrmZoneAdjust();
+          }
 
           zoneVal.textContent  = HR_ZONE_LABELS[zone] ?? '--';
           zoneEl.style.backgroundColor = HR_ZONE_COLORS[zone] ?? HR_ZONE_COLORS[null];
