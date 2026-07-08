@@ -1026,7 +1026,10 @@
               const lines = text.trim().split('\n');
               
               testHrData = lines.map(line => {
-                  const parts = line.trim().split(/\s+/);
+                  const trimmed = line.trim();
+                  // Ignore comment lines starting with #
+                  if (trimmed.startsWith('#')) return null;
+                  const parts = trimmed.split(/\s+/);
                   if (parts.length >= 2) {
                       return { bpm: parseInt(parts[0], 10), time: parseInt(parts[1], 10) };
                   }

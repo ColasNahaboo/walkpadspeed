@@ -11,6 +11,7 @@
 - **Connect to your walkpad over Bluetooth** directly from your browser — no extra app needed.
 - **Use your heart monitoring device** if it uses the standard "BLE Heart Rate Service", e.g: Coros, Coospo, Garmin, Polar, Wahoo...
 - **Allow to Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations, and optionally incline changes. Walkpadspeed has an open design, it does not jail you behing cumbersome interfaces or proprietary protocoles or APIs.
+- **Auto-adjust the speed** of the trackpad to keep your heart rate in a specific zone.
 - **Pause, resume, or stop** at any time, from the app or from your walkpad's own physical remote.
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
 - **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
@@ -325,14 +326,13 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 
 ### Future developments
 
-Bugs and suggestions are always welcome, but know that I will resist adding features that would add complexity and bloat. I will definitely not add any sensor tracking like heart rate, or systems to manage tracking your training of planning a series of routines.
+Bugs and suggestions are always welcome, but know that I will resist adding features that would add complexity and bloat.
 
-The only features I plan to add would be:
+The only features I plan to add currently would be:
 
 - Bug fixes, obiously.
 - Usability enhancements.
 - Support for some hardware quirks when reported, if possible.
-- Modulate the speed based on target heart rates, if using an heart rate monitor device.
 - Export of the log data in a CSV format that can be used in Health tracking systems like Google Health. 
 
 ## Optional: Installation & Deployment
