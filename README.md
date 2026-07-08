@@ -19,6 +19,7 @@
 - **Keep a log of past sessions** as a simple text file in Markdown format.
 
 ### What it won't do
+
 - Manage your health, or interface with systems like Google Health. Walkpadspeed does not help you to conceive or track your routines, workouts or health goals and results, it simply provides a powerfully customizable way to implement your routines.
 - Provide entertainement, such as music, videos, landcapes... I use a walkpad because it allows me to watch interesting videos or series on a computer or TV screen, to keep healthy, I am not interested in focusing on my performance.
 
@@ -42,16 +43,16 @@ To use walkpadspeed, you need:
     <col style="width:25%">
   </colgroup>
 
-  <thead>
+<thead>
     <tr>
-    <th>Manager&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</th>
-    <th>Connection&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</th>
-    <th>Routine Ready&nbsp;&nbsp;&nbsp;&nbsp;</th>
-    <th>Routine Playing&nbsp;&nbsp;&nbsp;&nbsp;</th>
+    <th>Manager      </th>
+    <th>Connection      </th>
+    <th>Routine Ready    </th>
+    <th>Routine Playing    </th>
     </tr>
   </thead>
 
-  <tbody>
+<tbody>
     <tr>
       <td>You load your routines text file, and the manager lets you choose one to play, and see its source file definition</td>
       <td>You connect to your Walking Pad via Bluetooth.</td>
@@ -85,7 +86,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 - Each workout starts with a **name** on its own line.
 - Every line after that is one **step** of space-separated values:
   - **speed**, a number which can have a decimal, expressed in **km/h**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph. \
-  To express a speed in miles per hour, just append **mph** to it.\
+    To express a speed in miles per hour, just append **mph** to it.\
     - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted every 30s so that your heart rate stays in the chosen zone. E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
@@ -153,6 +154,7 @@ Your file is automatically remembered by the browser, so the next time you open 
 ### Loading your routines from a GitHub Gist
 
 You can also maintain your routines file in a <a href='https://gist.github.com/'>GitHub Gist</a>, a simple way to publish texts on the web:
+
 1. Paste your routines files into a public Gist (not a secret one)
 2. Copy the URL of your Gist 
 3. On walkpadspeed click the button "Import from a copied URL of a Gist"
@@ -162,6 +164,7 @@ You can also maintain your routines file in a <a href='https://gist.github.com/'
 **Note:** In principle, this could be done with any way to store a text file on the web at some URL. In practice, we use Gist because it is specifically designed to allow other web apps to import its contents, as modern browsers tend to have security rules preventing this. 
 
 **Example of use:**
+
 - I create a new Gist at https://gist.github.com/
 - I get one at URL https://gist.github.com/ColasNahaboo/058bbe224c26b5c157bbc3d30225a18b
 - I paste my routines file into it (the ones in `docs/colas-routines.txt`)
@@ -179,6 +182,7 @@ You can also maintain your routines file in a <a href='https://gist.github.com/'
 ### Loading your routines from a web site
 
 You can also host your routines file in the same way, but as a text file of a web server, but it will work only if it is in the same domain, due to the security restrictions of browsers. E.g.
+
 - if you host a copy of `walkpadspeed.html` at https://my.domain.net/somewhere.../walkpadspeed.html
 - you can copy the URL of the routines if you host the file at  https://my.domain.net/anywhere.../my-routines.txt
 
@@ -230,11 +234,10 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 An **❤ HR** display is available under the speed display.
 If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left.
 
-The zone indicator show two meters (bars) on each side that show where in the zone we currently are.
-
 Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.turquoise
 
 Values:
+
 - Z0  38-50%  digestive/glucose purple
 - Z1  50–55%  recovery/light    blue
 - Z2  65–70%  aerobic/fat burn  green
@@ -246,9 +249,14 @@ Here is how the **❤ HR** display, initially empty on the left view, will appea
 
 ![Zones screenshots](docs/zones-screenshot.webp)
 
+The zone indicator also shows two meters (bars) on each side that show where in the zone we currently are:
+
+![Zone level screenshot](docs/zone-levels.webp)
+
 ## Log of past sessions
 
 On the manager screen, you can see the log of past sessions as Markdown text file that you can copy to wherte you want to store it, as it is only kept in the local storage of the browser having run the session. The log consist of:
+
 - a `##` title: the date and time of the session and the routine name, foplloweb by a bullet list of:
 - Time elapsed
 - Has the routine be completed?
@@ -270,7 +278,6 @@ For instance:
 - Time elapsed: 00:26
 - Completed: Yes
 - Modifiers used: none
-
 ```
 
 And a screenshot:
@@ -345,7 +352,7 @@ If you do not want to use the walkpadspeed.html hosted here or on walkpad.fr, ho
 
 **Heart rate monitor simulation** In test mode (enabled by a switch in the manager view), you can also simulate an hear rate monitor device, such as an armband or chest band. For this, you need to make a text file `hr.txt` that will be downloadable at the same place  as the application is hosted. In the example above, `https://my-domain.org/walkpad/hr.txt`
 
-The file must contain lines of pairs of number: the pulse (bpm) to report and the time in seconds from the start of the tested routine at which it is reached. For instance:
+The file must contain lines of pairs of number: the pulse (bpm) to report and the time in seconds from the start of the tested routine at which it is reached. Empty lines and comments (lines starting with `#` are ignored). For instance:
 
 ```
 70 0
@@ -356,6 +363,7 @@ The file must contain lines of pairs of number: the pulse (bpm) to report and th
 105 60
 ```
 
+See the one I use in [docs/hr.txt](docs/hr.txt).
 
 ## Implementation
 
@@ -380,6 +388,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.7.5 2026-07-08 new auto-adjust algorithm based on physiological data.
 - v0.7.4 2026-07-07 small meters on each side of the Zone indicator. HRM simulation in test mode.
 - v0.7.3 2026-07-06 tweaked the zone-targeting algorithm.
 - v0.7.2 2026-07-05 speeds can be specified also with a target Zone. New Z0 zone for digestive walks (38-50% HRR)

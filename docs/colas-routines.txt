@@ -70,4 +70,4 @@ Z2 40mn
 
 # test of the speed zone auto-adjust
 Test Zone 2
-3.2/Z2 10m
+4.0/Z2 10m
