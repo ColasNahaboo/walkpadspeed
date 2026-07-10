@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.7.5";}
+      #version:after {content: "v0.8.0-beta.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -720,7 +720,7 @@
       let metaFileVersion = null;    // #version:          routines file format version (string)
       let metaIncline = null;        // #incline:          fixed treadmill incline % (number);
       //                    suppresses the incline metric in the UI
-      let metaHRML = 1; // #hrm: enable HRM metric in the UI
+      let metaHRM = 1; // #hrm: enable HRM metric in the UI
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
       let speedThreshold = 0.8; // Fraction (0-1 exclusive) of the routine's minSpeed; below this, pad is considered stopped.
@@ -751,7 +751,6 @@
       // Tracks the in-progress workout session for the Session Log feature.
       // null when no session is currently active (idle, or between routines).
       let currentSession = null;
-
 
       /* ================================================================
          HRM ZONE SPEED CONTROL
@@ -1522,7 +1521,8 @@
                           date: new Date(),
                           startStepIndex: currentStepIndex,
                           startElapsedSeconds: totalElapsedSeconds,
-                          modifierHistory: []
+                          segments: [],
+                          current: null
                       };
                   }
                   /* ★★★ Re-acquire wake lock on every resume ★★★ */
@@ -1537,6 +1537,7 @@
                       await sendSpeed(currentTargetSpeed, false);
                   }
 
+                  recordSessionState();
                   if (isRoutineActive && !routineInterval) {
                       startClockLoop();
                   }
@@ -1626,6 +1627,7 @@
                   secondsLeftInStep, 
                   percentRemaining
               );
+              recordSessionState();
           }, 1000);
       }
 
@@ -2049,7 +2051,8 @@
                       date: new Date(),
                       startStepIndex: currentStepIndex,
                       startElapsedSeconds: totalElapsedSeconds,
-                      modifierHistory: []
+                      segments: [],
+                      current: null
                   };
               }
 
@@ -2058,6 +2061,7 @@
               if (currentTargetSpeed > 0) {
                   await sendSpeed(currentTargetSpeed, false);
               }
+              recordSessionState();
               if (isRoutineActive && !routineInterval) {
                   startClockLoop();
               }
@@ -2096,24 +2100,78 @@
               sendSpeed(currentTargetSpeed, false);
           }
 
-          // Record this modifier change in the active session's history, if any
+          // Reflect the modifier change in the session log right away, rather
+          // than waiting for the next 1s clock tick — the effective speed
+          // sent to the walkpad (currentTargetSpeed × speedMod) just changed.
           if (currentSession && isRoutineActive) {
-              const pct = Math.round((mod - 1) * 100);
-              const label = pct === 0 ? '0%' : (pct > 0 ? `+${pct}%` : `${pct}%`);
-              currentSession.modifierHistory.push({
-                  mod: label,
-                  elapsed: Math.max(0, totalElapsedSeconds - currentSession.startElapsedSeconds),
-                  step: currentStepIndex + 1
-              });
+              recordSessionState();
           }
       }
 
       /* ================================================================
+         SESSION STATE TRACKING (feeds the Session Log)
+         While a session is active, recordSessionState() is called:
+           - once immediately when the session starts/resumes,
+           - once per second from the routine clock tick,
+           - once immediately on a manual speed-modifier click,
+         and snapshots the 5 tracked values — effective speed
+         (currentTargetSpeed × speedMod), live HR zone, incline, HR bpm,
+         and step name. Whenever the snapshot differs from the currently
+         open segment, that segment is closed off (recording its
+         duration) and a new one begins. This is what lets the log be
+         built as a plain list of "what changed, and for how long".
+         ================================================================ */
+
+      function recordSessionState() {
+          if (!currentSession) return;
+
+          const step = currentRoutineSteps[currentStepIndex];
+          const hrOn = !!hrmCharacteristic;
+          const inclineTracked = routineHasIncline || (metaIncline !== null && metaIncline !== undefined);
+
+          const snapshot = {
+              speed: Math.round(currentTargetSpeed * speedMod * 10) / 10,
+              zone: hrOn ? (lastHrZone ?? null) : null,
+              incline: inclineTracked ? currentTargetIncline : null,
+              hr: hrOn ? (currentHeartRate || null) : null,
+              stepName: step ? step.name : null
+          };
+
+          if (!currentSession.current) {
+              currentSession.current = { ...snapshot, startElapsed: totalElapsedSeconds };
+              return;
+          }
+
+          const cur = currentSession.current;
+          const changed = cur.speed !== snapshot.speed || cur.zone !== snapshot.zone ||
+              cur.incline !== snapshot.incline || cur.hr !== snapshot.hr ||
+              cur.stepName !== snapshot.stepName;
+          if (!changed) return;
+
+          const duration = totalElapsedSeconds - cur.startElapsed;
+          if (duration > 0) {
+              currentSession.segments.push({ ...cur, duration });
+          }
+          currentSession.current = { ...snapshot, startElapsed: totalElapsedSeconds };
+      }
+
+      // Matches the "Xm" / raw-seconds duration display convention used
+      // elsewhere (e.g. the raw routine text and step-jump list).
+      function formatDurationToken(seconds) {
+          return (seconds > 0 && seconds % 60 === 0) ? `${seconds / 60}m` : `${seconds}`;
+      }
+
+      /* ================================================================
          SESSION LOG
-         Builds a Markdown record of each workout session (date, name,
-         where it started, how long it ran, whether it completed, and
-         every speed-modifier change), and accumulates it in localStorage
-         so it persists across visits on this device/browser.
+         Builds a routines-file-format record of each workout session: a
+         title line (routine name + a // comment noting date, start
+         position and completion), followed by one packed step line per
+         tracked state change (speed, live HR zone, incline, HR bpm, step
+         name). Accumulates in localStorage so it persists across visits
+         on this device/browser. A metadata header (#name:, #birth:, etc,
+         mirroring the routines-file format) is regenerated at the very
+         start of the log buffer on every write, reflecting whichever
+         routines file is currently loaded.
          ================================================================ */
 
       function formatSessionDate(d) {
@@ -2121,34 +2179,92 @@
           return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       }
 
+      // Renders one segment as a routines-file step line. Speed and
+      // duration are always shown. Incline/HR/step-name are shown only
+      // when available AND different from the previous segment (prevSeg),
+      // so unchanged values aren't repeated on every line. The zone is
+      // the exception: since it's packed onto the speed token, it's
+      // shown whenever HR is monitored, whether or not it changed.
+      function buildSegmentLine(seg, prevSeg) {
+          let speedToken = seg.speed.toFixed(1);
+          if (seg.zone !== null && seg.zone !== undefined) {
+              speedToken += `/Z${seg.zone}`;
+          }
+          const tokens = [speedToken];
+
+          if (seg.incline !== null && seg.incline !== undefined &&
+              (!prevSeg || seg.incline !== prevSeg.incline)) {
+              tokens.push(`${seg.incline}%`);
+          }
+
+          tokens.push(formatDurationToken(seg.duration));
+
+          const label = [];
+          if (seg.hr !== null && seg.hr !== undefined &&
+              (!prevSeg || seg.hr !== prevSeg.hr)) {
+              label.push(`#hr:${seg.hr}`);
+          }
+          if (seg.stepName && (!prevSeg || seg.stepName !== prevSeg.stepName)) {
+              label.push(seg.stepName);
+          }
+          if (label.length) tokens.push(label.join(' '));
+
+          return tokens.join(' ');
+      }
+
       function buildSessionLogEntry(session, elapsedSeconds, completed) {
-          let md = `## ${formatSessionDate(session.date)} — ${session.name}\n`;
+          // Close off whatever segment was still open when the session ended
+          if (session.current) {
+              const duration = totalElapsedSeconds - session.current.startElapsed;
+              if (duration > 0) {
+                  session.segments.push({ ...session.current, duration });
+              }
+              session.current = null;
+          }
+          if (session.segments.length === 0) return null;
 
+          let comment = formatSessionDate(session.date);
           if (session.startStepIndex > 0 || session.startElapsedSeconds > 0) {
-              md += `- Started at: step ${session.startStepIndex + 1}, ${minutesSeconds(session.startElapsedSeconds)} into routine\n`;
+              comment += `, started at step ${session.startStepIndex + 1} (${minutesSeconds(session.startElapsedSeconds)})`;
           }
+          comment += completed ? ', completed' : ', stopped';
+          comment += `, total ${minutesSeconds(elapsedSeconds)}`;
 
-          md += `- Time elapsed: ${minutesSeconds(elapsedSeconds)}\n`;
-          md += `- Completed: ${completed ? 'Yes' : 'No'}\n`;
+          const lines = [`${session.name} // ${comment}`];
+          let prevSeg = null;
+          session.segments.forEach(seg => {
+              lines.push(buildSegmentLine(seg, prevSeg));
+              prevSeg = seg;
+          });
 
-          if (session.modifierHistory.length > 0) {
-              md += `- Modifiers used:\n`;
-              session.modifierHistory.forEach(m => {
-                  md += `  - ${m.mod} @ ${minutesSeconds(m.elapsed)} (step ${m.step})\n`;
-              });
-          } else {
-              md += `- Modifiers used: none\n`;
-          }
+          return lines.join('\n') + '\n\n';
+      }
 
-          md += `\n`;
-          return md;
+      // Metadata lines mirroring the routines-file #key: value format,
+      // reflecting whichever routines file is currently loaded/cached.
+      function buildMetadataHeader() {
+          const lines = [];
+          if (metaName)          lines.push(`#name: ${metaName}`);
+          if (metaBirthYear)     lines.push(`#birth: ${metaBirthYear}`);
+          if (metaWeight)        lines.push(`#weight: ${metaWeight}`);
+          if (metaRestHeartRate) lines.push(`#rest-heart-rate: ${metaRestHeartRate}`);
+          if (metaMaxHeartRate)  lines.push(`#max-heart-rate: ${metaMaxHeartRate}`);
+          if (metaFileVersion)   lines.push(`#version: ${metaFileVersion}`);
+          if (metaIncline)       lines.push(`#incline: ${metaIncline}`);
+          if (metaHRM)           lines.push(`#hrm: ${metaHRM}`);
+          return lines.length ? lines.join('\n') + '\n\n' : '';
       }
 
       function appendSessionLog(entryMd) {
           try {
               const existing = localStorage.getItem('wpss_session_log') || '';
+              // Strip any previous metadata header (a leading run of #key:
+              // value lines) so it can be regenerated fresh below — the
+              // loaded routines file (and its metadata) may have changed
+              // since the last session was logged.
+              const stripped = existing.replace(/^(#[a-z0-9-]+:[^\n]*\n)+\n?/i, '');
               // Newest entry first, so the most recent session is visible at a glance
-              localStorage.setItem('wpss_session_log', entryMd + existing);
+              localStorage.setItem('wpss_session_log', buildMetadataHeader() + entryMd + stripped);
           } catch (e) {
               console.warn('Failed to persist session log:', e);
           }
@@ -2157,7 +2273,8 @@
       function finalizeSessionLog(completed) {
           if (!currentSession) return;
           const elapsedThisSession = Math.max(0, totalElapsedSeconds - currentSession.startElapsedSeconds);
-          appendSessionLog(buildSessionLogEntry(currentSession, elapsedThisSession, completed));
+          const entry = buildSessionLogEntry(currentSession, elapsedThisSession, completed);
+          if (entry) appendSessionLog(entry);
           currentSession = null;
       }
 
@@ -2871,7 +2988,8 @@ Climb with Inclines // For walkpads with automatic incline settings
                   date: new Date(),
                   startStepIndex: 0,
                   startElapsedSeconds: 0,
-                  modifierHistory: []
+                  segments: [],
+                  current: null
               };
 
               buildGlobalProgressBar(currentRoutineSteps);
@@ -2882,6 +3000,7 @@ Climb with Inclines // For walkpads with automatic incline settings
               if (currentRoutineSteps[currentStepIndex].targetZone !== null && hrmCharacteristic) {
                   startHrmZoneControl(currentRoutineSteps[currentStepIndex].targetZone);
               }
+              recordSessionState();
               startClockLoop();
           });
 
