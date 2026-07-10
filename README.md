@@ -16,7 +16,7 @@
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
 - **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
 - **Try it out in "Test Mode"** with no walkpad at all, to see how everything works first.
-- **Keep a log of past sessions** as a simple text file in Markdown format.
+- **Keep a log of past sessions** as a simple text file in the same format as the routines file.
 
 ### What it won't do
 
