@@ -1715,7 +1715,7 @@
           if (!raw) return [];
 
           const totalSteps = raw.split(',').length;
-          let previousIncline = 0;
+          let previousIncline = (metaIncline !== null && metaIncline !== undefined) ? metaIncline : 0;
           routineHasIncline = false;
           return raw.split(',').map((item, index) => {
               const parts = item.split('-');
