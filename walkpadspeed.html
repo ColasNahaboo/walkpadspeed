@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.0";}
+      #version:after {content: "v0.8.1-beta.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1524,16 +1524,17 @@
 
                   // If this resume is the first movement after positioning via the
                   // step-jump list, this is where the session actually begins.
-                  if (!currentSession) {
-                      currentSession = {
-                          name: routineNameCached,
-                          date: new Date(),
-                          startStepIndex: currentStepIndex,
-                          startElapsedSeconds: totalElapsedSeconds,
-                          segments: [],
-                          current: null
-                      };
-                  }
+                   if (!currentSession) {
+                       currentSession = {
+                           name: routineNameCached,
+                           date: new Date(),
+                           startStepIndex: currentStepIndex,
+                           startElapsedSeconds: totalElapsedSeconds,
+                           segments: [],
+                           current: null
+                       };
+                       if (metaIncline !== null) currentTargetIncline = metaIncline;
+                   }
                   /* ★★★ Re-acquire wake lock on every resume ★★★ */
                   await requestWakeLock();
 
@@ -1952,10 +1953,12 @@
           totalStepDuration = secondsLeftInStep;
           currentTargetSpeed = currentRoutineSteps[index].speed;
 
-          isRoutineActive = true;
-          isPaused = true;
+           isRoutineActive = true;
+           isPaused = true;
 
-          const routineBtn = document.getElementById('routineBtn');
+           if (metaIncline !== null) currentTargetIncline = metaIncline;
+
+           const routineBtn = document.getElementById('routineBtn');
           routineBtn.disabled = true;
           updateRoutineButtonText(true);
 
@@ -2054,18 +2057,19 @@
               btn.className = "pause-btn";
               updateStatus("Resumed via remote.");
 
-              if (!currentSession) {
-                  currentSession = {
-                      name: routineNameCached,
-                      date: new Date(),
-                      startStepIndex: currentStepIndex,
-                      startElapsedSeconds: totalElapsedSeconds,
-                      segments: [],
-                      current: null
-                  };
-              }
+               if (!currentSession) {
+                   currentSession = {
+                       name: routineNameCached,
+                       date: new Date(),
+                       startStepIndex: currentStepIndex,
+                       startElapsedSeconds: totalElapsedSeconds,
+                       segments: [],
+                       current: null
+                   };
+                   if (metaIncline !== null) currentTargetIncline = metaIncline;
+               }
 
-              // The physical remote defaults to 1.0 km/h when resumed.
+               // The physical remote defaults to 1.0 km/h when resumed.
               // We must tell the walkpad to change to the actual routine step speed.
               if (currentTargetSpeed > 0) {
                   await sendSpeed(currentTargetSpeed, false);
@@ -2992,16 +2996,18 @@ Climb with Inclines // For walkpads with automatic incline settings
               isRoutineActive = true;
               updateStepsListVisibility();
 
-              currentSession = {
-                  name: routineNameCached,
-                  date: new Date(),
-                  startStepIndex: 0,
-                  startElapsedSeconds: 0,
-                  segments: [],
-                  current: null
-              };
+               currentSession = {
+                   name: routineNameCached,
+                   date: new Date(),
+                   startStepIndex: 0,
+                   startElapsedSeconds: 0,
+                   segments: [],
+                   current: null
+               };
 
-              buildGlobalProgressBar(currentRoutineSteps);
+               if (metaIncline !== null) currentTargetIncline = metaIncline;
+
+               buildGlobalProgressBar(currentRoutineSteps);
               document.getElementById('timerContainer').style.display = 'block';
               updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
