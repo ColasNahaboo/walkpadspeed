@@ -255,34 +255,43 @@ The zone indicator also shows two meters (bars) on each side that show where in 
 
 ## Log of past sessions
 
-On the manager screen, you can see the log of past sessions as Markdown text file that you can copy to wherte you want to store it, as it is only kept in the local storage of the browser having run the session. The log consist of:
+On the manager screen, you can see the log of past sessions in the same format as the routines file, but listing actual recordings for speed, zone, incline, heart rate...
+The heart rate, if monitored, is added at the start of the step name, in the form `#hr:BPM` where BPM is the pulse (beats per minute) number. E.g: `#hr:119`
 
-- a `##` title: the date and time of the session and the routine name, foplloweb by a bullet list of:
-- Time elapsed
-- Has the routine be completed?
-- list of the modifiers set and at what time and step
+You can copy this file to where you want to store it, as it is only kept in the local storage of the browser having run the session. This fined-grained log is especially useful when using a Heart Rate Monitor device, to finely tune the routines to your specific needs and goals.
+
+The log consist of:
+
+- The metadata that were defined during the routine
+- The name of the routine, with the date and duration of the session as a //- comment, and if it has completed.
+- the recordings
 
 For instance:
 
 ```
-## 2026-06-28 18:14 — Fat Burn
-- Time elapsed: 00:20
-- Completed: No
-- Modifiers used:
-  - +20% @ 00:02 (step 1)
-  - 0% @ 00:04 (step 1)
-  - -20% @ 00:05 (step 1)
-  - +5% @ 00:10 (step 1)
+#name: Colas
+#rest-heart-rate: 70
+#max-heart-rate: 154
+#version: 1
+#incline: 9
+#hrm: 1
 
-## 2026-06-28 18:12 — Quick Test
-- Time elapsed: 00:26
-- Completed: Yes
-- Modifiers used: none
+Short Digestive // 2026-07-10 08:31, completed, total 12:00
+2.5 9% 1 #hr:84 Step [1/3]
+2.5 2 #hr:85
+2.5 1 #hr:87
+2.5 8 #hr:86
+4.1 1 #hr:100
+4.4 7
+4.4 10 #hr:101
+4.4/Z0 4 #hr:102
 ```
 
 And a screenshot:
 
-![Session log screenshot](docs/screens-v0.6.0/1.webp)
+![Session log screenshot](docs/screens-v0.8.0/1.webp)
+
+Note: this format has changed since v0.8.0.
 
 ---
 
@@ -388,6 +397,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.8.0 2026-07-10 new log format: now uses the routines files format, and is super detailed, tracking every heart rate change
 - v0.7.5 2026-07-08 new auto-adjust algorithm based on physiological data.
 - v0.7.4 2026-07-07 small meters on each side of the Zone indicator. HRM simulation in test mode.
 - v0.7.3 2026-07-06 tweaked the zone-targeting algorithm.

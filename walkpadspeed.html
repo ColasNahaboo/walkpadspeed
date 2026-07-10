@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.0-beta.1";}
+      #version:after {content: "v0.8.0";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1170,14 +1170,23 @@
          live HR is already within the target zone. This prevents a jarring
          speed reset when you transition into a zone-targeted step while
          already comfortably inside that zone. */
+
       async function enterStepSpeed(step, isInitialStart) {
+          const inclineToSend = (step.incline !== undefined && step.incline !== null) ? step.incline : metaIncline;
+
           if (step.targetZone !== null && hrmCharacteristic && currentHeartRate > 0) {
               const bounds = getZoneBpmBounds(step.targetZone);
               if (bounds && currentHeartRate >= bounds.low && currentHeartRate <= bounds.high) {
+                  if (inclineToSend !== undefined && inclineToSend !== null) {
+                      await sendIncline(inclineToSend);
+                  }
                   return; // already in zone — let zone control drive from here
               }
           }
           await sendSpeed(step.speed, isInitialStart);
+          if (inclineToSend !== undefined && inclineToSend !== null) {
+              await sendIncline(inclineToSend);
+          }
       }
 
       function startHrmZoneControl(zoneStr) {
