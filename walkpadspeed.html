@@ -702,7 +702,7 @@
       let hrmZoneAdjustTimer = null; // setInterval handle for zone-control
       let lastHrmZoneAdjust = 0; // time of last HRM auto-adjust
       let lastHrZone = undefined; // most recent zone from getHRZone; undefined = not yet seen
-      let lastHrmZoneBpm = 0; // BPM at time of last HRM auto-adjust
+
       let currentTargetSpeed = 0.0;
       let currentTargetIncline = 0;
       let routineHasIncline = false;
@@ -712,7 +712,7 @@
       // from the localStorage cached file. Used later for HR zones, calories, etc.
       let metaName = null;           // #name:             rider name (string)
       let metaBirthYear = null;      // #birth:            birth year YYYY
-      let metaAge = null;            // computed from #birth: and current year
+
       let metaWeight = null;         // #weight:           kg (number)
       let metaRestHeartRate = null;  // #rest-heart-rate:  BPM at rest (integer)
       let metaMaxHeartRate = null;   // #max-heart-rate:   BPM at max effort (integer)
@@ -766,11 +766,6 @@
 
       const HRM_ZONE_INTERVAL_MS = 20000;
       const HRM_ZONE_MIN_MS = 10000;
-      const HRM_ZONE_DAMPEN_UP = 1; // dampen up-correction when outside zones
-      const HRM_ZONE_DAMPEN_DN = 2; // dampen down-correction when outside zones
-      const HRM_ZONE_LOOKAHEAD = 2; // number of future intervals to anticipate
-      const HRM_ZONE_LA_DAMPEN_UP = 2; // dampen up-correction on anticipating
-      const HRM_ZONE_LA_DAMPEN_DN = 3; // dampen down-correction on anticipating
       const HRM_SPEED_MIN = 0.5;
       const HRM_SPEED_MAX = 20.0;
       const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
@@ -1202,7 +1197,6 @@
           }
           hrmStepTargetZone = zoneNum;
           updateStatus(`Zone ${zoneStr} control active (target ${bounds.low}–${bounds.high} BPM).`);
-          lastHrmZoneBpm = currentHeartRate;
           applyHrmZoneAdjust(); // execute now, then every HRM_ZONE_INTERVAL_MS
           hrmZoneAdjustTimer = setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS);
       }
@@ -1677,7 +1671,6 @@
                   case 'name':             metaName           = val;               break;
                   case 'birth':
                       metaBirthYear = parseInt(val, 10);
-                      metaAge = new Date().getFullYear() - metaBirthYear;
                       break;
                   case 'weight':           metaWeight         = parseFloat(val);   break;
                   case 'rest-heart-rate':  metaRestHeartRate  = parseInt(val, 10); break;
@@ -2591,7 +2584,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   if (!response.ok) {
                       throw new Error(`Https URL returned ${response.status}`);
                   }
-                  content = await response.text();
+                  const content = await response.text();
                   localStorage.setItem('wpss_cached_routines', content);
                   parseAndGenerateLinks(content);
                   setHttpsUrlParam(httpsId);
