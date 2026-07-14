@@ -23,8 +23,25 @@ Z2 40mn
 3.5 1m
 2.5 1m
 
+Cardio max sprint
+2.0 30 warmup // gradual
+2.5 30
+3.0 1m
+3.5 1m
+4.0 1m
+5.0 1m
+6.0 2m
+3.8 1m
+6.0 10m
+
+Cardio cooldown
+4.0 1m
+3.5 1m
+3.0 2m cooldown
+2.5 1m final cooldown
+
 # cardio routine for 9% incline
-40mn 6.0 for incline
+Cardio 40mn 6.0 intervals
 2.0 30 warmup // gradual
 2.5 30
 3.0 1m
