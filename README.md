@@ -397,6 +397,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## History
 
+- v0.8.1 2026-07-14 auto-adjust is a bit more reactive to slow the speed. Fixed incline now properly set in the logs.
 - v0.8.0 2026-07-10 new log format: now uses the routines files format, and is super detailed, tracking every heart rate change
 - v0.7.5 2026-07-08 new auto-adjust algorithm based on physiological data.
 - v0.7.4 2026-07-07 small meters on each side of the Zone indicator. HRM simulation in test mode.

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.1-beta.1";}
+      #version:after {content: "v0.8.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1671,6 +1671,7 @@
                   case 'name':             metaName           = val;               break;
                   case 'birth':
                       metaBirthYear = parseInt(val, 10);
+                      metaAge = new Date().getFullYear() - metaBirthYear;
                       break;
                   case 'weight':           metaWeight         = parseFloat(val);   break;
                   case 'rest-heart-rate':  metaRestHeartRate  = parseInt(val, 10); break;
@@ -1680,6 +1681,13 @@
                   case 'incline':          metaIncline        = parseFloat(val);   break;
                   case 'hrm':              metaHRM            = parseInt(val, 10); break; 
               }
+          }
+          // set some defaults if age was set
+          if (metaMaxHeartRate === null && metaAge !== null) {
+              metaMaxHeartRate = 220 - metaAge;
+          }
+          if (metaMaxHeartRate !== null && metaRestHeartRate === null) {
+              metaRestHeartRate = 70;
           }
       }
 
