@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.2";}
+      #version:after {content: "v0.8.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -759,8 +759,13 @@
          HR against the zone bounds and nudges the belt speed to push HR
          into the target zone.
 
-         Interval: 30 s (not 15 s) — HR takes ~30–60 s to fully respond
-         to a speed change, so 15 s risks oscillation / "hunting".
+         Interval: 20 s (HRM_ZONE_INTERVAL_MS) with a 10 s min spacing
+         (HRM_ZONE_MIN_MS) guarding zone-change-triggered re-fires.
+         HR takes ~30–60 s to fully respond to a speed change, so the
+         trend-aware lookahead (HR_CONTROL_CONFIG.lookaheadSeconds)
+         must not exceed the interval, or the controller projects
+         further than the lag and self-induces oscillation.
+         20 s interval + 20 s lookahead matched the v0.8.2 session logs.
 
          ================================================================ */
 
@@ -814,6 +819,21 @@
       // If the system still feels too jumpy when you are outside the zone, decrease the proportionalGain.
       // If it takes too long to ramp up to your target heart rate at the start of a session, increase the maxSpeedChange.
       //    If the trend calculation is overreacting to minor heart rate skips, lower the emaAlpha towards 0.1 or 0.15.
+      //
+      // v0.8.2 tuning notes (see AGENTS.md "Session 2026-07-15" for the log analysis):
+      //  - nudgeUp and nudgeDown are now symmetric (±0.2): asymmetric 4:1 down-favoured
+      //    the up-zones (Z0) at the cost of trapping HR in the lower zone on Z2 work.
+      //  - emaAlpha was 0.3: ramp-up momentum stayed "sticky" for several ticks after
+      //    HR plateaued and projected throughzoneHigh prematurely. 0.2 lets the trend
+      //    decay in ~3 intervals.
+      //  - lookaheadSeconds was 30s while the interval was 20s; the controller projected
+      //    10 s past the next check, which itself fed oscillation. Matched at 20 s.
+      //  - The maintenance phase (PHASE 2 in calculateSpeedAdjustment) now boosts the
+      //    nudge by 1.5x when HR is in the outer half AND still moving fast toward the
+      //    edge — same D-controller idea that already lived in PHASE 1 (acquisition).
+      //  - Deadband widened from zoneRange/6 to zoneRange/4 (central 50%). For a 9 BPM
+      //    Z2 with ±2 BPM real HR jitter, the old 33% deadband over-classified many
+      //    in-zone readings as "outer third" and induced self-noise.
       const HR_CONTROL_CONFIG = {
           emaAlpha: 0.2,              // Smoothing factor (0.0 to 1.0). Lower = more smoothing, less reactive to noise.
           lookaheadSeconds: 20,       // How far into the future to project the heart rate drift.

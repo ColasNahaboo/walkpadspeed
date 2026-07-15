@@ -87,7 +87,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 - Every line after that is one **step** of space-separated values:
   - **speed**, a number which can have a decimal, expressed in **km/h**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph. \
     To express a speed in miles per hour, just append **mph** to it.\
-    - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted every 30s so that your heart rate stays in the chosen zone. E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
+    - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted every 20s so that your heart rate stays in the chosen zone. E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
   - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
@@ -238,9 +238,9 @@ Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optim
 
 Values:
 
-- Z0  38-50%  digestive/glucose purple
-- Z1  50–55%  recovery/light    blue
-- Z2  65–70%  aerobic/fat burn  green
+- Z0  38–50%  digestive/glucose purple
+- Z1  50–60%  recovery/light    blue
+- Z2  60–70%  aerobic/fat burn  green
 - Z3  70–80%  endurance         yellow
 - Z4  80–90%  threshold         orange
 - Z5  90–100% VO2 max           red
@@ -403,6 +403,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.8.2 2026-07-15 auto-adjust tuning: symmetric ±0.2 nudges, EMA trend decay faster, trend-aware brake ported into the maintenance phase. getHRZone now uses the same BPM-rounded bounds as the speed control (single source of truth).
 - v0.8.1 2026-07-14 auto-adjust is a bit more reactive to slow the speed. Fixed incline now properly set in the logs.
 - v0.8.0 2026-07-10 new log format: now uses the routines files format, and is super detailed, tracking every heart rate change
 - v0.7.5 2026-07-08 new auto-adjust algorithm based on physiological data.
