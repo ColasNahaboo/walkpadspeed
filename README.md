@@ -393,7 +393,13 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 ## License
 
-© Colas Nahaboo, 2026. MIT license, that means that you can do anything with it, but expect no warranty. Some help was provided by Gemini, Z.ai, and Claude. SVG icons are derived from the ones at [svgrepo](https://www.svgrepo.com) with a MIT license.
+© Colas Nahaboo, 2026. MIT license, that means that you can do anything with it, but expect no warranty. SVG icons are derived from the ones at [svgrepo](https://www.svgrepo.com) with a MIT license.
+
+## AI Co-Design Disclosure
+
+![Co-Designed with AI](https://img.shields.io/badge/Co--Designed%20with-AI-blueviolet?style=flat-square&logo=openai)
+
+This repository is developed by me, a human hobbyist in my personal time in close collaboration with various AI programming assistants. System architecture, logic design, and final reviews are handled by me, while code scaffolding, repetitive tasks, and standard styling are co-piloted by AI. AI contributions are commited under their model name, and can be quite verbose for tracability.
 
 ## History
 
