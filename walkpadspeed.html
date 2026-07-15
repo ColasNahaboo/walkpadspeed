@@ -1366,15 +1366,16 @@
       function getHRZone(bpm) {
           if (!metaMaxHeartRate || !metaRestHeartRate) return null;
           if (bpm >= metaMaxHeartRate) return 5; // at/above max → Z5 + alert
-          const pct = (bpm - metaRestHeartRate) / (metaMaxHeartRate - metaRestHeartRate);
           let matchedZone = null;
-          // On overlaps (e.g. 0.60), take the higher zone
-          for (const [zone, bounds] of Object.entries(ZONE_BOUNDARIES)) {
-              if (pct >= bounds[0] && pct <= bounds[1]) {
-                  matchedZone = Number(zone);
-              }
+          // Use the same BPM-rounded bounds as getZoneBpmBounds so the label
+          // and the speed-control math always agree on every integer BPM.
+          // On a BPM that sits on a shared boundary, take the higher zone.
+          for (let z = 0; z <= 5; z++) {
+              const b = getZoneBpmBounds(z);
+              if (!b) continue;
+              if (bpm >= b.low && bpm <= b.high) matchedZone = z;
           }
-          return matchedZone; // Returns null if pct falls in a gap
+          return matchedZone; // Returns null if bpm falls in a gap below Z0
       }
 
       function updateHrZone(bpm) {
