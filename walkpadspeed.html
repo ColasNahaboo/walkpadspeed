@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.4";}
+      #version:after {content: "v0.8.5-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2306,12 +2306,15 @@
           }
           if (session.segments.length === 0) return null;
 
+          const totalKm = session.segments.reduce((sum, seg) => sum + seg.speed * seg.duration / 3600, 0);
+
           let comment = formatSessionDate(session.date);
           if (session.startStepIndex > 0 || session.startElapsedSeconds > 0) {
               comment += `, started at step ${session.startStepIndex + 1} (${minutesSeconds(session.startElapsedSeconds)})`;
           }
           comment += completed ? ', completed' : ', stopped';
           comment += `, total ${minutesSeconds(elapsedSeconds)}`;
+          comment += `, ${totalKm.toFixed(3)} km`;
 
           const lines = [`${session.name} // ${comment}`];
           let prevSeg = null;
