@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.4-dev.1";}
+      #version:after {content: "v0.8.4-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2932,8 +2932,22 @@ Climb with Inclines // For walkpads with automatic incline settings
                   } else if (window.eruda) {
                       eruda.destroy();
                   }
+                  // Re-stamp routine link hrefs so they carry (or drop) ?eruda=1
+                  refreshErudaParamOnLinks();
               });
           }
+      }
+
+      // Adds or removes eruda=1 on every routine-link href to match erudaEnabled
+      function refreshErudaParamOnLinks() {
+          document.querySelectorAll('#routineList a.routine-link-btn').forEach(a => {
+              try {
+                  const u = new URL(a.href, window.location.origin);
+                  if (erudaEnabled) u.searchParams.set('eruda', '1');
+                  else u.searchParams.delete('eruda');
+                  a.href = u.pathname + (u.search || '');
+              } catch (e) { /* ignore malformed href */ }
+          });
       }
 
       // Loads Eruda from CDN (idempotent — re-init if already loaded)
