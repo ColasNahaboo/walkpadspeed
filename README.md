@@ -264,7 +264,7 @@ You can copy this file to where you want to store it, as it is only kept in the 
 The log consist of:
 
 - The metadata that were defined during the routine
-- The name of the routine, with the date and duration of the session as a //- comment, and if it has completed.
+- The name of the routine, and a `//`-prefdied comment with the date and time of the session, if it has completed, and the total duration and the walked distance in km.
 - the recordings
 
 For instance:
@@ -406,6 +406,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.8.5 2026-07-18 log also prints the total walked distance in a session.
 - v0.8.4 2026-07-18 pad max speed read, can also be set  via #max-speed.
 - v0.8.3 2026-07-15 more auto-adjust tuning by examining logs
 - v0.8.2 2026-07-15 auto-adjust tuning: symmetric ±0.2 nudges, EMA trend decay faster, trend-aware brake ported into the maintenance phase. getHRZone now uses the same BPM-rounded bounds as the speed control (single source of truth).

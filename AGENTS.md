@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.3**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.5-dev.1**.
 
 ---
 
@@ -168,7 +168,7 @@ Wrapped in `#metricsWrapper` with `container-type: inline-size` (critical — re
 
 ### Session log
 
-Markdown log of each workout session, stored in `localStorage` under `wpss_session_log`. Entries prepended (newest first). Each entry records: date/time, routine name, start step (if not from beginning), elapsed time, completion status, and speed modifier history. Accessible via "View Session Log" button in Manager view with Copy and Clear actions.
+Markdown log of each workout session, stored in `localStorage` under `wpss_session_log`. Entries prepended (newest first). Each entry records: date/time, routine name, start step (if not from beginning), elapsed time, completion status, speed modifier history, and **total km** (computed as sum of `speed × duration / 3600` over all segments). Accessible via "View Session Log" button in Manager view with Copy and Clear actions.
 
 ---
 
@@ -245,3 +245,11 @@ The read is wrapped in try/catch; many walking pads don't expose `0x2AD1`, in wh
 - `applyHrmZoneAdjust()` — clamps the HR-zone-controller new speed against `maxSpeedLimit` instead of the fixed `HRM_SPEED_MAX = 20.0`
 
 No change yet to `bleMinSpeed` / `bleMinIncrement` consumers — they are reserved for a future version that may snap speeds to the pad's increment grid or refuse sub-minimum speeds.
+
+---
+
+### Session 2026-07-18: Total km in session log
+
+**Commit `487f4b5`** by `DeepSeekV4Flash` — `buildSessionLogEntry()` now appends total distance walked to the comment line of each session entry. Computed as `sum(seg.speed × seg.duration / 3600)` over all finalized segments (speed in km/h, duration in seconds). Displays to 3 decimal places (e.g. `, 2.475 km`). Zero-segment sessions still return `null` and are not logged.
+
+Also bumped version from `v0.8.4` → `v0.8.5-dev.1` for the commit.
