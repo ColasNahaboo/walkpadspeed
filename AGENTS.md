@@ -194,6 +194,7 @@ The walkpad's physical remote is detected via BLE speed notifications. `stopDete
 - He version-bumps locally and reports it; sync the working copy's version string accordingly.
 - He prefers tightly scoped diffs — flag pre-existing bugs separately rather than silently fixing them.
 - Surface judgment calls explicitly before implementing.
+- Before every commit, increment the version number in the file to a pre-release dev version: e.g. `v1.2.3` → `v1.2.3-dev.1` and `v3.4.1-dev.9` → `v3.4.1-dev.10`. The version lives in `#version:after {content: "vX.Y.Z"};` in the CSS.
 - The working copy lives at `/home/claude/walkpadspeed.html`; always copy to `/mnt/user-data/outputs/walkpadspeed.html` and call `present_files` to deliver.
 - Always run `node --check` on the extracted script before delivering.
 

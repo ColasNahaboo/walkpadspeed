@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.4";}
+      #version:after {content: "v0.8.4-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -560,6 +560,15 @@
           <button onclick="viewSessionLog()">Close</button>
         </div>
       </div>
+
+      <div id="erudaToggle" class="test-toggle-row">
+        <span class="test-toggle-label">Console</span>
+        <label class="test-toggle-switch">
+          <input type="checkbox" id="erudaCheckbox">
+          <span class="test-toggle-track"></span>
+        </label>
+        <p>Show a floating developer console on the page (Eruda)
+      </div>
     </div>
 
     <!-- ==================== DRIVER VIEW ==================== -->
@@ -704,6 +713,7 @@
       let ftmsControlCharacteristic = null;
       let bluetoothDevice = null;
       let isTestMode = false;
+      let erudaEnabled = false; // persisted via ?eruda=1 URL param, survives manager→player navigation
 
       // Heart Rate Monitor (standard BLE Heart Rate Profile, service 0x180D)
       let hrmDevice = null;
@@ -2429,6 +2439,12 @@
               statusText.innerText = "Status: [Test Mode] Waiting for local configuration file...";
           }
 
+          // Eruda console: persisted via ?eruda=1 so it survives manager→player navigation
+          erudaEnabled = urlParams.get('eruda') === '1';
+          const erudaCheck = document.getElementById('erudaCheckbox');
+          if (erudaCheck) erudaCheck.checked = erudaEnabled;
+          if (erudaEnabled) loadEruda();
+
           const gistParam = urlParams.get('gist');
           if (gistParam) {
               loadGistRoutines(gistParam, statusText);
@@ -2810,6 +2826,10 @@ Climb with Inclines // For walkpads with automatic incline settings
                           queryParams += '&t=1';
                       }
 
+                      if (erudaEnabled) {
+                          queryParams += '&eruda=1';
+                      }
+
                       const blockRawText = rawTextLines.join('\n');
 
                       const mins = Math.floor(totalDuration / 60);
@@ -2901,6 +2921,32 @@ Climb with Inclines // For walkpads with automatic incline settings
               document.getElementById('defLoad').style.display = 'none';
               document.getElementById('routinesClear').style.display = 'block';
           }
+
+          // Eruda floating console toggle
+          const erudaCheckEl = document.getElementById('erudaCheckbox');
+          if (erudaCheckEl) {
+              erudaCheckEl.addEventListener('change', () => {
+                  erudaEnabled = erudaCheckEl.checked;
+                  if (erudaEnabled) {
+                      loadEruda();
+                  } else if (window.eruda) {
+                      eruda.destroy();
+                  }
+              });
+          }
+      }
+
+      // Loads Eruda from CDN (idempotent — re-init if already loaded)
+      function loadEruda() {
+          if (!window.eruda) {
+              const s = document.createElement('script');
+              s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+              s.onload = () => { eruda.init(); };
+              s.onerror = () => alert('Failed to load Eruda console from CDN.');
+              document.head.appendChild(s);
+          } else {
+              eruda.init();
+          }
       }
 
       /* ================================================================
@@ -2910,6 +2956,8 @@ Climb with Inclines // For walkpads with automatic incline settings
       function initDriverMode(urlParams) {
           const basePath = window.location.pathname;
           isTestMode = urlParams.get('t') === '1';
+          erudaEnabled = urlParams.get('eruda') === '1';
+          if (erudaEnabled) loadEruda();
 
           routineNameCached = urlParams.get('n') || "Test";
           routineRawCached = urlParams.get('r');
@@ -2932,10 +2980,13 @@ Climb with Inclines // For walkpads with automatic incline settings
 
           if (isTestMode) {
               document.getElementById('connectBtn').innerText = "Connect (Test Mode)";
-              document.getElementById('navBackBtn').href = basePath + '?t=1';
-          } else {
-              document.getElementById('navBackBtn').href = basePath;
           }
+
+          // Build navBack href preserving t=1 / eruda=1 flags
+          let backParams = [];
+          if (isTestMode) backParams.push('t=1');
+          if (erudaEnabled) backParams.push('eruda=1');
+          document.getElementById('navBackBtn').href = basePath + (backParams.length ? '?' + backParams.join('&') : '');
 
           updateRoutineButtonText(false);
 
