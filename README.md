@@ -320,6 +320,8 @@ Make sure it's powered on and not already connected to another phone/app — mos
 **"No valid routines detected in file."**
 Double check each routine has a name line followed by at least one step line, and that step lines look like `speed duration` (e.g. `5 60`), with a blank line between separate routines.
 
+Note: to access the browser console to see internal log messages, use the "Console" toggle switch at the bottom of the manager view.
+
 ## Privacy
 
 Everything happens entirely inside your browser. Your routine file, your Bluetooth connection, and your routine history never leave your device — there's no server, no account, and no tracking.
