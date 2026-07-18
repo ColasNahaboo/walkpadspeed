@@ -2335,6 +2335,8 @@
           if (metaFileVersion)   lines.push(`#version: ${metaFileVersion}`);
           if (metaIncline)       lines.push(`#incline: ${metaIncline}`);
           if (metaHRM)           lines.push(`#hrm: ${metaHRM}`);
+          if (bleMaxSpeed)       lines.push(`#max-speed: ${bleMaxSpeed}`);
+          else if (metaMaxSpeed) lines.push(`#max-speed: ${metaMaxSpeed}`);
           return lines.length ? lines.join('\n') + '\n\n' : '';
       }
 
@@ -3208,9 +3210,6 @@ updateStatus("Subscribing to Walkpad Data stream...");
           document.getElementById('sessionLogText').innerText = 'No sessions logged yet.';
       }
       
-      </script>
-<!-- DEBUG: show button to display the console:
-     <script src="//cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init()</script>
--->
-</body>
+    </script>
+  </body>
 </html>
