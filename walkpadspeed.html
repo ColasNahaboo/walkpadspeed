@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.3";}
+      #version:after {content: "v0.8.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -685,7 +685,20 @@
       const FTMS_SERVICE_UUID = 0x1826;
       const FTMS_CONTROL_POINT_UUID = 0x2AD9;
       const FTMS_DATA_UUID = 0x2ACD;
+      // Supported Speed Range (FTMS 0x2AD1): read-only, 6 bytes = 3 × sint16 LE at 0.01 km/h.
+      // Returns [minimum speed, maximum speed, minimum increment].
+      const FTMS_SUPPORTED_SPEED_RANGE_UUID = 0x2AD1;
       const spinUpTime = 5000;
+
+      // Effective speed cap (km/h). Updated by updateMaxSpeedLimit() from either
+      // the BLE-discovered pad maximum (preferred) or the #max-speed file override,
+      // falling back to DEFAULT_MAX_SPEED when neither is available.
+      const DEFAULT_MAX_SPEED = 12;
+      let bleMinSpeed = null;       // min supported speed reported by pad — unused for now
+      let bleMaxSpeed = null;       // max supported speed reported by pad (km/h)
+      let bleMinIncrement = null;   // smallest speed increment supported by pad — unused for now
+      let metaMaxSpeed = null;      // #max-speed override from routines file
+      let maxSpeedLimit = DEFAULT_MAX_SPEED;
 
       let wakeLock = null;
       let ftmsControlCharacteristic = null;
@@ -968,7 +981,10 @@
                   await new Promise(resolve => setTimeout(resolve, spinUpTime));
               }
 
-              const speedRaw = Math.round(speedKmh * 100 * speedMod);
+              // Cap the effective (modifier-applied) speed at maxSpeedLimit, the
+              // pad's advertized cap or the #max-speed override.
+              const effectiveSpeed = Math.min(speedKmh * speedMod, maxSpeedLimit);
+              const speedRaw = Math.round(effectiveSpeed * 100);
               const buffer = new ArrayBuffer(3);
               const dataView = new DataView(buffer);
 
@@ -1241,7 +1257,7 @@
           if (delta === 0) return;
 
           const newSpeed = Math.max(HRM_SPEED_MIN,
-                           Math.min(HRM_SPEED_MAX, currentTargetSpeed + delta));
+                           Math.min(maxSpeedLimit, currentTargetSpeed + delta));
           if (Math.abs(newSpeed - currentTargetSpeed) < 0.001) return;
           lastHrmZoneAdjust = Date.now();
           const dir = delta > 0 ? '↑' : '↓';
@@ -1683,11 +1699,24 @@
          re-reading from the localStorage cache so globals survive the
          manager → driver page navigation).
          ================================================================ */
+      // Chooses the effective speed cap: BLE-discovered pad maximum takes
+      // precedence, then the #max-speed file override, then the default.
+      function updateMaxSpeedLimit() {
+          if (bleMaxSpeed !== null && !isNaN(bleMaxSpeed)) {
+              maxSpeedLimit = bleMaxSpeed;
+          } else if (metaMaxSpeed !== null && !isNaN(metaMaxSpeed)) {
+              maxSpeedLimit = metaMaxSpeed;
+          } else {
+              maxSpeedLimit = DEFAULT_MAX_SPEED;
+          }
+      }
+
       function parseMetadata(text) {
           // Reset all metadata globals so loading a new file starts clean
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
           metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = null;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
+          metaMaxSpeed = null;
 
           const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
           for (const line of text.split('\n')) {
@@ -1707,9 +1736,11 @@
                   case 'speed-unit':       metaSpeedUnit      = val.toLowerCase(); break;
                   case 'version':          metaFileVersion    = val;               break;
                   case 'incline':          metaIncline        = parseFloat(val);   break;
-                  case 'hrm':              metaHRM            = parseInt(val, 10); break; 
+                  case 'max-speed':        metaMaxSpeed       = parseFloat(val);   break;
+                  case 'hrm':              metaHRM            = parseInt(val, 10); break;
               }
           }
+          updateMaxSpeedLimit();
           // set some defaults if age was set
           if (metaMaxHeartRate === null && metaAge !== null) {
               metaMaxHeartRate = 220 - metaAge;
@@ -2971,14 +3002,32 @@ Climb with Inclines // For walkpads with automatic incline settings
                   ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
 
                   try {
-                      updateStatus("Subscribing to Walkpad Data stream...");
-                      const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
-                      await dataChar.startNotifications();
-                      dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
-                      updateStatus("Connected & Ready!");
-                  } catch (dataErr) {
-                      console.warn("Metrics channel initialization skipped: ", dataErr.message);
-                  }
+updateStatus("Subscribing to Walkpad Data stream...");
+                       const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
+                       await dataChar.startNotifications();
+                       dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
+                       updateStatus("Connected & Ready!");
+                   } catch (dataErr) {
+                       console.warn("Metrics channel initialization skipped: ", dataErr.message);
+                   }
+
+                   // Read the pad's supported speed range (FTMS 0x2AD1) so we
+                   // can cap sent speeds at the pad's real maximum. Many pads
+                   // don't expose this characteristic — on any failure we fall
+                   // back to the #max-speed file override (or the default).
+                   try {
+                       updateStatus("Reading pad speed range...");
+                       const speedRangeChar = await service.getCharacteristic(FTMS_SUPPORTED_SPEED_RANGE_UUID);
+                       const dv = await speedRangeChar.readValue();
+                       bleMinSpeed     = dv.getInt16(0, true) / 100;
+                       bleMaxSpeed     = dv.getInt16(2, true) / 100;
+                       bleMinIncrement = dv.getInt16(4, true) / 100;
+                       updateMaxSpeedLimit();
+                       console.info(`Pad speed range: ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}). Cap set to ${maxSpeedLimit} km/h.`);
+                   } catch (rangeErr) {
+                       console.warn("Supported Speed Range not readable; using #max-speed fallback. ", rangeErr.message);
+                       updateMaxSpeedLimit();
+                   }
 
                   document.getElementById('testModeToggle').style.display = 'none';
                   document.getElementById('controls').style.display = 'block';
@@ -3095,5 +3144,8 @@ Climb with Inclines // For walkpads with automatic incline settings
       }
       
       </script>
-  </body>
+<!-- DEBUG: show button to display the console:
+     <script src="//cdn.jsdelivr.net/npm/eruda"></script><script>eruda.init()</script>
+-->
+</body>
 </html>

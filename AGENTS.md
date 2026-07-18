@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.2**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.3**.
 
 ---
 
@@ -30,6 +30,7 @@ Plain `.txt` file. Key features implemented during this session:
 #max-heart-rate: 180
 #speed-unit: mph          # file-wide mph default for all speeds
 #incline: 6               # fixed treadmill incline (suppresses incline metric)
+#max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD1 unreadable (default 12)
 #version: 1
 
 # routine block (blank line separates routines)
@@ -55,9 +56,11 @@ HIIT
 
 ### Metadata globals (set by `parseMetadata(text)`)
 
-`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1)
+`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when the pad's BLE 0x2AD1 max is unreadable; default 12), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1)
 
 `parseMetadata` is called both in the manager (on file load) and in `initDriverMode` (re-parses from `localStorage` cache since page navigation resets JS globals).
+
+**Speed-cap globals**: `bleMinSpeed`, `bleMaxSpeed`, `bleMinIncrement` (km/h, read from FTMS Supported Speed Range characteristic `0x2AD1` on connect — see "Pad max-speed cap" below; `bleMinSpeed`/`bleMinIncrement` are stored but not yet used); `metaMaxSpeed` (file override); `maxSpeedLimit` (effective cap, resolved by `updateMaxSpeedLimit()` from BLE value → file override → `DEFAULT_MAX_SPEED = 12`).
 
 ---
 
@@ -218,3 +221,26 @@ Two commits, both authored `glm52` on `main`:
 **`0d7c080` — Fix `getHRZone` / `getZoneBpmBounds` rounding mismatch.** `getHRZone` classified a BPM against the raw float zone boundaries, while `getZoneBpmBounds` uses `Math.round()` to produce integer BPM limits. With `restHR=70 / maxHR=154`, BPM=120 was labeled **Z1** by `getHRZone` (label + pillar color) but treated as **inside Z2** by the speed control math. Fix: `getHRZone` now iterates `getZoneBpmBounds(0..5)` as its single source of truth, so labels and speed control agree on every integer BPM. Boundary overlap still resolves to the higher zone. No change to the `bpm >= maxHR → Z5` short-circuit.
 
 **Final doc commit** — `AGENTS.md` restructured the zone-control section around `HR_CONTROL_CONFIG` + the v0.8.2 tuning table; the README "speed/Zone" line and zone bullet list were refreshed to the current 20 s interval and 38–50 / 50–60 / 60–70 / 70–80 / 80–90 / 90–100 % boundaries (the README zone list had drifted to Z1=50–55%, Z2=65–70%). `metaHRM` was missing from the metadata-globals list; added.
+
+---
+
+### Session 2026-07-18: Pad max-speed cap via FTMS 0x2AD1
+
+Reads the walkpad's advertised speed range over BLE and uses the maximum as a hard cap on every speed sent to the pad. Previously the app could request speeds above the pad's real maximum (e.g. sending 8 km/h to a 6 km/h walking pad), causing the pad to ignore the command or clamp silently with no feedback.
+
+**BLE read (FTMS Supported Speed Range, `0x2AD1`):** added `FTMS_SUPPORTED_SPEED_RANGE_UUID` and a read in `connectTreadmill()` right after the data channel subscription. The characteristic is 6 bytes = 3 × sint16 LE at 0.01 km/h resolution, parsed into:
+- `bleMinSpeed` — stored for future use, not yet applied
+- `bleMaxSpeed` — drives the effective cap (preferred source)
+- `bleMinIncrement` — stored for future use, not yet applied
+
+The read is wrapped in try/catch; many walking pads don't expose `0x2AD1`, in which case the app falls back to the file override or default without failing the connection.
+
+**New `#max-speed` metadata:** optional routines-file override (km/h) for when the pad's BLE max is unreadable. Parsed in `parseMetadata` into `metaMaxSpeed`. Defaults to `null` (absent).
+
+**Resolution order (`updateMaxSpeedLimit()`):** `bleMaxSpeed` (BLE) → `metaMaxSpeed` (file) → `DEFAULT_MAX_SPEED = 12`. Called from `parseMetadata` (manager + driver init) and after the BLE read on connect, so the cap is correct in both views and updates live once the pad connects.
+
+**Where the cap is applied:**
+- `sendSpeed()` — clamps the effective (post-`speedMod`) speed before building the FTMS frame
+- `applyHrmZoneAdjust()` — clamps the HR-zone-controller new speed against `maxSpeedLimit` instead of the fixed `HRM_SPEED_MAX = 20.0`
+
+No change yet to `bleMinSpeed` / `bleMinIncrement` consumers — they are reserved for a future version that may snap speeds to the pad's increment grid or refuse sub-minimum speeds.

@@ -99,6 +99,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - `#rest-heart-rate:` your heart rate at rest, e.g. `70`. Used for HRM zones.
   - `#max-heart-rate:` you maximum heart rate, normally 220 (men) or 226 (women) minus your age, e.g. if you are a 50yo man, `170`. But it can vary. Used for HRTM zones. See also [various methods to calculate it](https://journals.viamedica.pl/folia_cardiologica/article/view/92507).
   - `#speed-unit:` if set to `mph`, all the speeds will be interpreted as mph instead of km/h by default in the routines files.
+  - `#max-speed:` normally the maximum speed of the pad is read over Bluetooth. If the pad does not publish it, you can set it via this metadata, e.g: `#max-speed: 6.0`. Default is `12`.
 
 **Example file:**
 
@@ -403,6 +404,8 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.8.4 2026-07-18 pad max speed read, can also be set  via #max-speed.
+- v0.8.3 2026-07-15 more auto-adjust tuning by examining logs
 - v0.8.2 2026-07-15 auto-adjust tuning: symmetric ±0.2 nudges, EMA trend decay faster, trend-aware brake ported into the maintenance phase. getHRZone now uses the same BPM-rounded bounds as the speed control (single source of truth).
 - v0.8.1 2026-07-14 auto-adjust is a bit more reactive to slow the speed. Fixed incline now properly set in the logs.
 - v0.8.0 2026-07-10 new log format: now uses the routines files format, and is super detailed, tracking every heart rate change
