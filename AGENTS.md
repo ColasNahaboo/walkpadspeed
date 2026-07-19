@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.6-dev.1**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.6-dev.3**.
 
 ---
 
@@ -168,7 +168,7 @@ Wrapped in `#metricsWrapper` with `container-type: inline-size` (critical — re
 
 ### Session log
 
-Markdown log of each workout session, stored in `localStorage` under `wpss_session_log`. Entries prepended (newest first). Each entry records: date/time, routine name, start step (if not from beginning), elapsed time, completion status, speed modifier history, and **total km** (computed as sum of `speed × duration / 3600` over all segments). Accessible via "View Session Log" button in Manager view with Copy and Clear actions.
+Markdown log of each workout session, stored in `localStorage` under `wpss_session_log`. Entries prepended (newest first). Each entry records: date/time, routine name, start step (if not from beginning), elapsed time, completion status, speed modifier history, **total km** (computed as sum of `speed × duration / 3600` over all segments), and **total steps** (per segment: `distance_m / stepLen`, where `stepLen = metaStepLength × (speed / 3.0)^0.42` and `distance_m = speed × duration / 3.6`; segments with `speed ≤ 0` skip). Accessible via "View Session Log" button in Manager view with Copy and Clear actions.
 
 ---
 

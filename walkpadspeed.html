@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.6-dev.2";}
+      #version:after {content: "v0.8.6-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2310,6 +2310,14 @@
           if (session.segments.length === 0) return null;
 
           const totalKm = session.segments.reduce((sum, seg) => sum + seg.speed * seg.duration / 3600, 0);
+          // stepLength scales with speed: metaStepLength is measured at 3.0 km/h.
+          // steps per segment = distance (m) / stepLength (m); speed=0 contributes 0.
+          const totalSteps = session.segments.reduce((sum, seg) => {
+              if (seg.speed <= 0) return sum;
+              const distanceM = seg.speed * seg.duration / 3.6;
+              const stepLen = metaStepLength * Math.pow(seg.speed / 3.0, 0.42);
+              return sum + distanceM / stepLen;
+          }, 0);
 
           let comment = formatSessionDate(session.date);
           if (session.startStepIndex > 0 || session.startElapsedSeconds > 0) {
@@ -2318,6 +2326,7 @@
           comment += completed ? ', completed' : ', stopped';
           comment += `, total ${minutesSeconds(elapsedSeconds)}`;
           comment += `, ${totalKm.toFixed(3)} km`;
+          comment += `, ${Math.round(totalSteps)} steps`;
 
           const lines = [`${session.name} // ${comment}`];
           let prevSeg = null;
