@@ -11,17 +11,8 @@ Long Digestive, 20mn
 2.5 2m
 3.2 2m
 3.6 2m
-3.8/Z0 10m
-3 3m
-2 2m
-
-Longer Digestive, 30mn
-2.5 2m
-3.2 2m
-3.6 2m
-3.8/Z0 20m
-3 3m
-2 2m
+3.8/Z0 11m
+2 3m
 
 Z2 40mn
 2.5 1m
@@ -40,13 +31,11 @@ Cardio max sprint
 5.0 1m
 6.0 2m
 3.8 1m
-6.0 10m
-
-Cardio cooldown
-4.0 1m
+6.0 17m sprint stop it anytime and continue to cooldown
+4.0 1m cooldown
 3.5 1m
-3.0 2m cooldown
-2.5 1m final cooldown
+3.0 2m
+2.5 1m
 
 # cardio routine for 9% incline
 Cardio 40mn 6.0 intervals

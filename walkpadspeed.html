@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.6";}
+      #version:after {content: "v0.8.7-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1813,9 +1813,10 @@
               let stepName = '';
               let setName = '';
               if (parts.length > 2) {
-                  stepName = parts.slice(2)
-                      .join('-')
-                      .replace(/_/g,' ');
+                   stepName = parts.slice(2)
+                       .join('-')
+                       .replace(/&comma;/g, ',')
+                       .replace(/_/g,' ');
 
                   setName = stepName;
 
@@ -2805,8 +2806,8 @@ Climb with Inclines // For walkpads with automatic incline settings
                               distanceAccumulator += (speed * duration);
                           }
                           let labelStart = tokenIndex + 1;
-                          let stepLabel = stepTokens.slice(labelStart).join('_');
-                          let packedStep = `${speedToken}-`;
+                           let stepLabel = stepTokens.slice(labelStart).join('_').replace(/,/g, '&comma;');
+                           let packedStep = `${speedToken}-`;
                           if (incline !== null) {
                               packedStep += `${incline}%_`;
                           }
