@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.6-dev.3";}
+      #version:after {content: "v0.8.6";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -703,7 +703,7 @@
       // the BLE-discovered pad maximum (preferred) or the #max-speed file override,
       // falling back to DEFAULT_MAX_SPEED when neither is available.
       const DEFAULT_MAX_SPEED = 12;
-      const DEFAULT_STEP_LENGTH = 0.7;
+      const DEFAULT_STEP_LENGTH = 0.62; // step length at 3.0 km/h 
       let bleMinSpeed = null;       // min supported speed reported by pad — unused for now
       let bleMaxSpeed = null;       // max supported speed reported by pad (km/h)
       let bleMinIncrement = null;   // smallest speed increment supported by pad — unused for now

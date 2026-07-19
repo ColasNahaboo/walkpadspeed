@@ -100,6 +100,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - `#max-heart-rate:` you maximum heart rate, normally 220 (men) or 226 (women) minus your age, e.g. if you are a 50yo man, `170`. But it can vary. Used for HRTM zones. See also [various methods to calculate it](https://journals.viamedica.pl/folia_cardiologica/article/view/92507).
   - `#speed-unit:` if set to `mph`, all the speeds will be interpreted as mph instead of km/h by default in the routines files.
   - `#max-speed:` normally the maximum speed of the pad is read over Bluetooth. If the pad does not publish it, you can set it via this metadata, e.g: `#max-speed: 6.0`. Default is `12`.
+  - `#step-length:` the length in meters of one of your steps at 3 km/h. Measure it by walking on your pad at 3.0 km/h, and counting the number `N` of your steps done in 30 seconds. Your step length is then `25 / N`. E.g. for 42 steps counted, enter `#step-length: 0.60`. Note that your step length on a walking pad may differ from your natural step length when walking outside. Walkpadspeed with then adjust the actual step length to use in the session log, as it changes with the speed by the formula: `steplen-at-3kmh * (speed / 3)^0.42`. Defaults to `0.62`.
 
 **Example file:**
 
@@ -404,6 +405,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.8.6 2026-07-19 log also prints the total steps in a session. Use #step-length: to customize.
 - v0.8.5 2026-07-18 log also prints the total walked distance in a session.
 - v0.8.4 2026-07-18 pad max speed read, can also be set  via #max-speed.
 - v0.8.3 2026-07-15 more auto-adjust tuning by examining logs
