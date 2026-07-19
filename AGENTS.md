@@ -194,7 +194,17 @@ The walkpad's physical remote is detected via BLE speed notifications. `stopDete
 - He version-bumps locally and reports it; sync the working copy's version string accordingly.
 - He prefers tightly scoped diffs — flag pre-existing bugs separately rather than silently fixing them.
 - Surface judgment calls explicitly before implementing.
-- Before every commit, increment the version number in the file to a pre-release dev version: e.g. `v1.2.3` → `v1.2.4-dev.1` and `v3.4.1-dev.9` → `v3.4.1-dev.10`. The version lives in `#version:after {content: "vX.Y.Z"};` in the CSS.
+- **Commit workflow (always follow these exact steps, in order):**
+  1. Bump the version: increment the patch number and append `-dev.1`, e.g. `v0.8.5` → `v0.8.6-dev.1`. If already `-dev.X`, increment X, e.g. `v0.8.5-dev.3` → `v0.8.5-dev.4`. The version lives in `#version:after {content: "vX.Y.Z"};` in the CSS.
+  2. Load the `auto-commit` skill.
+  3. Stage all changes with `git add -A`.
+  4. Commit using `git -c user.name="<ModelName>" -c user.email="<modelname>@assistant.local" commit -m "<conventional-commit message>"`. Use the real model name (DeepSeekV4Flash, glm52, qwen36, mimo25, gemma4flash, etc.), not the harness name `opencode`.
+  5. Use Conventional Commits format in lowercase: `feat:`, `fix:`, `docs:`, `chore:` etc.
+  6. Never commit or stage build artifacts, temporary files, or local test binaries.
+- **Code discipline:**
+  - Never remove comments not pertaining to sections you modify unless asked.
+  - Keep functions modular and focused; if a function exceeds 50 lines, consider breaking it down.
+  - Do not refactor or rewrite working code outside the scope of the requested change.
 - The working copy lives at `/home/claude/walkpadspeed.html`; always copy to `/mnt/user-data/outputs/walkpadspeed.html` and call `present_files` to deliver.
 - Always run `node --check` on the extracted script before delivering.
 
