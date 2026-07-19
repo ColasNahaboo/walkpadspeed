@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.5";}
+      #version:after {content: "v0.8.6-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -703,6 +703,7 @@
       // the BLE-discovered pad maximum (preferred) or the #max-speed file override,
       // falling back to DEFAULT_MAX_SPEED when neither is available.
       const DEFAULT_MAX_SPEED = 12;
+      const DEFAULT_STEP_LENGTH = 0.7;
       let bleMinSpeed = null;       // min supported speed reported by pad — unused for now
       let bleMaxSpeed = null;       // max supported speed reported by pad (km/h)
       let bleMinIncrement = null;   // smallest speed increment supported by pad — unused for now
@@ -744,6 +745,7 @@
       let metaIncline = null;        // #incline:          fixed treadmill incline % (number);
       //                    suppresses the incline metric in the UI
       let metaHRM = 1; // #hrm: enable HRM metric in the UI
+      let metaStepLength = DEFAULT_STEP_LENGTH; // #step-length: m at 3 km/h (number)
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
       let speedThreshold = 0.8; // Fraction (0-1 exclusive) of the routine's minSpeed; below this, pad is considered stopped.
@@ -1726,7 +1728,7 @@
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
           metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = null;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
-          metaMaxSpeed = null;
+          metaMaxSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH;
 
           const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
           for (const line of text.split('\n')) {
@@ -1747,6 +1749,7 @@
                   case 'version':          metaFileVersion    = val;               break;
                   case 'incline':          metaIncline        = parseFloat(val);   break;
                   case 'max-speed':        metaMaxSpeed       = parseFloat(val);   break;
+                  case 'step-length':      metaStepLength     = parseFloat(val);   break;
                   case 'hrm':              metaHRM            = parseInt(val, 10); break;
               }
           }
@@ -2337,6 +2340,7 @@
           if (metaMaxHeartRate)  lines.push(`#max-heart-rate: ${metaMaxHeartRate}`);
           if (metaFileVersion)   lines.push(`#version: ${metaFileVersion}`);
           if (metaIncline)       lines.push(`#incline: ${metaIncline}`);
+          if (metaStepLength)    lines.push(`#step-length: ${metaStepLength}`);
           if (metaHRM)           lines.push(`#hrm: ${metaHRM}`);
           if (bleMaxSpeed)       lines.push(`#max-speed: ${bleMaxSpeed}`);
           else if (metaMaxSpeed) lines.push(`#max-speed: ${metaMaxSpeed}`);

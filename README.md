@@ -235,16 +235,14 @@ You can jump directly to any routine step by clicking on the list or "Routine st
 An **❤ HR** display is available under the speed display.
 If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left.
 
-Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.turquoise
+Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
 
-Values:
-
-- Z0  38–50%  digestive/glucose purple
-- Z1  50–60%  recovery/light    blue
-- Z2  60–70%  aerobic/fat burn  green
-- Z3  70–80%  endurance         yellow
-- Z4  80–90%  threshold         orange
-- Z5  90–100% VO2 max           red
+* **Z0 (38–50% | Digestive/Glucose | Purple):** Optimizes postprandial glycemic control by actively clearing glucose from the bloodstream through light muscle contractions after meals.
+* **Z1 (50–60% | Recovery/Light | Blue):** Promotes active recovery and boosts circulation to help flush out metabolic waste without placing additional stress on the body.
+* **Z2 (60–70% | Aerobic/Fat Burn | Green):** Maximizes fat oxidation and builds a robust mitochondrial foundation to improve your baseline aerobic efficiency.
+* **Z3 (70–80% | Endurance | Yellow):** Enhances overall cardiovascular capacity and stamina, training the heart and lungs to sustain moderate efforts for longer periods.
+* **Z4 (80–90% | Threshold | Orange):** Raises your lactate threshold, teaching your body to buffer metabolic byproducts and maintain higher speeds before hitting fatigue.
+* **Z5 (90–100% | VO2 Max | Red):** Develops peak anaerobic power, maximum cardiac output, and your absolute aerobic ceiling (VO2 max) using short, high-intensity efforts.
 
 Here is how the **❤ HR** display, initially empty on the left view, will appear in different zones:
 

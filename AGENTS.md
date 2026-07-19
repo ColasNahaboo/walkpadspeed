@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.5-dev.1**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.6-dev.1**.
 
 ---
 
@@ -56,7 +56,7 @@ HIIT
 
 ### Metadata globals (set by `parseMetadata(text)`)
 
-`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when the pad's BLE 0x2AD1 max is unreadable; default 12), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1)
+`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when the pad's BLE 0x2AD1 max is unreadable; default 12), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.7)
 
 `parseMetadata` is called both in the manager (on file load) and in `initDriverMode` (re-parses from `localStorage` cache since page navigation resets JS globals).
 
@@ -194,7 +194,7 @@ The walkpad's physical remote is detected via BLE speed notifications. `stopDete
 - He version-bumps locally and reports it; sync the working copy's version string accordingly.
 - He prefers tightly scoped diffs — flag pre-existing bugs separately rather than silently fixing them.
 - Surface judgment calls explicitly before implementing.
-- Before every commit, increment the version number in the file to a pre-release dev version: e.g. `v1.2.3` → `v1.2.3-dev.1` and `v3.4.1-dev.9` → `v3.4.1-dev.10`. The version lives in `#version:after {content: "vX.Y.Z"};` in the CSS.
+- Before every commit, increment the version number in the file to a pre-release dev version: e.g. `v1.2.3` → `v1.2.4-dev.1` and `v3.4.1-dev.9` → `v3.4.1-dev.10`. The version lives in `#version:after {content: "vX.Y.Z"};` in the CSS.
 - The working copy lives at `/home/claude/walkpadspeed.html`; always copy to `/mnt/user-data/outputs/walkpadspeed.html` and call `present_files` to deliver.
 - Always run `node --check` on the extracted script before delivering.
 
