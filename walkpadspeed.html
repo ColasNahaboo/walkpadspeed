@@ -1769,10 +1769,27 @@
           return `${mins}:${secs}`;
       }
 
+      // Handles old bookmarked URLs where commas in step labels were not
+      // encoded, causing raw.split(',') to produce fragments that don't
+      // start with a digit. Those fragments are label continuations and
+      // must be re-joined with the preceding step.
+      function splitSteps(raw) {
+          const parts = raw.split(',');
+          const merged = [];
+          for (const p of parts) {
+              if (merged.length > 0 && !/^\d/.test(p)) {
+                  merged[merged.length - 1] += ',' + p;
+              } else {
+                  merged.push(p);
+              }
+          }
+          return merged;
+      }
+
       function routineTotalDurationGet(raw) {
           if (!raw) return 0;
           let total = 0;
-          raw.split(',').forEach(item => {
+          splitSteps(raw).forEach(item => {
               const parts = item.split('-');
               let durationPart = parts[1];
               if (durationPart && durationPart.includes('%_')) {
@@ -1787,10 +1804,11 @@
       function buildRoutineSteps(raw) {
           if (!raw) return [];
 
-          const totalSteps = raw.split(',').length;
+          const steps = splitSteps(raw);
+          const totalSteps = steps.length;
           let previousIncline = (metaIncline !== null && metaIncline !== undefined) ? metaIncline : 0;
           routineHasIncline = false;
-          return raw.split(',').map((item, index) => {
+          return steps.map((item, index) => {
               const parts = item.split('-');
               // Speed token may include a zone suffix: "4.5" or "4.5Z2"
               const speedStr = parts[0];
@@ -1815,8 +1833,7 @@
               if (parts.length > 2) {
                    stepName = parts.slice(2)
                        .join('-')
-                       .replace(/&comma;/g, ',')
-                       .replace(/_/g,' ');
+                        .replace(/_/g,' ');
 
                   setName = stepName;
 
@@ -2806,7 +2823,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                               distanceAccumulator += (speed * duration);
                           }
                           let labelStart = tokenIndex + 1;
-                           let stepLabel = stepTokens.slice(labelStart).join('_').replace(/,/g, '&comma;');
+                           let stepLabel = stepTokens.slice(labelStart).join('_').replace(/,/g, '_');
                            let packedStep = `${speedToken}-`;
                           if (incline !== null) {
                               packedStep += `${incline}%_`;

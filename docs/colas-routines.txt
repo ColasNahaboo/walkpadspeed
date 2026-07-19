@@ -31,7 +31,7 @@ Cardio max sprint
 5.0 1m
 6.0 2m
 3.8 1m
-6.0 17m sprint stop it anytime and continue to cooldown
+6.0 17m sprint, stop it anytime and continue to cooldown
 4.0 1m cooldown
 3.5 1m
 3.0 2m
