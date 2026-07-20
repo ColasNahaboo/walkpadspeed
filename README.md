@@ -88,6 +88,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - **speed**, a number which can have a decimal, expressed in **km/h**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph. \
     To express a speed in miles per hour, just append **mph** to it.\
     - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted every 20s so that your heart rate stays in the chosen zone. E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
+    - **speed>Zone** The pad is set to speed until either the Zone or the duration is reached. E.g: `5.5>Z2 2m` is a way to force a brisk 5.5 km/h pace getting into Zone 2 at the end of the warmup, without overdoing it and entering Zone 3.
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
   - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
@@ -406,7 +407,9 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v0.8.7 #min-speed metadata, the app now only enter pause mode if the pad speed gets below this value. Zones auto-adjust was messing with the previous auto-detection.
+- v0.8.7
+  - #min-speed metadata, the app now only enter pause mode if the pad speed gets below this value. Zones auto-adjust was messing with the previous auto-detection.
+  - if speed field is speed>zone, run till we reach the zone, and then immediately go text step.
 - v0.8.6 2026-07-19 log also prints the total steps in a session. Use #step-length: to customize.
 - v0.8.5 2026-07-18 log also prints the total walked distance in a session.
 - v0.8.4 2026-07-18 pad max speed read, can also be set  via #max-speed.

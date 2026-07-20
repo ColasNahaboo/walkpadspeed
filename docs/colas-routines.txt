@@ -5,13 +5,15 @@
 Short Digestive // with a Pre-Warmup: Ankle Circles, Calf Raises, Hip Swings
 2.5 1m
 3.2 1m
-3.6/Z0 10m
+5.5>Z0 2m forces into Z0
+3.6/Z0 10m Z0 period
 
 Long Digestive, 20mn
-2.5 2m
-3.2 2m
-3.6 2m
-3.8/Z0 11m
+2.5 1m
+3.2 1m
+4.0 1m
+5.0>Z0 2m
+3.8/Z0 18m
 2 3m
 
 Z2 40mn
@@ -37,38 +39,7 @@ Cardio max sprint
 3.0 2m
 2.5 1m
 
-# cardio routine with zones
-Cardio 40mn Zones intervals
-2.5 30
-3.0 30
-3.5 1m
-4.0 1m
-4.5 1m
-5.0 1m
-5.5 1m
-6.0 1m
-4.0 1m
-6.0 1m
-6.0/Z5 2m
-4.0/Z1 2m
-6.0/Z5 2m
-4.0/Z1 2m
-6.0/Z5 2m
-4.0/Z1 2m
-6.0/Z5 2m
-4.0/Z1 2m
-6.0/Z5 2m
-4.0/Z1 2m
-6.0/Z5 2m
-4.0/Z1 2m
-6.0/Z5 2m
-4.0/Z1 2m
-4.0 1m
-3.5 1m
-3.0 1m cooldown
-
-# cardio routine, fixed speeds
-Cardio 40mn 6.0 intervals
+Cardio 40mn 6.0 intervals, fixed
 2.0 30 warmup // gradual
 2.5 30
 3.0 1m
@@ -110,6 +81,55 @@ Cardio 40mn 6.0 intervals
 3.0 1m cooldown
 2.5 1m final cooldown
 
-# test of the speed zone auto-adjust
-Test Zone 2
-4.0/Z2 10m
+Cardio 40mn Zone-adjusted intervals
+2.0 30 7mn gradual warmup
+2.5 30 -
+3.0 1m -
+3.5 1m -
+4.0 1m -
+4.5 1m -
+5.0 1m -
+5.5 1m -
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+6.0>Z4 2m work
+4.0 1m mandatory rest 
+4.0>Z2 1m rest
+3.5 2m 5mn gradual cooldown
+3.0 2m -
+2.5 1m -
+
+# no warmup, for the test mode
+Test Mode Zone 2
+4.0/Z2 1m 10m
