@@ -703,12 +703,15 @@
       // the BLE-discovered pad maximum (preferred) or the #max-speed file override,
       // falling back to DEFAULT_MAX_SPEED when neither is available.
       const DEFAULT_MAX_SPEED = 12;
+      const DEFAULT_MIN_SPEED = 1.0;
       const DEFAULT_STEP_LENGTH = 0.62; // step length at 3.0 km/h 
-      let bleMinSpeed = null;       // min supported speed reported by pad — unused for now
+      let bleMinSpeed = null;       // min supported speed reported by pad
       let bleMaxSpeed = null;       // max supported speed reported by pad (km/h)
       let bleMinIncrement = null;   // smallest speed increment supported by pad — unused for now
       let metaMaxSpeed = null;      // #max-speed override from routines file
+      let metaMinSpeed = null;      // #min-speed override from routines file
       let maxSpeedLimit = DEFAULT_MAX_SPEED;
+      let speedMinThreshold = DEFAULT_MIN_SPEED;
 
       let wakeLock = null;
       let ftmsControlCharacteristic = null;
@@ -748,7 +751,6 @@
       let metaStepLength = DEFAULT_STEP_LENGTH; // #step-length: m at 3 km/h (number)
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
-      let speedThreshold = 0.8; // Fraction (0-1 exclusive) of the routine's minSpeed; below this, pad is considered stopped.
       let speedMod = 1;
       let audioCtx = null;
       let stepOverhead = 1;
@@ -796,8 +798,7 @@
 
       const HRM_ZONE_INTERVAL_MS = 20000;
       const HRM_ZONE_MIN_MS = 10000;
-      const HRM_SPEED_MIN = 0.5;
-      const HRM_SPEED_MAX = 20.0;
+
       const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
 
       /* ----------------------------------------------------------------
@@ -940,7 +941,7 @@
           }
 
           let syntheticSpeed;
-          if (currentLiveSpeed >= speedThreshold) {
+          if (currentLiveSpeed >= speedMinThreshold * 0.8) {
               syntheticSpeed = 0.0; // Simulate Pause
           } else {
               // Simulate Resume. We use currentTargetSpeed instead of 1.0 
@@ -1268,7 +1269,7 @@
           let delta = calculateSpeedAdjustment(currentHeartRate, bounds.low, bounds.high);
           if (delta === 0) return;
 
-          const newSpeed = Math.max(HRM_SPEED_MIN,
+          const newSpeed = Math.max(speedMinThreshold,
                            Math.min(maxSpeedLimit, currentTargetSpeed + delta));
           if (Math.abs(newSpeed - currentTargetSpeed) < 0.001) return;
           lastHrmZoneAdjust = Date.now();
@@ -1723,12 +1724,22 @@
           }
       }
 
+      function updateSpeedMinThreshold() {
+          if (bleMinSpeed !== null && !isNaN(bleMinSpeed)) {
+              speedMinThreshold = bleMinSpeed;
+          } else if (metaMinSpeed !== null && !isNaN(metaMinSpeed)) {
+              speedMinThreshold = metaMinSpeed;
+          } else {
+              speedMinThreshold = DEFAULT_MIN_SPEED;
+          }
+      }
+
       function parseMetadata(text) {
           // Reset all metadata globals so loading a new file starts clean
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
           metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = null;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
-          metaMaxSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH;
+          metaMaxSpeed = null; metaMinSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH;
 
           const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
           for (const line of text.split('\n')) {
@@ -1749,11 +1760,13 @@
                   case 'version':          metaFileVersion    = val;               break;
                   case 'incline':          metaIncline        = parseFloat(val);   break;
                   case 'max-speed':        metaMaxSpeed       = parseFloat(val);   break;
+                  case 'min-speed':        metaMinSpeed       = parseFloat(val);   break;
                   case 'step-length':      metaStepLength     = parseFloat(val);   break;
                   case 'hrm':              metaHRM            = parseInt(val, 10); break;
               }
           }
           updateMaxSpeedLimit();
+          updateSpeedMinThreshold();
           // set some defaults if age was set
           if (metaMaxHeartRate === null && metaAge !== null) {
               metaMaxHeartRate = 220 - metaAge;
@@ -1813,7 +1826,8 @@
               // Speed token may include a zone suffix: "4.5" or "4.5Z2"
               const speedStr = parts[0];
               const szMatch = speedStr.match(/^(\d+(?:\.\d+)?)(Z([0-5]))?$/i);
-              const speed = szMatch ? parseFloat(szMatch[1]) : parseFloat(speedStr);
+              const rawSpeed = szMatch ? parseFloat(szMatch[1]) : parseFloat(speedStr);
+              const speed = Math.max(rawSpeed, speedMinThreshold);
               const targetZone = (szMatch && szMatch[3] !== undefined)
                   ? parseInt(szMatch[3], 10) : null;
               let durationPart = parts[1];
@@ -2072,24 +2086,12 @@
          REMOTE PAUSE / RESUME DETECTION
          ================================================================ */
 
-      function stopDetectThreshold() {
-          // speedThreshold (0–1 exclusive) is a fraction of the routine's
-          // own slowest scheduled speed, not an absolute km/h value — this
-          // keeps the "pad has stopped" cutoff proportional to whatever
-          // speed is actually expected at the current step, while still
-          // tolerating normal sensor jitter around that target.
-          // Falls back to the pad's practical ~1.0 km/h minimum if minSpeed
-          // hasn't been computed yet (e.g. no routine loaded).
-          const base = (isFinite(minSpeed) && minSpeed > 0) ? minSpeed : 1.0;
-          return base * speedThreshold;
-      }
-
       function checkRemoteStateChange(currentSpeed) {
           if (ignoreSpeedChanges) return;
 
           // Detect Pause: Running, expecting speed, but pad drops below threshold
           if (isRoutineActive && !isPaused && currentTargetSpeed > 0) {
-              if (currentSpeed < stopDetectThreshold()) {
+              if (currentSpeed < speedMinThreshold) {
                   // Start timer if not already started
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
@@ -2108,7 +2110,7 @@
 
           // Detect Resume: Paused, but pad speeds up above threshold
           if (isRoutineActive && isPaused) {
-              if (currentSpeed > stopDetectThreshold()) {
+              if (currentSpeed > speedMinThreshold) {
                   // Start timer if not already started
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
@@ -2128,7 +2130,7 @@
 
       async function handleRemoteStateChange(currentSpeed) {
           // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
-          if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < stopDetectThreshold()) {
+          if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < speedMinThreshold) {
               console.log("Remote pause detected");
               isPaused = true;
               clearAllIntervals();
@@ -2140,7 +2142,7 @@
           }
 
           // Remote resume: we're paused, and pad reports speed coming back
-          if (isRoutineActive && isPaused && currentSpeed > stopDetectThreshold()) {
+          if (isRoutineActive && isPaused && currentSpeed > speedMinThreshold) {
               console.log("Remote resume detected");
               isPaused = false;
               const btn = document.getElementById('pauseToggleBtn');
@@ -3123,12 +3125,14 @@ updateStatus("Subscribing to Walkpad Data stream...");
                        bleMinSpeed     = dv.getInt16(0, true) / 100;
                        bleMaxSpeed     = dv.getInt16(2, true) / 100;
                        bleMinIncrement = dv.getInt16(4, true) / 100;
-                       updateMaxSpeedLimit();
-                       console.info(`Pad speed range: ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}). Cap set to ${maxSpeedLimit} km/h.`);
-                   } catch (rangeErr) {
-                       console.warn("Supported Speed Range not readable; using #max-speed fallback. ", rangeErr.message);
-                       updateMaxSpeedLimit();
-                   }
+                        updateMaxSpeedLimit();
+                        updateSpeedMinThreshold();
+                        console.info(`Pad speed range: ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}). Cap set to ${maxSpeedLimit} km/h.`);
+                    } catch (rangeErr) {
+                        console.warn("Supported Speed Range not readable; using #max-speed fallback. ", rangeErr.message);
+                        updateMaxSpeedLimit();
+                        updateSpeedMinThreshold();
+                    }
 
                   document.getElementById('testModeToggle').style.display = 'none';
                   document.getElementById('controls').style.display = 'block';
