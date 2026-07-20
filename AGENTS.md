@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.6-dev.3**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.7-dev.2**.
 
 ---
 
@@ -31,6 +31,7 @@ Plain `.txt` file. Key features implemented during this session:
 #speed-unit: mph          # file-wide mph default for all speeds
 #incline: 6               # fixed treadmill incline (suppresses incline metric)
 #max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD1 unreadable (default 12)
+#min-speed: 0.5           # fallback pad min-speed floor when BLE 0x2AD1 unreadable (default 1.0)
 #version: 1
 
 # routine block (blank line separates routines)
@@ -56,7 +57,7 @@ HIIT
 
 ### Metadata globals (set by `parseMetadata(text)`)
 
-`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when the pad's BLE 0x2AD1 max is unreadable; default 12), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.7)
+`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when the pad's BLE 0x2AD1 max is unreadable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.7)
 
 `parseMetadata` is called both in the manager (on file load) and in `initDriverMode` (re-parses from `localStorage` cache since page navigation resets JS globals).
 
@@ -174,7 +175,7 @@ Markdown log of each workout session, stored in `localStorage` under `wpss_sessi
 
 ### Remote pause/resume detection
 
-The walkpad's physical remote is detected via BLE speed notifications. `stopDetectThreshold()` = `minSpeed * speedThreshold` where `minSpeed` is the routine's slowest step speed and `speedThreshold = 0.8`. This prevents false positives when the slowest step speed equals the jitter threshold (previously caused pause/resume flickering at 2.0 km/h steps).
+The walkpad's physical remote is detected via BLE speed notifications. The threshold below which the walkpad is considered stopped is `speedMinThreshold` (resolved from BLE `bleMinSpeed` → `#min-speed` file metadata → `DEFAULT_MIN_SPEED = 1.0` km/h). When the pad sends a speed notification below this threshold, the app interprets it as a stop/pause from the remote. This makes the detection absolute rather than adaptive to the routine's slowest step.
 
 ---
 
@@ -263,3 +264,45 @@ No change yet to `bleMinSpeed` / `bleMinIncrement` consumers — they are reserv
 **Commit `487f4b5`** by `DeepSeekV4Flash` — `buildSessionLogEntry()` now appends total distance walked to the comment line of each session entry. Computed as `sum(seg.speed × seg.duration / 3600)` over all finalized segments (speed in km/h, duration in seconds). Displays to 3 decimal places (e.g. `, 2.475 km`). Zero-segment sessions still return `null` and are not logged.
 
 Also bumped version from `v0.8.4` → `v0.8.5-dev.1` for the commit.
+
+---
+
+### Session 2026-07-20: Pad min-speed floor (`#min-speed` metadata)
+
+**No commit yet.** Implemented `#min-speed` metadata and `speedMinThreshold` variable to set a pad minimum speed, replacing the adaptive `stopDetectThreshold()` with an absolute threshold.
+
+**Resolution order (`updateSpeedMinThreshold()`):** BLE `bleMinSpeed` (0x2AD1) → `#min-speed` metadata → `DEFAULT_MIN_SPEED = 1.0` km/h. Called from `parseMetadata` and after BLE read on connect.
+
+**Changes:**
+- New globals: `DEFAULT_MIN_SPEED = 1.0`, `metaMinSpeed = null`, `speedMinThreshold = DEFAULT_MIN_SPEED`. Removed unused `speedThreshold` variable.
+- `updateSpeedMinThreshold()` — resolves the effective floor, parallel to `updateMaxSpeedLimit()`.
+- Routine step speed clamping: parsed speed floored to `speedMinThreshold` in `buildRoutineSteps()`.
+- HR zone adjust: `applyHrmZoneAdjust()` clamps to `speedMinThreshold` instead of the old fixed `HRM_SPEED_MIN = 0.5`. Removed `HRM_SPEED_MIN` / `HRM_SPEED_MAX` constants.
+- Remote pause detection: all 5 `stopDetectThreshold()` call sites replaced with `speedMinThreshold`; function deleted.
+- Test mode: `simulateRemoteStartPause()` uses `speedMinThreshold * 0.8`.
+- AGENTS.md: fixed stale references to `stopDetectThreshold` / `speedThreshold` in the Remote pause/resume detection section.
+
+Bumped version string from `v0.8.6-dev.3` → `v0.8.7-dev.1`.
+
+---
+
+### Session 2026-07-20: Adaptive step length (`speed>Zone` syntax)
+
+**No commit yet.** Added a new step syntax for zone-terminated steps: `speed>Zone` (e.g. `4.0>Z2 20m Aerobic`). When the step is active and HRM is connected, the step ends as soon as the target HR zone is reached, regardless of remaining duration. If the HR zone is not reached before the max duration expires, the step ends normally.
+
+**File format:**
+- `4.5/Z2 20m Aerobic` — zone-targeted speed control (existing; adjusts speed to stay in Z2)
+- `4.0>Z2 20m Aerobic` — zone-terminated step (new; runs at 4.0 until Z2 is reached or 20m elapses)
+
+**Packed format (URL roundtrip):** `4.5>Z2-1200-Aerobic` (`>` before `Z` differentiates from zone-targeted `4.5Z2-1200-Aerobic`).
+
+**Changes:**
+- `buildRoutineSteps()` — updated regex to `/^(\d+(?:\.\d+)?)(>?Z([0-5]))?$/i`, added `zoneTerminate` boolean to step object
+- Manager text parser — handles `/` (zone-targeted) and `>` (zone-terminated) separators in speed token, encodes `>` in packed format
+- Step-jump list — shows `>Z{zone}` for zone-terminated steps
+- `startClockLoop()` — adds zone-terminated check at each tick: when `hrmCharacteristic` is connected, `currentHeartRate > 0`, and the current HR zone meets or exceeds the target, forces `secondsLeftInStep = -1` to end the step. Records `step.actualDuration = step.duration - secondsLeftInStep` on early termination.
+- `startHrmZoneControl()` call sites (4 locations) — guarded with `!step.zoneTerminate` so zone-targeted speed control is not activated for zone-terminated steps
+- `enterStepSpeed()` — skips the "already in zone" optimization for zone-terminated steps (always sends the stated speed)
+- Session log segments already track actual elapsed time per segment, so early-termination durations are correctly reflected in logging (`totalKm`, `totalSteps`, elapsed time) without additional changes.
+
+**Edge cases handled:** without HRM connected, zone-terminated steps run to max duration (graceful fallback); test mode (simulated HRM) works identically; steps already in the target zone at start end after 1 tick (immediate transition to next step).

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7-dev.1";}
+      #version:after {content: "v0.8.7-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1218,7 +1218,8 @@
       async function enterStepSpeed(step, isInitialStart) {
           const inclineToSend = (step.incline !== undefined && step.incline !== null) ? step.incline : metaIncline;
 
-          if (step.targetZone !== null && hrmCharacteristic && currentHeartRate > 0) {
+          // For zone-terminated steps, always send the speed (no zone-control skip)
+          if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic && currentHeartRate > 0) {
               const bounds = getZoneBpmBounds(step.targetZone);
               if (bounds && currentHeartRate >= bounds.low && currentHeartRate <= bounds.high) {
                   if (inclineToSend !== undefined && inclineToSend !== null) {
@@ -1603,7 +1604,7 @@
                       startClockLoop();
                   }
                   const resumingStep = currentRoutineSteps[currentStepIndex];
-                  if (resumingStep?.targetZone !== null && hrmCharacteristic) {
+                  if (resumingStep?.targetZone !== null && !resumingStep?.zoneTerminate && hrmCharacteristic) {
                       startHrmZoneControl(resumingStep.targetZone);
                   }
 
@@ -1645,7 +1646,7 @@
           }
       }
 
-      function startClockLoop() {
+       function startClockLoop() {
           routineInterval = setInterval(async () => {
               if (secondsLeftInStep === 1) {
                   playBeep();
@@ -1657,6 +1658,19 @@
               updateGlobalProgress(totalElapsedSeconds);
 
               secondsLeftInStep--;
+
+              // Zone-terminated step: end early when target HR zone is reached
+              if (secondsLeftInStep >= 0) {
+                  const step = currentRoutineSteps[currentStepIndex];
+                  if (step.zoneTerminate && step.targetZone !== null &&
+                      hrmCharacteristic && currentHeartRate > 0) {
+                      const currentZone = getHRZone(currentHeartRate);
+                      if (currentZone !== null && currentZone >= step.targetZone) {
+                          step.actualDuration = step.duration - secondsLeftInStep;
+                          secondsLeftInStep = -1; // force step end
+                      }
+                  }
+              }
 
               if (secondsLeftInStep < 0) {
                   currentStepIndex++;
@@ -1676,7 +1690,7 @@
                       await sendIncline(step.incline);
                   }
                   stopHrmZoneControl();
-                  if (step.targetZone !== null && hrmCharacteristic) {
+                  if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic) {
                       startHrmZoneControl(step.targetZone);
                   }
               }
@@ -1823,13 +1837,15 @@
           routineHasIncline = false;
           return steps.map((item, index) => {
               const parts = item.split('-');
-              // Speed token may include a zone suffix: "4.5" or "4.5Z2"
+              // Speed token may include a zone suffix: "4.5", "4.5Z2" (zone-targeted),
+              // or "4.5>Z2" (zone-terminated — ends when zone is reached)
               const speedStr = parts[0];
-              const szMatch = speedStr.match(/^(\d+(?:\.\d+)?)(Z([0-5]))?$/i);
+              const szMatch = speedStr.match(/^(\d+(?:\.\d+)?)(>?Z([0-5]))?$/i);
               const rawSpeed = szMatch ? parseFloat(szMatch[1]) : parseFloat(speedStr);
               const speed = Math.max(rawSpeed, speedMinThreshold);
               const targetZone = (szMatch && szMatch[3] !== undefined)
                   ? parseInt(szMatch[3], 10) : null;
+              const zoneTerminate = szMatch && szMatch[2] && szMatch[2].startsWith('>');
               let durationPart = parts[1];
               let incline = previousIncline;
               if (durationPart.includes('%_')) {
@@ -1859,6 +1875,7 @@
                   duration,
                   incline,
                   targetZone,
+                  zoneTerminate,
                   name: stepName,
                   setName
               };
@@ -2009,7 +2026,8 @@
               if (step.incline) {
                   incline = `${step.incline}% `;
               }
-              meta.innerHTML = `<span>${incline}${step.speed.toFixed(1)}${step.targetZone !== null ? `/Z${step.targetZone}` : ''} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
+              const zoneSep = step.zoneTerminate ? '>' : '/';
+              meta.innerHTML = `<span>${incline}${step.speed.toFixed(1)}${step.targetZone !== null ? `${zoneSep}Z${step.targetZone}` : ''} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
 
               row.appendChild(btn);
               row.appendChild(meta);
@@ -2172,7 +2190,7 @@
                   startClockLoop();
               }
               const remotedStep = currentRoutineSteps[currentStepIndex];
-              if (remotedStep?.targetZone !== null && hrmCharacteristic) {
+              if (remotedStep?.targetZone !== null && !remotedStep?.zoneTerminate && hrmCharacteristic) {
                   startHrmZoneControl(remotedStep.targetZone);
               }
               return;
@@ -2763,15 +2781,18 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                       const stepTokens = line.content.split(/\s+/);
                       if (stepTokens.length >= 2) {
-                          // Speed token may have a zone target suffix: "4.5/Z2" or "3.5mph/Z2"
-                          // The /Zn part is stripped for mph/speed parsing then re-attached
-                          // to the packed step as a suffix on the speed: "4.5Z2".
+                          // Speed token may have a zone suffix: "4.5/Z2" (zone-targeted)
+                          // or "4.5>Z2" (zone-terminated — ends when zone is reached).
+                          // The /Zn or >Zn part is stripped for mph/speed parsing then
+                          // re-attached to the packed step as a suffix: "4.5Z2" or "4.5>Z2".
                           let rawSpeedToken = stepTokens[0];
                           let targetZone = null;
-                          const zoneSlashMatch = rawSpeedToken.match(/^(.+?)\/(Z([0-5]))$/i);
-                          if (zoneSlashMatch) {
-                              rawSpeedToken = zoneSlashMatch[1];
-                              targetZone = parseInt(zoneSlashMatch[3], 10);
+                          let zoneTerminate = false;
+                          const zoneSepMatch = rawSpeedToken.match(/^(.+?)([\/>])(Z([0-5]))$/i);
+                          if (zoneSepMatch) {
+                              rawSpeedToken = zoneSepMatch[1];
+                              targetZone = parseInt(zoneSepMatch[4], 10);
+                              zoneTerminate = zoneSepMatch[2] === '>';
                           }
 
                           // Speed may be plain km/h, or suffixed with "mph" (no
@@ -2792,12 +2813,15 @@ Climb with Inclines // For walkpads with automatic incline settings
                               speedToken = rawSpeedToken;
                           }
 
-                          // Display token shows speed + zone (before we append zone to packed)
+                          // Display token shows speed + zone separator
                           const displaySpeedToken = targetZone !== null
-                              ? `${speedToken}/Z${targetZone}` : speedToken;
+                              ? `${speedToken}${zoneSepMatch[2]}Z${targetZone}` : speedToken;
 
-                          // Append zone to packed speed token so buildRoutineSteps can read it
-                          if (targetZone !== null) speedToken += `Z${targetZone}`;
+                          // Append zone to packed speed token so buildRoutineSteps can read it.
+                          // Use > for zone-terminated, plain Z for zone-targeted.
+                          if (targetZone !== null) {
+                              speedToken += `${zoneTerminate ? '>' : ''}Z${targetZone}`;
+                          }
 
                           let tokenIndex = 1;
                           let incline = null;
@@ -3194,9 +3218,10 @@ updateStatus("Subscribing to Walkpad Data stream...");
               document.getElementById('timerContainer').style.display = 'block';
               updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
-              await enterStepSpeed(currentRoutineSteps[currentStepIndex], true);
-              if (currentRoutineSteps[currentStepIndex].targetZone !== null && hrmCharacteristic) {
-                  startHrmZoneControl(currentRoutineSteps[currentStepIndex].targetZone);
+              const startStep = currentRoutineSteps[currentStepIndex];
+              await enterStepSpeed(startStep, true);
+              if (startStep.targetZone !== null && !startStep.zoneTerminate && hrmCharacteristic) {
+                  startHrmZoneControl(startStep.targetZone);
               }
               recordSessionState();
               startClockLoop();
