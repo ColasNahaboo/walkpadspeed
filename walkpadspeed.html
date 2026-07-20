@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7-dev.2";}
+      #version:after {content: "v0.8.7-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -553,12 +553,12 @@
 
       <div id="sessionLogContainer" style="display:none; text-align:left; margin-top:15px;">
         <h3>Session Log</h3>
-        <pre id="sessionLogText" class="routine-raw-view" style="display:block; max-height:64lh; overflow-y:auto; border-radius:8px;"></pre>
         <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
           <button onclick="copySessionLog()">Copy</button>
           <button onclick="clearSessionLog()">Clear Log</button>
           <button onclick="viewSessionLog()">Close</button>
         </div>
+        <pre id="sessionLogText" class="routine-raw-view" style="display:block; max-height:64lh; overflow-y:auto; border-radius:8px;"></pre>
       </div>
 
       <div id="erudaToggle" class="test-toggle-row">
