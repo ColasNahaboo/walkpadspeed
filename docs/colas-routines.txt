@@ -4,24 +4,24 @@
 // cardio: sprints 140-145bpm = 5.8km/h, rest <120bpm =4.2km/h 
 Short Digestive // with a Pre-Warmup: Ankle Circles, Calf Raises, Hip Swings
 2.5 1m
-3.2 1m
-5.5>Z0 2m forces into Z0
-3.6/Z0 10m Z0 period
+3.5 1m
+4.0>Z0 1m forces into Z0
+3.6/Z0 12m Z0 period
 
-Long Digestive, 20mn
+Long Digestive
 2.5 1m
 3.2 1m
 4.0 1m
-5.0>Z0 2m
-3.8/Z0 18m
-2 3m
+3.8/Z0 25m
+3 2m
 
 Z2 40mn
 2.5 1m
 3.0 1m
 4.0 1m
-5.0/Z2 35m
-3.5 1m
+4.5 1m
+5.0/Z2 33m
+3.5 2m
 2.5 1m
 
 Cardio max sprint
