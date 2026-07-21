@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7-dev.3";}
+      #version:after {content: "v0.8.7-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2186,14 +2186,15 @@
                   await sendSpeed(currentTargetSpeed, false);
               }
               recordSessionState();
-              if (isRoutineActive && !routineInterval) {
-                  startClockLoop();
-              }
-              const remotedStep = currentRoutineSteps[currentStepIndex];
-              if (remotedStep?.targetZone !== null && !remotedStep?.zoneTerminate && hrmCharacteristic) {
-                  startHrmZoneControl(remotedStep.targetZone);
-              }
-              return;
+               if (isRoutineActive && !routineInterval) {
+                   await requestWakeLock();
+                   startClockLoop();
+               }
+               const remotedStep = currentRoutineSteps[currentStepIndex];
+               if (remotedStep?.targetZone !== null && !remotedStep?.zoneTerminate && hrmCharacteristic) {
+                   startHrmZoneControl(remotedStep.targetZone);
+               }
+               return;
           }
       }
 
@@ -3224,6 +3225,7 @@ updateStatus("Subscribing to Walkpad Data stream...");
                   startHrmZoneControl(startStep.targetZone);
               }
               recordSessionState();
+              await requestWakeLock();
               startClockLoop();
           });
 
