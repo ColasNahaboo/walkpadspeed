@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7";}
+      #version:after {content: "v0.8.7-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -805,7 +805,7 @@
          HR ZONE  (Karvonen / Heart Rate Reserve method)
          Requires #rest-heart-rate and #max-heart-rate in the routines
          file. Zone boundaries as % of HRR:
-           Z0  38–50%   digestive walk (purple)
+           Z0  38–43%   digestive walk (purple)
            Z1  50–60%   recovery/light (blue)
            Z2  60-70%   aerobic/fat burn (green)
            Z3  70–80%   endurance (yellow)
@@ -814,10 +814,10 @@
       ---------------------------------------------------------------- */
       const HR_ZONE_COLORS = {
           null: '#111111',
-          0:    '#7744cc',  // Z0  35–50%  digestive         purple
+          0:    '#7744cc',  // Z0  38-43%  digestive         purple
           1:    '#1155dd',  // Z1  50–59%  recovery/light    blue
           2:    '#22aa44',  // Z2  60–69%  aerobic/fat burn  green
-          3:    '#cccc00',  // Z3  70–79%  endurance         yellow
+          3:    '#b7b300',  // Z3  70–79%  endurance         yellow
           4:    '#ff8800',  // Z4  80–89%  threshold         orange
           5:    '#cc2200',  // Z5  90–100% VO2 max           red
       };
@@ -827,7 +827,7 @@
 
       // Zone boundaries as % of Heart Rate Reserve (HRR)
       const ZONE_BOUNDARIES = {
-          0: [0.38, 0.50],
+          0: [0.38, 0.43],
           1: [0.50, 0.60],
           2: [0.60, 0.70],
           3: [0.70, 0.80],
