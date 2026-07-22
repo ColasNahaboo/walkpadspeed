@@ -1,7 +1,20 @@
+#name: Colas
+#rest-heart-rate: 70
+#max-heart-rate: 154
+#step-length: 0.47
+#version: 1
+#incline: 9
+#hrm: 1
+#max-speed: 6
+#min-speed: 1
+
 // My measures for a fixed incline of 9%:
 // Heart rate range: 85bpm = 70-155. digest 40% = 104, Z2 50/65% = 120bpm
 // 2026-06: digest = 2.7 km/h, Z2 = 4.5 km/h
-// cardio: sprints 140-145bpm = 5.8km/h, rest <120bpm =4.2km/h 
+// cardio: sprints 140-145bpm = 5.8km/h, rest <120bpm =4.2km/h
+
+
+
 Short Digestive // with a Pre-Warmup: Ankle Circles, Calf Raises, Hip Swings
 3.0 1m
 3.5 1m
