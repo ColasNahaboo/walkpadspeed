@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7-dev.1";}
+      #version:after {content: "v0.8.7-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2395,16 +2395,51 @@
           return lines.length ? lines.join('\n') + '\n\n' : '';
       }
 
+      function buildDailyTotalsLine(logBuffer) {
+          const today = new Date();
+          const yyyy = today.getFullYear();
+          const mm = String(today.getMonth() + 1).padStart(2, '0');
+          const dd = String(today.getDate()).padStart(2, '0');
+          const todayStr = `${yyyy}-${mm}-${dd}`;
+
+          let totalSeconds = 0;
+          let totalKm = 0;
+          let totalSteps = 0;
+
+          const re = /\/\/ (\d{4}-\d{2}-\d{2})[\s\S]*?total (\d+):(\d+), ([\d.]+) km, (\d+) steps/g;
+          let match;
+          while ((match = re.exec(logBuffer)) !== null) {
+              if (match[1] === todayStr) {
+                  totalSeconds += parseInt(match[2], 10) * 60 + parseInt(match[3], 10);
+                  totalKm += parseFloat(match[4]);
+                  totalSteps += parseInt(match[5], 10);
+              }
+          }
+
+          if (totalKm === 0 && totalSteps === 0) return '';
+
+          const totalMn = Math.round(totalSeconds / 60);
+          return `// ${todayStr} Day totals: ${totalMn} mn, ${totalKm.toFixed(3)} km, ${Math.round(totalSteps)} steps\n\n`;
+      }
+
       function appendSessionLog(entryMd) {
           try {
               const existing = localStorage.getItem('wpss_session_log') || '';
-              // Strip any previous metadata header (a leading run of #key:
-              // value lines) so it can be regenerated fresh below — the
-              // loaded routines file (and its metadata) may have changed
-              // since the last session was logged.
+              // Strip any previous metadata header
               const stripped = existing.replace(/^(#[a-z0-9-]+:[^\n]*\n)+\n?/i, '');
-              // Newest entry first, so the most recent session is visible at a glance
-              localStorage.setItem('wpss_session_log', buildMetadataHeader() + entryMd + stripped);
+              // Strip any old daily totals line from a prior write
+              const cleanOld = stripped.replace(/^\/\/ \d{4}-\d{2}-\d{2} Day totals:.*\n\n?/m, '');
+
+              const metadataHeader = buildMetadataHeader();
+              const body = entryMd + cleanOld;
+              const fullLog = metadataHeader + body;
+
+              const dailyLine = buildDailyTotalsLine(fullLog);
+              const finalLog = dailyLine
+                  ? metadataHeader + dailyLine + body
+                  : fullLog;
+
+              localStorage.setItem('wpss_session_log', finalLog);
           } catch (e) {
               console.warn('Failed to persist session log:', e);
           }
