@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7-dev.2";}
+      #version:after {content: "v0.8.7-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -796,8 +796,8 @@
 
          ================================================================ */
 
-      const HRM_ZONE_INTERVAL_MS = 20000;
-      const HRM_ZONE_MIN_MS = 10000;
+      const HRM_ZONE_INTERVAL_MS = 10000;
+      const HRM_ZONE_MIN_MS = 5000;
 
       const zoneMap = { 'Z0': 0, 'Z1': 1, 'Zd': 0, 'Z2': 2, 'Z3': 3, 'Z4': 4, 'Z5': 5 };
 
@@ -805,7 +805,7 @@
          HR ZONE  (Karvonen / Heart Rate Reserve method)
          Requires #rest-heart-rate and #max-heart-rate in the routines
          file. Zone boundaries as % of HRR:
-           Z0  38–43%   digestive walk (purple)
+           Z0  38–43% 5  digestive walk (purple)
            Z1  50–60%   recovery/light (blue)
            Z2  60-70%   aerobic/fat burn (green)
            Z3  70–80%   endurance (yellow)
@@ -862,7 +862,7 @@
       //    in-zone readings as "outer third" and induced self-noise.
       const HR_CONTROL_CONFIG = {
           emaAlpha: 0.2,              // Smoothing factor (0.0 to 1.0). Lower = more smoothing, less reactive to noise.
-          lookaheadSeconds: 20,       // How far into the future to project the heart rate drift.
+          lookaheadSeconds: 10,       // How far into the future to project the heart rate drift.
           maxSpeedChange: 0.5,        // Maximum km/h change allowed in a single Acquisition Phase adjustment.
           proportionalGain: 0.05,     // km/h adjustment per BPM off target center.
           brakeThreshold: 0.4,        // BPM/sec velocity that triggers the "brakes" (ignoring further acceleration).
