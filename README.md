@@ -440,10 +440,10 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.8.8 2026-07-23 #exports-log-url metadata to upload the logs after a routine to a server of your choice.
 - v0.8.7 2026-07-21
   - #min-speed metadata, the app now only enter pause mode if the pad speed gets below this value. Zones auto-adjust was messing with the previous auto-detection.
   - if speed field is speed>zone, run till we reach the zone, and then immediately go text step.
-  - #exports-log-url metadata to upload the logs after a routine to a server of your choice.
 - v0.8.6 2026-07-19 log also prints the total steps in a session. Use #step-length: to customize.
 - v0.8.5 2026-07-18 log also prints the total walked distance in a session.
 - v0.8.4 2026-07-18 pad max speed read, can also be set  via #max-speed.
