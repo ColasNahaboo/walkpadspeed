@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.7-dev.3";}
+      #version:after {content: "v0.8.7-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -712,6 +712,7 @@
       let metaMinSpeed = null;      // #min-speed override from routines file
       let maxSpeedLimit = DEFAULT_MAX_SPEED;
       let speedMinThreshold = DEFAULT_MIN_SPEED;
+      let exportLogsUrl = null;     // #export-logs-url for POSTing session logs
 
       let wakeLock = null;
       let ftmsControlCharacteristic = null;
@@ -1753,7 +1754,7 @@
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
           metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = null;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
-          metaMaxSpeed = null; metaMinSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH;
+          metaMaxSpeed = null; metaMinSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH; exportLogsUrl = null;
 
           const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
           for (const line of text.split('\n')) {
@@ -1777,6 +1778,7 @@
                   case 'min-speed':        metaMinSpeed       = parseFloat(val);   break;
                   case 'step-length':      metaStepLength     = parseFloat(val);   break;
                   case 'hrm':              metaHRM            = parseInt(val, 10); break;
+                  case 'export-logs-url':  exportLogsUrl       = val;               break;
               }
           }
           updateMaxSpeedLimit();
@@ -2445,11 +2447,31 @@
           }
       }
 
+      async function exportSessionLog(entryMd) {
+          if (!exportLogsUrl || !entryMd) return;
+          try {
+              const metadata = buildMetadataHeader();
+              const logBuffer = localStorage.getItem('wpss_session_log') || '';
+              const dailyLine = buildDailyTotalsLine(metadata + logBuffer);
+              const payload = metadata + dailyLine + entryMd;
+              await fetch(exportLogsUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'text/plain' },
+                  body: payload
+              });
+          } catch (e) {
+              console.warn('Log export failed:', e.message);
+          }
+      }
+
       function finalizeSessionLog(completed) {
           if (!currentSession) return;
           const elapsedThisSession = Math.max(0, totalElapsedSeconds - currentSession.startElapsedSeconds);
           const entry = buildSessionLogEntry(currentSession, elapsedThisSession, completed);
-          if (entry) appendSessionLog(entry);
+          if (entry) {
+              appendSessionLog(entry);
+              exportSessionLog(entry);
+          }
           currentSession = null;
       }
 
