@@ -103,6 +103,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - `#max-speed:` normally the maximum speed of the pad is read over Bluetooth. If the pad does not publish it, you can set it via this metadata, e.g: `#max-speed: 6.0`. Default is `12`.
   - `#min-speed:` normally the minimum speed of the pad is read over Bluetooth. If the pad does not publish it, you can set it via this metadata, e.g: `#min-speed: 1.2`. Default is `1.0`.
   - `#step-length:` the length in meters of one of your steps at 3 km/h. Measure it by walking on your pad at 3.0 km/h, and counting the number `N` of your steps done in 30 seconds. Your step length is then `25 / N`. E.g. for 42 steps counted, enter `#step-length: 0.60`. Note that your step length on a walking pad may differ from your natural step length when walking outside. Walkpadspeed with then adjust the actual step length to use in the session log, as it changes with the speed by the formula: `steplen-at-3kmh * (speed / 3)^0.42`. Defaults to `0.62`.
+  - `#export-logs-url:` provides an optional URL of a web server that the application will POST to the log of a session after termination of a routine. See [Auto export of logs](#auto-export-of-logs).
 
 **Example file:**
 
@@ -295,6 +296,38 @@ And a screenshot:
 
 Note: this format has changed since v0.8.0.
 
+### Auto export of logs
+
+Setting `#export-logs-url:` provides an optional URL of a web server that the application will POST to the log of a session after termination of a routine. You can then code a simple web service to receive these logs and store them as you want.
+
+What will be sent will be a text file with:
+- the current metadata
+
+For instance, you can use the free service at [ntfy.sh](https://ntfy.sh/) to push your logs.
+1. choose a name for your topic on ntfy. E.g.: `my-wps-logs` or better something not guessable, such as `a2yqEgifY6S7Jk3kJpsOYwo` as this will serve as your password, being a  [Capability URLs](https://www.w3.org/TR/capability-urls/).
+2. add the metadata to your routines files:  `#export-logs-url: https://ntfy.sh/my-wps-logs`
+3. you can then see all your routines logs at `https://ntfy.sh/my-wps-logs`
+
+```
+#name: Colas
+#rest-heart-rate: 70
+#max-heart-rate: 154
+...
+
+// 2026-07-23 Day totals: 55 mn, 2.963 km, 6092 steps
+
+Test Mode Zone 2 // 2026-07-23 22:52, stopped, total 00:19, 0.023 km, 42 steps
+4.3/Z1 9% 3 #hr:119 10m
+4.3/Z2 2 #hr:120
+4.3/Z2 2 #hr:121
+4.3/Z2 2 #hr:122
+4.3/Z2 2 #hr:123
+4.3/Z2 2 #hr:124
+4.3/Z2 2 #hr:125
+4.3/Z2 2 #hr:126
+4.3/Z2 2 #hr:127
+````
+
 ---
 
 ## Test Mode — try it without a walkpad
@@ -410,6 +443,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 - v0.8.7 2026-07-21
   - #min-speed metadata, the app now only enter pause mode if the pad speed gets below this value. Zones auto-adjust was messing with the previous auto-detection.
   - if speed field is speed>zone, run till we reach the zone, and then immediately go text step.
+  - #exports-log-url metadata to upload the logs after a routine to a server of your choice.
 - v0.8.6 2026-07-19 log also prints the total steps in a session. Use #step-length: to customize.
 - v0.8.5 2026-07-18 log also prints the total walked distance in a session.
 - v0.8.4 2026-07-18 pad max speed read, can also be set  via #max-speed.
