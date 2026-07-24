@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.8";}
+      #version:after {content: "v0.8.9-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -546,7 +546,16 @@
       <div id="routineContainer" style="display: none;">
         <h3>Available Routines</h3>
         <div id="routineList"></div>
-        <div class="routine-link-btn" id="routinesClear" onclick="clearRoutineList()">Clear routines</div>
+        <div id="routinesClearWrap">
+          <div id="routinesClear" class="routine-link-btn" onclick="confirmClearRoutines()">Delete all routines</div>
+          <div id="routinesClearConfirm" style="display:none;">
+            <div style="flex-grow:1; padding:1.2rem 1.2rem; font-size:1.1rem; font-weight:bold; text-align:center; background:#2c2c2e; color:#e0e0e0; border-radius:6px;">Delete all routines?</div>
+            <div style="display:flex; gap:8px; margin-top:6px;">
+              <button onclick="cancelClearRoutines()" style="color:#000; background:#bbb; border:none; padding:8px 0; flex:1; border-radius:6px; cursor:pointer; font-weight:bold;">Cancel</button>
+              <button onclick="clearRoutineList()" style="color:#fff; background:#e50000; border:none; padding:8px 0; flex:1; border-radius:6px; cursor:pointer; font-weight:bold;">Delete</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <button id="viewSessionLogBtn" class="routine-link-btn" onclick="viewSessionLog()">View Session Log</button>
@@ -3293,9 +3302,20 @@ updateStatus("Subscribing to Walkpad Data stream...");
           });
       }
       
+      function confirmClearRoutines() {
+          document.getElementById('routinesClear').style.display = 'none';
+          document.getElementById('routinesClearConfirm').style.display = 'block';
+      }
+
+      function cancelClearRoutines() {
+          document.getElementById('routinesClear').style.display = '';
+          document.getElementById('routinesClearConfirm').style.display = 'none';
+      }
+
       async function clearRoutineList() {
           document.getElementById('routineList').innerHTML = '';
           document.getElementById('defLoad').style.display = 'block';
+          document.getElementById('routinesClearConfirm').style.display = 'none';
           document.getElementById('routinesClear').style.display = 'none';
       }
 
