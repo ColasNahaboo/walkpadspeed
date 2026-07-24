@@ -302,6 +302,8 @@ Setting `#export-logs-url:` provides an optional URL of a web server that the ap
 
 What will be sent will be a text file with:
 - the current metadata
+- the totals of the day: duration, distance, steps
+- the log of the last routine
 
 For instance, you can use the free service at [ntfy.sh](https://ntfy.sh/) to push your logs.
 1. choose a name for your topic on ntfy. E.g.: `my-wps-logs` or better something not guessable, such as `a2yqEgifY6S7Jk3kJpsOYwo` as this will serve as your password, being a  [Capability URLs](https://www.w3.org/TR/capability-urls/).
@@ -326,7 +328,19 @@ Test Mode Zone 2 // 2026-07-23 22:52, stopped, total 00:19, 0.023 km, 42 steps
 4.3/Z2 2 #hr:125
 4.3/Z2 2 #hr:126
 4.3/Z2 2 #hr:127
-````
+```
+
+And here is a simple bash CGI script you can use on any web server to store logs via  `#export-logs-url:`:
+
+``` bash
+#!/bin/bash
+
+echo $'Content-Type: text/plain\n'
+[[ "$REQUEST_METHOD" != "POST" ]] && { echo "ERROR: POST only"; exit 1;}
+
+LOGFILE="logswps/$(date +%Y-%m).log"
+{ echo $'\n========================================'; cat;} >> "$LOGFILE"
+```
 
 ---
 
