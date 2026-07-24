@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.9-dev.1";}
+      #version:after {content: "v0.8.9";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -3240,10 +3240,16 @@ updateStatus("Subscribing to Walkpad Data stream...");
           });
 
           document.getElementById('routineBtn').addEventListener('click', async () => {
-              if (!isTestMode && !ftmsControlCharacteristic) {
-                  updateStatus("Not connected — please connect to your WalkPad first.");
-                  document.getElementById('connectBtn').scrollIntoView({ behavior: 'smooth' });
-                  return;
+              if (!isTestMode) {
+                  const connected = ftmsControlCharacteristic && bluetoothDevice?.gatt?.connected;
+                  if (!connected) {
+                      ftmsControlCharacteristic = null;
+                      bluetoothDevice = null;
+                      document.getElementById('connectBtn').style.display = '';
+                      updateStatus("WalkPad disconnected — please reconnect.");
+                      document.getElementById('connectBtn').scrollIntoView({ behavior: 'smooth' });
+                      return;
+                  }
               }
 
               resetRoutineState();
