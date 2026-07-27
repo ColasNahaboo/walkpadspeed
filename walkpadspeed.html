@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.9";}
+      #version:after {content: "v0.8.10-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1676,8 +1676,9 @@
                       hrmCharacteristic && currentHeartRate > 0) {
                       const currentZone = getHRZone(currentHeartRate);
                       if (currentZone !== null && currentZone >= step.targetZone) {
-                          step.actualDuration = step.duration - secondsLeftInStep;
-                          secondsLeftInStep = -1; // force step end
+                        step.actualDuration = step.duration - secondsLeftInStep;
+                        routineTotalDuration -= secondsLeftInStep;
+                        secondsLeftInStep = -1; // force step end
                       }
                   }
               }
