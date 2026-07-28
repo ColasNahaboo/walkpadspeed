@@ -454,6 +454,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.8.10 2026-07-28 when speed>zone reached the target zone, the progression bar was not updated properly
 - v0.8.9 2026-07-24 Delete routines button now has a confirmation. Pad BT connection is re-checked on routine start, with option to reconnect.
 - v0.8.8 2026-07-23 #exports-log-url metadata to upload the logs after a routine to a server of your choice.
 - v0.8.7 2026-07-21
