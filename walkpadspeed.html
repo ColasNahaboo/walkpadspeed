@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.9.0-dev.5";}
+      #version:after {content: "v0.9.0-dev.6";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -254,13 +254,13 @@
       }
 
       #stoppause { display: flex; align-items: stretch; gap: 5px; }
-      .change-step { background: #2d2d2d; color: #32c9c9; font-size: 3rem;
-                     padding: 0.75rem 1rem; }
+      .change-step { background: #2d2d2d; color: #32c9c9; font-size: 2.4rem;
+                     padding: 0.75rem 0.5rem; }
       #stoppause button:nth-of-type(2) { margin-right: auto; }
-      .stop-btn { background: #ff453a; color: white; font-size: 2.4rem; padding: 0 1rem; }
-      .pause-btn { background: #ff9f0a; color: black; font-size: 2.4rem; padding: 0 1rem; }
-      .resume-btn { background: #30d158; color: white; font-size: 2.4rem; padding: 0 1rem; }
-      .plause-btn { background: #444444; color: white; font-size: 2.4rem; padding: 0 1rem; }
+      .stop-btn { background: #ff453a; color: white; font-size: 1.4rem; padding: 0 1rem; }
+      .pause-btn { background: #ff9f0a; color: black; font-size: 1.4rem; padding: 0 1rem; }
+      .resume-btn { background: #30d158; color: white; font-size: 1.4rem; padding: 0 1rem; }
+      .plause-btn { background: #444444; color: white; font-size: 1.4rem; padding: 0 1rem; }
 
       #timerContainer {
           display: none;
@@ -2138,6 +2138,47 @@
 
           updateStatus(`Positioned at "${currentRoutineSteps[index].name}". Paused — press RESUME to continue.`);
           updateStepsListVisibility();
+      }
+
+      async function prevStep() {
+          if (!isRoutineActive || !currentRoutineSteps) return;
+          let elapsed = 0;
+          for (let i = 0; i < currentStepIndex; i++) elapsed += currentRoutineSteps[i].duration;
+          totalElapsedSeconds = elapsed;
+          const step = currentRoutineSteps[currentStepIndex];
+          secondsLeftInStep = step.duration - stepOverhead;
+          totalStepDuration = secondsLeftInStep;
+          await enterStepSpeed(step, false);
+          stopHrmZoneControl();
+          if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
+              startHrmZoneControl(step.targetZone);
+          updateLiveTimeDisplay(totalElapsedSeconds);
+          updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+          updateGlobalProgress(totalElapsedSeconds);
+          updateRoutineUI(step.name, step.setName, secondsLeftInStep, 100);
+      }
+
+      async function nextStep() {
+          if (!isRoutineActive || !currentRoutineSteps) return;
+          if (currentStepIndex + 1 >= currentRoutineSteps.length) {
+              stopTreadmill(true);
+              return;
+          }
+          let elapsed = 0;
+          for (let i = 0; i <= currentStepIndex; i++) elapsed += currentRoutineSteps[i].duration;
+          totalElapsedSeconds = elapsed;
+          currentStepIndex++;
+          const step = currentRoutineSteps[currentStepIndex];
+          secondsLeftInStep = step.duration - stepOverhead;
+          totalStepDuration = secondsLeftInStep;
+          await enterStepSpeed(step, false);
+          stopHrmZoneControl();
+          if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
+              startHrmZoneControl(step.targetZone);
+          updateLiveTimeDisplay(totalElapsedSeconds);
+          updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
+          updateGlobalProgress(totalElapsedSeconds);
+          updateRoutineUI(step.name, step.setName, secondsLeftInStep, 100);
       }
 
       /* ================================================================
