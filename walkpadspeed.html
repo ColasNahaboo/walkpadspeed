@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.8.10-dev.3";}
+      #version:after {content: "v0.9.0-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -3194,13 +3194,13 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                       document.getElementById('testModeToggle').style.display = 'none';
                       document.getElementById('controls').style.display = 'block';
-                      if (routineHasIncline && !metaIncline) {
+                      if (routineHasIncline) {
                           document.getElementById('inclineMetric').classList.remove('metric-off');
                       }
                       if (!metaHRM) {
                           document.getElementById('hrmCell').classList.add('metric-off');
                       }
-
+ 
                       document.getElementById('connectBtn').style.display = 'none';
                       await requestWakeLock();
                       return;
@@ -3252,7 +3252,7 @@ updateStatus("Subscribing to Walkpad Data stream...");
 
                   document.getElementById('testModeToggle').style.display = 'none';
                   document.getElementById('controls').style.display = 'block';
-                  if (routineHasIncline && !metaIncline) {
+                  if (routineHasIncline) {
                       document.getElementById('inclineMetric').classList.remove('metric-off');
                   }
                   document.getElementById('connectBtn').style.display = 'none';

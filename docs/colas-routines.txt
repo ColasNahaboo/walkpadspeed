@@ -153,6 +153,10 @@ Cardio 40mn Zone-adjusted intervals
 3.0 2m -
 2.5 1m -
 
-# no warmup, for the test mode
+# TEST MODES
 Test Mode Zone 2
 4.0/Z2 1m 10m
+
+Test Mode Inclines
+2.0 1% 5
+2.5 10% 1m
