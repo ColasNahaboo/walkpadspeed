@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.7-dev.2**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.8.10-dev.2**.
 
 ---
 
@@ -97,7 +97,7 @@ Standard BLE Heart Rate Profile (`service 0x180D`, characteristic `0x2A37`, Noti
 - **`updateHrZone(bpm)`** — updates zone display, background color, max-HR flash animation, mercury pillars, and calls `applyHrmZoneAdjust()` on zone change
 - **`updateHrmPillars(bpm, zone)`** — drives the mercury visualizer
 
-**Zone-change trigger**: `lastHrZone` global tracks the previous zone. When `getHRZone(bpm) !== lastHrZone`, `applyHrmZoneAdjust()` fires immediately (in addition to the 20 s interval).
+**Zone-change trigger**: `lastHrZone` global tracks the previous zone. When `getHRZone(bpm) !== lastHrZone`, `applyHrmZoneAdjust()` fires immediately (in addition to the 10 s interval).
 
 ---
 
@@ -109,15 +109,17 @@ When a step has a `targetZone` and HRM is connected:
 
 **`startHrmZoneControl(zone)`** — starts the adjustment loop:
 1. Calls `applyHrmZoneAdjust()` immediately
-2. Sets `setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS)` where `HRM_ZONE_INTERVAL_MS = 20000` (20 s). The min spacing between actual adjustments is `HRM_ZONE_MIN_MS = 10000` (10 s) — protects against the zone-change trigger re-firing too fast.
+2. Sets `setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS)` where `HRM_ZONE_INTERVAL_MS = 10000` (10 s). The hard min spacing between actual adjustments is `HRM_ZONE_MIN_MS = 5000` (5 s); same-direction spacing is governed much longer by the settle lockout (`settleSeconds`, see below).
 
-**`stopHrmZoneControl()`** — clears the interval, nulls `hrmStepTargetZone`
+**`stopHrmZoneControl()`** — clears the interval, nulls `hrmStepTargetZone`, resets `lastAdjust` (a new zone step must not inherit a stale lockout)
 
-**`applyHrmZoneAdjust()`** — runs every 20 s and on zone changes:
-- Guards: `!isRoutineActive || isPaused`, `hrmStepTargetZone === null`, `currentHeartRate <= 0`, `lastHrmZoneAdjust` < 10 s ago
+**`applyHrmZoneAdjust()`** — runs every 10 s and on zone changes:
+- Guards: `!isRoutineActive || isPaused`, `hrmStepTargetZone === null`, `currentHeartRate <= 0`, `lastHrmZoneAdjust` < 5 s ago
+- Calls `learnHrGain()` (online gain learning, see below)
 - Delegates the speed-delta decision to `calculateSpeedAdjustment(currentHR, zoneLow, zoneHigh)` (see "HR zone controller tuning" below)
-- Clamps speed to `[HRM_SPEED_MIN, HRM_SPEED_MAX]` = `[0.5, 20.0]` km/h
-- Sets `lastHrmZoneAdjust = Date.now()` and `currentTargetSpeed = newSpeed` before calling `sendSpeed`
+- **Settle lockout**: blocks a same-direction adjustment if the previous one is < `settleSeconds` (35 s) old and the HR hasn't moved ≥2 BPM the *wrong* way since (the escape hatch for an insufficient correction). HR lags a speed change by ~30 s, so faster same-direction stacking just winds up overshoot.
+- Clamps speed to `[speedMinThreshold, maxSpeedLimit]`
+- Sets `lastHrmZoneAdjust = Date.now()`, records `lastAdjust = {time, dir, hr}`, and sets `currentTargetSpeed = newSpeed` before calling `sendSpeed`
 
 Zone control lifecycle: starts at routine-start / step-transition / RESUME (app button and physical remote); stops at PAUSE / STOP / step-end via `clearAllIntervals()` which includes `stopHrmZoneControl()`.
 
@@ -125,27 +127,35 @@ Zone control lifecycle: starts at routine-start / step-transition / RESUME (app 
 
 ### HR zone controller tuning (`HR_CONTROL_CONFIG` + `calculateSpeedAdjustment`)
 
-The zone controller has two phases, both driven by the `HR_CONTROL_CONFIG` constants:
+**Architecture (v0.8.10-dev.2 rewrite):** one projection rule replaces the old PHASE 1/PHASE 2 split. Every 10 s (and on zone changes) the controller projects the HR trend `horizonSeconds` ahead, measures how far past the nearest zone edge the HR will sit (taking the worse of now and projected), and converts that breach to km/h through the **online-learned gain `hrPerKmh`** (BPM per km/h). Clamped to `±maxSpeedChange`, rounded to 0.1 km/h — the rounding doubles as the deadband (sub-~0.7 BPM breaches need no correction). There is no explicit deadband, no fixed nudges, no proportionalGain, no brake (the brake fired 1.6% of the time at real trend rates — dead code).
 
-| Parameter | v0.7 value | v0.8.2 value | Why |
-|---|---|---|---|
-| `emaAlpha` | 0.3 | 0.2 | EMA smoothing for the HR trend (BPM/s). Was sticky: ramp-up momentum persisted for several ticks after HR plateaued, causing premature `nudgeDown`. 0.2 lets the trend decay in ~3 intervals. |
-| `lookaheadSeconds` | 30 | 20 | How far ahead to project `projectedHr = currentHr + trend * lookaheadSeconds`. **Must not exceed `HRM_ZONE_INTERVAL_MS`** — if it does, the controller projects past the next check and self-induces oscillation. Matched at 20 s. |
-| `maxSpeedChange` | 0.5 | 0.5 | Hard clamp on a single PHASE 1 (acquisition) adjustment. |
-| `proportionalGain` | 0.05 | 0.05 | km/h per BPM of error from zone center (PHASE 1 only). |
-| `brakeThreshold` | 0.3 | 0.4 | BPM/s velocity at which the D-controller says "the body is catching up, hold steady". Logged HR moves are mostly <0.3 BPM/s; the old value triggered the brake during normal drift. |
-| `nudgeDown` | -0.4 | -0.2 | PHASE 2 (maintenance) nudge when HR is in the outer half and projected to escape the top. |
-| `nudgeUp` | +0.1 | +0.2 | PHASE 2 nudge when projected to escape the bottom. **Now symmetric** with `nudgeDown` — the old 4:1 down-favoured ratio was right for Z0 but trapped HR in Z1 on Z2 work (5–6 intervals to climb back vs 1–2 to cut). |
+| Parameter | Value | Why |
+|---|---|---|
+| `emaAlpha` | 0.2 | EMA smoothing for the HR trend (BPM/s). |
+| `horizonSeconds` | 30 | Projection horizon ≈ the measured HR↔speed lag (29 s median in the 2026-07-31 log). May exceed the check interval now — the settle lockout, not the interval, is the damping mechanism. |
+| `settleSeconds` | 35 | Anti-stacking lockout: min spacing between *same-direction* adjustments. The root fix for the limit cycle. |
+| `maxSpeedChange` | 0.5 | Hard clamp on a single adjustment, km/h. |
+| `learnAfterSeconds` | 300 | No gain learning during the first 5 min of a routine (HR warm-up is unrepresentative). |
+| `gainAlpha` | 0.25 | EMA weight of each gain sample. |
+| `gainMin` / `gainMax` | 2 / 20 | Sanity clamps for the learned gain. |
 
-**`updateHrTrend(currentHr)`** — EMA over per-tick BPM/s; stores `lastSmoothedTrend`, `lastHr`, `lastTimestamp`.
+**`hrPerKmh`** (global, seeded 7.0 BPM per km/h from log analysis; ~7 measured for Colas) — not persisted across sessions.
 
-**`calculateSpeedAdjustment(currentHr, zoneLow, zoneHigh)`** — two phases:
+**`learnHrGain()`** — called from `applyHrmZoneAdjust`. Scans `hrHistory` (1 Hz `{t, speed, hr}` samples pushed in `handleHrmNotification`, pruned to 4 min) for the most recent isolated speed change 40–75 s old (speed held since, |Δspeed| ≥ 0.05, |ΔHR| ≥ 2 BPM). Gain sample = `(ΔHR − trendBefore×age) / Δspeed` (momentum-corrected; `trendBefore` from a 30 s lookback, clamped ±0.3 BPM/s). Non-positive samples rejected as contaminated. EMA'd into `hrPerKmh`, clamped [2, 20]. Each change yields at most one sample (`sampled` flag on the history entry).
 
-- **PHASE 1 — Acquisition (HR outside zone bounds).** Proportional: `errorFromCenter * proportionalGain`, clamped to `±maxSpeedChange`. Then a D-controller brake: if HR is below the zone but rising fast (`trend > brakeThreshold`), or above but dropping fast, return 0 (coast — body is catching up).
+**`updateHrTrend(currentHr)`** — EMA over per-tick BPM/s. Calls closer than 5 s apart (zone-change re-fires) return the previous smoothed value — they only inject ±1 BPM quantization noise otherwise.
 
-- **PHASE 2 — Maintenance (HR inside zone bounds).** Central 50% of the zone is a deadband (`zoneRange / 4` on each side of center) → return 0. In the outer halves, project HR by `lookaheadSeconds`. If projected above `zoneHigh`, return `nudgeDown` (boosted ×1.5 if `trend > brakeThreshold`); if projected below `zoneLow`, return `nudgeUp` (boosted ×1.5 if `trend < -brakeThreshold`). The ×1.5 boost ports the D-controller idea into maintenance — without it, a fast fall through the lower third of the zone can't be arrested before Z1 is entered.
+**`calculateSpeedAdjustment(currentHr, zoneLow, zoneHigh)`** — the single projection rule:
+```
+projected = hr + trend × horizonSeconds
+overshoot  = max(hr, projected) − zoneHigh → delta = −overshoot  / hrPerKmh
+undershoot = zoneLow − min(hr, projected)  → delta = +undershoot / hrPerKmh
+clamp ±maxSpeedChange, round to 0.1
+```
 
-**Oscillation failure mode (v0.7 → v0.8.1 logs, `Z2 40mn` step 4):** HR oscillated between Z1 and Z3 in a 2–4 min cycle while speed swung through a ~1.5 km/h band centered on the Z2 midpoint. Three interacting causes: (1) the 4:1 down-favoured nudge ratio kept recovery from Z1 slow; (2) `emaAlpha=0.3` + `lookaheadSeconds=30` > `HRM_ZONE_INTERVAL_MS` projected ramp momentum past the next check and cut speed preemptively; (3) PHASE 2 had no trend-aware brake — a fixed +0.1 couldn't arrest a fast fall. Z0 ("Short Digestive") control worked fine in the same logs because the strong `nudgeDown` matched its "don't escape upward" intent.
+**Limit-cycle failure mode (v0.8.10-dev.1 log, `Z2 1h` step 7, `DEV/colas-2026-07-31.log`):** persistent ~135 s oscillation for the whole 50-min Z2 step — only 55% time in Z2 (Z1 21%, Z3 24%), 26 Z3 excursions, HR 115–136, speed swinging 2.6–5.9 km/h. Root cause: adjustments fired every 10 s (5 s min spacing) against a ~29 s physiological lag, so up to 3 same-direction moves stacked before the first was measurable (observed +1.4 km/h ramps ≈ +10 BPM > zone width 9 BPM); the anti-windup brake (`brakeThreshold` 0.4 BPM/s) never fired because real trends are ~0.16 BPM/s median. A replay harness (real 1 Hz HR trace through both controllers) measured: old 167 adjustments (133 stacked) vs new 79 (35, mostly the intended escape-hatch), speed churn 51.3 → 20.5 km/h.
+
+**Earlier failure mode (v0.7 → v0.8.1 logs, `Z2 40mn` step 4):** HR oscillated between Z1 and Z3 in a 2–4 min cycle while speed swung through a ~1.5 km/h band centered on the Z2 midpoint. Three interacting causes: (1) the 4:1 down-favoured nudge ratio kept recovery from Z1 slow; (2) `emaAlpha=0.3` + lookahead 30 s > the 20 s interval projected ramp momentum past the next check and cut speed preemptively; (3) the maintenance phase had no trend-aware brake. Addressed in v0.8.2; the whole nudge/brake apparatus was then replaced by the projection rule above in v0.8.10-dev.2.
 
 ---
 
@@ -306,3 +316,20 @@ Bumped version string from `v0.8.6-dev.3` → `v0.8.7-dev.1`.
 - Session log segments already track actual elapsed time per segment, so early-termination durations are correctly reflected in logging (`totalKm`, `totalSteps`, elapsed time) without additional changes.
 
 **Edge cases handled:** without HRM connected, zone-terminated steps run to max duration (graceful fallback); test mode (simulated HRM) works identically; steps already in the target zone at start end after 1 tick (immediate transition to next step).
+
+---
+
+### Session 2026-07-31: HR zone controller rewrite (v0.8.10-dev.2)
+
+Driven by `DEV/colas-2026-07-31.log` analysis (50-min `Z2 1h` step 7: only 55% time in Z2, HR 115–136 in a ~135 s limit cycle, speed swinging 2.6–5.9 km/h — see "Limit-cycle failure mode" in the tuning section above for the numbers). The two-phase nudge/proportional/brake controller was replaced by a single projection rule with an online-learned gain. User's brief: add "memory" of how HR responded to past speed changes (ignoring the first 5 min warm-up), and anticipate zone exits further ahead than 10 s.
+
+**Changes (all in the HRM zone control block of `walkpadspeed.html`):**
+- `calculateSpeedAdjustment()` rewritten (~60 → ~15 lines): projects `hr + trend × horizonSeconds` (30 s ≈ the measured 29 s lag), takes the worse of now/projected past the nearest zone edge, converts the breach to km/h via `hrPerKmh`. Deadband, PHASE 1/2, `proportionalGain`, `brakeThreshold`, `nudgeUp/Down`, `lookaheadSeconds` all deleted — the 0.1 km/h rounding is the deadband.
+- Settle lockout in `applyHrmZoneAdjust()`: same-direction adjustments blocked for `settleSeconds` (35 s) unless HR moved ≥2 BPM the wrong way (escape hatch). The anti-stacking root fix. `lastAdjust` state; reset in `stopHrmZoneControl()`.
+- `learnHrGain()` (new): learns `hrPerKmh` (seed 7.0, clamp [2,20], EMA α 0.25) from isolated speed changes 40–75 s old in the new 1 Hz `hrHistory` buffer (4 min, fed by `handleHrmNotification`); momentum-corrected samples; gated on `totalElapsedSeconds > 300` (the warm-up exclusion). Not persisted across sessions.
+- `updateHrTrend()`: min-dt guard — calls <5 s apart (zone-change re-fires) no longer inject quantization noise into the trend EMA.
+- `HRM_ZONE_INTERVAL_MS` / `HRM_ZONE_MIN_MS` stay at the user's local 10 s / 5 s.
+
+**Verification:** `node --check` OK. A throwaway replay harness fed the log's real 1 Hz HR trace through both controllers (identical input): old = 167 adjustments (133 stacked <35 s), Σ|Δspeed| 51.3 km/h; new = 79 (35, mostly escape-hatch), 20.5 km/h. A closed-loop synthetic plant (two-timescale HR response + drift) confirms both controllers are stable on a well-behaved plant (~99% in zone), so the new one doesn't destabilize anything — the replay shows it breaks the limit cycle on real dynamics. First real-session validation pending; watch `hrPerKmh` convergence (status-line adjustment sizes will reflect it).
+
+Version bumped `v0.8.10-dev.1` → `v0.8.10-dev.2`.

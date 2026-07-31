@@ -87,7 +87,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
 - Every line after that is one **step** of space-separated values:
   - **speed**, a number which can have a decimal, expressed in **km/h**. Note that all the walkpads use km/h internally anyways, since the bluetooth protocol imposes km/h as the speed unit, not mph. \
     To express a speed in miles per hour, just append **mph** to it.\
-    - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted every 20s so that your heart rate stays in the chosen zone. E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
+    - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted so that your heart rate stays in the chosen zone (it learns your heart-rate response to speed changes as the session progresses, ignoring the first 5 warm-up minutes). E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
     - **speed>Zone** The pad is set to speed until either the Zone or the duration is reached. E.g: `5.5>Z2 2m` is a way to force a brisk 5.5 km/h pace getting into Zone 2 at the end of the warmup, without overdoing it and entering Zone 3.
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
