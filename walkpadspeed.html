@@ -739,6 +739,7 @@
       let testHrData = []; // HRM simulation array from hr.txt: [{bpm: 85, time: 30}, ...]
       let testHrInterval = null; // setInterval handle for the simulation tick
       let currentHeartRate = 0; // Latest BPM received from HRM
+      let lastPrevStepTime = 0; // double-tap guard: second prevStep within 1s goes to previous step
       let hrmStepTargetZone = null; // Zone number (0–5) for zone-controled step
       let hrmZoneAdjustTimer = null; // setInterval handle for zone-control
       let lastHrmZoneAdjust = 0; // time of last HRM auto-adjust
@@ -2142,9 +2143,23 @@
 
       async function prevStep() {
           if (!isRoutineActive || !currentRoutineSteps) return;
-          let elapsed = 0;
-          for (let i = 0; i < currentStepIndex; i++) elapsed += currentRoutineSteps[i].duration;
-          totalElapsedSeconds = elapsed;
+          const now = Date.now();
+
+          // Double-tap within 1s: go to start of the PREVIOUS step
+          if (now - lastPrevStepTime < 1000) {
+              if (currentStepIndex === 0) { playBeep(); lastPrevStepTime = now; return; }
+              let elapsed = 0;
+              for (let i = 0; i < currentStepIndex - 1; i++) elapsed += currentRoutineSteps[i].duration;
+              totalElapsedSeconds = elapsed;
+              currentStepIndex--;
+          } else {
+              // Single tap: restart CURRENT step from beginning
+              let elapsed = 0;
+              for (let i = 0; i < currentStepIndex; i++) elapsed += currentRoutineSteps[i].duration;
+              totalElapsedSeconds = elapsed;
+          }
+          lastPrevStepTime = now;
+
           const step = currentRoutineSteps[currentStepIndex];
           secondsLeftInStep = step.duration - stepOverhead;
           totalStepDuration = secondsLeftInStep;
