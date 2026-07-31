@@ -232,6 +232,8 @@ Tap the **☰** menu in the top-right corner at any time to go back to the Manag
 
 You can jump directly to any routine step by clicking on the list or "Routine steps" that appear at the bottom on the connection screen, or on the Player screen when the routine is stopped.
 
+And while the routine is playing, you can restart the current step, go to the previous step, or go to the next step by using the  prev step `⏮` and next step `⏭` buttons to the left of stop / pause buttons.
+
 ![](docs/screens-v0.4.2/all.webp)
 
 ## Heart rate monitoring
@@ -455,8 +457,9 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 ## History
 
 - v0.9.0
-  - auto-speed-adjust adapts to the current heart response
+  - auto-speed-adjust is smarter: adapts to the current heart response
   - incline was never shown with the #incline metadata present
+  - new prev step `⏮` and next step `⏭` buttons to go to start of step or previous one, or next step.
 - v0.8.10 2026-07-28 when speed>zone reached the target zone, the progression bar was not updated properly
 - v0.8.9 2026-07-24 Delete routines button now has a confirmation. Pad BT connection is re-checked on routine start, with option to reconnect.
 - v0.8.8 2026-07-23 #exports-log-url metadata to upload the logs after a routine to a server of your choice.
