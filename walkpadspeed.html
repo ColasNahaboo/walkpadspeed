@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.9.0-dev.2";}
+      #version:after {content: "v0.9.0-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -253,7 +253,8 @@
           white-space: nowrap;
       }
 
-      #stoppause {font-size:10vw;}
+      #stoppause { display: flex; align-items: stretch; gap: 5px; }
+      .change-step { background: #2d2d2d; color: #32c9c9; font-size: 3rem; padding: 1.5rem 1rem; }
       .stop-btn { background: #ff453a; color: white; padding: 1.5rem 1rem; }
       .pause-btn { background: #ff9f0a; color: black; padding: 1.5rem 1rem; }
       .resume-btn { background: #30d158; color: white; padding: 1.5rem 1rem; }
@@ -659,9 +660,8 @@
         </div>
         <button class="routine-btn" id="routineBtn">Start Routine</button>
         <div id="stoppause">
-          <!-- Simulated Remote Start/Pause Button -->
-          <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 0rem;font-size:12px;"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="32" fill="none" viewBox="0 0 24 24"><path fill="#bbbbbb" d="M1.864 7.101v9.57c0 1.96 2.13 3.19 3.83 2.21l4.15-2.39 4.15-2.4c1.7-.98 1.7-3.43 0-4.41l-4.15-2.4-4.15-2.39c-1.7-.98-3.83.24-3.83 2.21M18.3 18.851c-.41 0-.75-.34-.75-.75V5.741c0-.41.34-.75-.75.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75M21.765 18.86c-.41 0-.75-.34-.75-.75V5.75c0-.41.34-.75.75-.75s.75.34.75.75v12.36c0 .41-.33.75-.75.75"/></svg>
-          </button>
+          <button class="change-step" onclick="prevStep()">⏮</button>
+          <button class="change-step" onclick="nextStep()">⏭</button>
           <button class="stop-btn" onclick="stopTreadmill()">STOP</button>
           <button class="pause-btn" id="pauseToggleBtn" onclick="togglePauseState()">PAUSE</button>
         </div>
@@ -677,6 +677,8 @@
 
       <p id="driverStatus" class="status-text">Status: Disconnected</p>
 
+          <!-- Simulated Remote Start/Pause Button -->
+      <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 1rem;font-size:3rem;">⏯</button>
       <div id="stepsListContainer" style="display:none;">
         <h3>Routine Steps</h3>
         <p class="status-text" style="margin-top:0; font-weight:400; font-size:0.85rem;">Tap a step to position the routine there, paused — press RESUME to start moving from that point.</p>
