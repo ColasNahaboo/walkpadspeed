@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.9.1-dev.1";}
+      #version:after {content: "v0.9.1-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1736,7 +1736,8 @@
                   }
               }
 
-              const percentRemaining = (secondsLeftInStep / totalStepDuration) * 100;
+              const percentRemaining = totalStepDuration > 0
+                  ? (secondsLeftInStep / totalStepDuration) * 100 : 0;
               updateRoutineUI(
                   currentRoutineSteps[currentStepIndex].name, 
                   currentRoutineSteps[currentStepIndex].setName, 
