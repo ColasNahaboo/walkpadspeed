@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.9.0-dev.2**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.9.0-dev.6**.
 
 ---
 
@@ -333,3 +333,55 @@ Driven by `DEV/colas-2026-07-31.log` analysis (50-min `Z2 1h` step 7: only 55% t
 **Verification:** `node --check` OK. A throwaway replay harness fed the log's real 1 Hz HR trace through both controllers (identical input): old = 167 adjustments (133 stacked <35 s), Σ|Δspeed| 51.3 km/h; new = 79 (35, mostly escape-hatch), 20.5 km/h. A closed-loop synthetic plant (two-timescale HR response + drift) confirms both controllers are stable on a well-behaved plant (~99% in zone), so the new one doesn't destabilize anything — the replay shows it breaks the limit cycle on real dynamics. First real-session validation pending; watch `hrPerKmh` convergence (status-line adjustment sizes will reflect it).
 
 Version bumped `v0.8.10-dev.1` → `v0.8.10-dev.2`.
+
+---
+
+### Session 2026-08-04: HR zone controller rewrite, CSS cleanups, prevStep/nextStep
+
+**Commits:** `503d553` through `763ea13` (author KimiK3), culminating in Colas's release as v0.9.0.
+
+#### HR zone controller rewrite (v0.8.10-dev.2, commit `503d553`)
+
+Driven by `DEV/colas-2026-07-31.log` analysis (50-min `Z2 1h` step 7: only 55% time in Z2, HR 115–136 in a ~135 s limit cycle, speed swinging 2.6–5.9 km/h). The two-phase nudge/proportional/brake controller was replaced by a single projection rule with an online-learned gain. User's brief: add "memory" of how HR responded to past speed changes (ignoring the first 5 min warm-up), and anticipate zone exits further ahead than 10 s.
+
+**Changes (all in the HRM zone control block of `walkpadspeed.html`):**
+- `calculateSpeedAdjustment()` rewritten (~60 → ~15 lines): projects `hr + trend × horizonSeconds` (30 s ≈ the measured 29 s lag), takes the worse of now/projected past the nearest zone edge, converts the breach to km/h via `hrPerKmh`. Deadband, PHASE 1/2, `proportionalGain`, `brakeThreshold`, `nudgeUp/Down`, `lookaheadSeconds` all deleted — the 0.1 km/h rounding is the deadband.
+- Settle lockout in `applyHrmZoneAdjust()`: same-direction adjustments blocked for `settleSeconds` (35 s) unless HR moved ≥2 BPM the wrong way (escape hatch). The anti-stacking root fix. `lastAdjust` state; reset in `stopHrmZoneControl()`.
+- `learnHrGain()` (new): learns `hrPerKmh` (seed 7.0, clamp [2,20], EMA α 0.25) from isolated speed changes 40–75 s old in the new 1 Hz `hrHistory` buffer (4 min, fed by `handleHrmNotification`); momentum-corrected samples; gated on `totalElapsedSeconds > 300` (the warm-up exclusion). Not persisted across sessions.
+- `updateHrTrend()`: min-dt guard — calls <5 s apart (zone-change re-fires) no longer inject quantization noise into the trend EMA.
+- `HRM_ZONE_INTERVAL_MS` / `HRM_ZONE_MIN_MS` stay at the user's local 10 s / 5 s.
+
+**Verification:** `node --check` OK. A throwaway replay harness fed the log's real 1 Hz HR trace through both controllers (identical input): old = 167 adjustments (133 stacked <35 s), Σ|Δspeed| 51.3 km/h; new = 79 (35, mostly escape-hatch), 20.5 km/h. A closed-loop synthetic plant (two-timescale HR response + drift) confirms both controllers are stable on a well-behaved plant (~99% in zone), so the new one doesn't destabilize anything — the replay shows it breaks the limit cycle on real dynamics. First real-session validation pending; watch `hrPerKmh` convergence (status-line adjustment sizes will reflect it).
+
+#### Incline metric regression fix (v0.9.0-dev.2, commit `0e7492a`)
+
+When `#incline: N` was set in the routines file's metadata (which suppresses the fixed-incline metric from the UI per design), the `!metaIncline` guard in the connect path also blocked the metric from appearing when per-step inline `X%` incline overrides existed in the packed URL. The fix removes `!metaIncline` from the two `classList.remove('metric-off')` calls (test-mode connect and BLE connect paths) so `routineHasIncline` alone controls visibility. The `#incline:` metadata still suppresses the metric when all steps use the implicit default.
+
+Root cause traced to commit `739c672` which added the `!metaIncline` guard alongside metadata support.
+
+#### Stoppause button CSS (v0.9.0-dev.3–dev.5, commits `d7ceb7e`, `15d34d0`, `a1cf622`)
+
+Series of CSS tweaks on the `#stoppause` row (`⏮ ⏭ STOP PAUSE`):
+
+- `#stoppause` set to `display: flex; align-items: stretch; gap: 5px` so all four buttons match height.
+- `.change-step` now has the same padding (`1.5rem 1rem → 0.75rem 1rem`) as the other buttons; the `⏮⏭` pair groups tight on the left while `STOP PAUSE` pushes to the right via `#stoppause button:nth-of-type(2) { margin-right: auto; }`.
+- `.stop-btn` / `.pause-btn` / `.resume-btn` / `.plause-btn` get `font-size: 2.4rem` and `padding: 0 1rem` — the stretched flex container handles height so no vertical padding is needed.
+
+#### prevStep / nextStep (v0.9.0-dev.6, commits `818dcab`, `763ea13`)
+
+New `async` functions placed after `jumpToStep`:
+
+- `prevStep()` — restarts the current step from its beginning (single tap) or goes to the start of the previous step (double-tap within 1 s). At step 0, double-tap beeps and ignores. Maintains the routine's running state.
+- `nextStep()` — skips to the start of the next step, counting the current step as fully elapsed. If on the last step, calls `stopTreadmill(true)` to end the routine.
+
+Both recompute `totalElapsedSeconds` from step durations, send the correct speed/incline via `enterStepSpeed`, reset zone control, and update all UI displays (timers, progress bars). A `lastPrevStepTime` global tracks the double-tap window.
+
+#### Deferred bug analysis (dev/bug1.md)
+
+After implementation, the user reported NaN time displays and a global progress bar stuck at 0% when starting from a non-first step or using `nextStep`. Three root causes were identified and documented in `dev/bug1.md` for a future agent to fix:
+
+1. `routineTotalDuration` may be `0` when `updateGlobalProgress` fires (clobbered by `resetRoutineState`).
+2. `currentTargetSpeed` not set before `enterStepSpeed` in `prevStep`/`nextStep` — zone-control skips cause stale speed.
+3. Division by zero in `startClockLoop` when `totalStepDuration = 0`.
+
+Version bumped through `v0.8.10-dev.2` → `v0.9.0-dev.6` across the session.

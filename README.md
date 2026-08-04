@@ -456,7 +456,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v0.9.0
+- v0.9.0 2026-08-01
   - auto-speed-adjust is smarter: adapts to the current heart response
   - incline was never shown with the #incline metadata present
   - new prev step `⏮` and next step `⏭` buttons to go to start of step or previous one, or next step.

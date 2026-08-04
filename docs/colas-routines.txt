@@ -47,6 +47,46 @@ Z2 1h
 3.5 2m
 2.9 2m
 
+Japan IWT 38mn Fixed // Fixed speeds
+3 2m long strides
+3.6 2m stretch calves
+6 3m Fast 1/5
+3.4 3m Slow 1/5 
+6 3m Fast 2/5
+3.4 3m Slow 2/5 
+6 3m Fast 3/5
+3.4 3m Slow 3/5 
+6 3m Fast 4/5
+3.4 3m Slow 4/5 
+6 3m Fast 5/5
+3.4 3m Slow 5/5 
+3 4m cooldown
+
+Japan IWT 38mn Zones // With HR Zones, with a short fixed 6 seconds to set speed before trying to keep in Zone
+3 2m long strides
+3.6 2m stretch calves
+6 6 Up 1/5
+6/Z4 174 Fast 1/5
+3.8 6 Down 1/5
+3.8/Z1 174 Slow 1/5
+6 Up 2/5
+6/Z4 174 Fast 2/5
+3.8 6 Down 2/5
+3.8/Z1 174 Slow 2/5
+6 6 Up 3/5
+6/Z4 174 Fast 3/5
+3.8 6 Down 3/5
+3.8/Z1 174 Slow 3/5
+6 6 Up 4/5
+6/Z4 174 Fast 4/5
+3.8 6 Down 4/5
+3.8/Z1 174 Slow 4/5
+6 6 Up 5/5
+6/Z4 174 Fast 5/5
+3.8 6 Down 5/5
+3.8/Z1 174 Slow 5/5
+3 4m cooldown
+
 Cardio max sprint
 2.0 30 warmup // gradual
 2.5 30
@@ -61,48 +101,6 @@ Cardio max sprint
 3.5 1m
 3.0 2m
 2.5 1m
-
-Cardio 40mn 6.0 intervals, fixed
-2.0 30 warmup // gradual
-2.5 30
-3.0 1m
-3.5 1m
-4.0 1m
-4.5 1m
-5.0 1m
-5.1 1m
-4.0 1m
-5.2 1m
-4.0 1m
-5.4 1m
-4.0 1m
-5.6 1m
-4.0 1m
-5.8 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 1m
-6.0 1m
-4.0 2m
-3.5 1m
-3.0 1m cooldown
-2.5 1m final cooldown
 
 Cardio 40mn Zone-adjusted intervals
 2.0 30 7mn gradual warmup
