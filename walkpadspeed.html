@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.9.0";}
+      #version:after {content: "v0.9.1-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1724,6 +1724,7 @@
                   secondsLeftInStep = currentRoutineSteps[currentStepIndex].duration - stepOverhead;
                   totalStepDuration = secondsLeftInStep;
                   const step = currentRoutineSteps[currentStepIndex];
+                  currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
                   await enterStepSpeed(step, false);
                   if (step.incline !== undefined &&
                       step.incline !== currentTargetIncline) {
@@ -1899,6 +1900,7 @@
                   routineHasIncline = true;
               }
               const duration = parseInt(durationPart,10);
+              if (isNaN(duration) || isNaN(speed)) return null; // malformed packed step — keep it out of runtime state
               let stepName = '';
               let setName = '';
               if (parts.length > 2) {
@@ -1920,7 +1922,7 @@
                   name: stepName,
                   setName
               };
-          });
+          }).filter(step => step !== null);
       }
 
       function updateRoutineUI(label, setLabel, seconds, percentage) {
@@ -2163,6 +2165,7 @@
           const step = currentRoutineSteps[currentStepIndex];
           secondsLeftInStep = step.duration - stepOverhead;
           totalStepDuration = secondsLeftInStep;
+          currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
           await enterStepSpeed(step, false);
           stopHrmZoneControl();
           if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
@@ -2171,6 +2174,7 @@
           updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
           updateGlobalProgress(totalElapsedSeconds);
           updateRoutineUI(step.name, step.setName, secondsLeftInStep, 100);
+          recordSessionState();
       }
 
       async function nextStep() {
@@ -2186,6 +2190,7 @@
           const step = currentRoutineSteps[currentStepIndex];
           secondsLeftInStep = step.duration - stepOverhead;
           totalStepDuration = secondsLeftInStep;
+          currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
           await enterStepSpeed(step, false);
           stopHrmZoneControl();
           if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
@@ -2194,6 +2199,7 @@
           updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
           updateGlobalProgress(totalElapsedSeconds);
           updateRoutineUI(step.name, step.setName, secondsLeftInStep, 100);
+          recordSessionState();
       }
 
       /* ================================================================
@@ -2889,6 +2895,7 @@ Climb with Inclines // For walkpads with automatic incline settings
               parseMetadata(text);
               const blocks = text.split(/\n\s*\n/);
               const routines = [];
+              const routineParseErrors = [];
 
               for (const block of blocks) {
                   const rawLines = block.split('\n');
@@ -2996,21 +3003,23 @@ Climb with Inclines // For walkpads with automatic incline settings
                               ? parseInt(minuteMatch[1], 10) * 60
                               : parseInt(durationToken, 10);
 
+                          let labelStart = tokenIndex + 1;
                           if (!isNaN(speed) && !isNaN(duration)) {
                               totalDuration += duration;
                               distanceAccumulator += (speed * duration);
+                              let stepLabel = stepTokens.slice(labelStart).join('_').replace(/,/g, '_');
+                              let packedStep = `${speedToken}-`;
+                              if (incline !== null) {
+                                  packedStep += `${incline}%_`;
+                              }
+                              packedStep += `${duration}`;
+                              if (stepLabel) {
+                                  packedStep += `-${stepLabel}`;
+                              }
+                              stepsArray.push(packedStep);
+                          } else {
+                              routineParseErrors.push(`routine "${routineName}": ${line.content}`);
                           }
-                          let labelStart = tokenIndex + 1;
-                           let stepLabel = stepTokens.slice(labelStart).join('_').replace(/,/g, '_');
-                           let packedStep = `${speedToken}-`;
-                          if (incline !== null) {
-                              packedStep += `${incline}%_`;
-                          }
-                          packedStep += `${duration}`;
-                          if (stepLabel) {
-                              packedStep += `-${stepLabel}`;
-                          }
-                          stepsArray.push(packedStep);
 
                           // Rebuild this line for the raw-text display, normalizing
                           // the duration back to "Xm" when it's a round number of
@@ -3074,6 +3083,10 @@ Climb with Inclines // For walkpads with automatic incline settings
               }
 
               renderRoutineList(routines, 1);
+              if (routineParseErrors.length > 0) {
+                  statusText.innerHTML = '<span class="error-msg">Ignored bogus step line(s) — fix them in your routines file:<br>' +
+                      routineParseErrors.join('<br>') + '</span>';
+              }
           }
           
           function renderRoutineList(routines, loaded) {
