@@ -456,6 +456,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.9.1 2026-08-09 fix: prev step `⏮` and next step `⏭` buttons were resetting the elapsed time, distance, steps.
 - v0.9.0 2026-08-01
   - auto-speed-adjust is smarter: adapts to the current heart response
   - incline was never shown with the #incline metadata present
