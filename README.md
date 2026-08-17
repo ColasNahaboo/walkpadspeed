@@ -6,6 +6,8 @@
 
 **walkpadspeed** is a single web page (no app store, no install, no account, no ads) that connects to a "smart" walking pad / treadmill over Bluetooth and drives it through a workout you design yourself: Create walking routines on your computer, load them onto your phone, and let the app handle the timer and speed changes for you!
 
+![legend](docs/screens-v1.0.0/legends-v1.png)
+
 ## What can it do?
 
 - **Connect to your walkpad over Bluetooth** directly from your browser — no extra app needed.
@@ -45,10 +47,10 @@ To use walkpadspeed, you need:
 
 <thead>
     <tr>
-    <th>Manager      </th>
-    <th>Connection      </th>
-    <th>Routine Ready    </th>
-    <th>Routine Playing    </th>
+    <th>[    Manager      |</th>
+    <th>Connection     |</th>
+    <th>Routine Ready   |</th>
+    <th>Routine Playing   ]</th>
     </tr>
   </thead>
 
@@ -61,6 +63,8 @@ To use walkpadspeed, you need:
     </tr>
   </tbody>
 </table>
+
+*Note: screens have changed a bit since these screenshots, but you get the idea.*
 
 ### 2. Opening the App
 
@@ -456,7 +460,8 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v0.9.2 2026-09-17 ui: step progress bar only turn orange then red at 1m30s and 30s before end instead of percentages.
+- v1.0.0 2026-08-17 VERSION 1: the app is now mature and feature-complete enough to be released as "version one".
+- v0.9.2 2026-08-17 ui: step progress bar only turn orange then red at 1m30s and 30s before end instead of percentages.
 - v0.9.1 2026-08-09 fix: prev step `⏮` and next step `⏭` buttons were resetting the elapsed time, distance, steps.
 - v0.9.0 2026-08-01
   - auto-speed-adjust is smarter: adapts to the current heart response
