@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v0.9.1";}
+      #version:after {content: "v0.9.2-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1945,9 +1945,14 @@
           const bar = document.getElementById('progressBar');
           bar.style.width = `${percentage}%`;
 
-          if (percentage > 50) {
+          const isLongStep = currentRoutineSteps[currentStepIndex].duration > 180;
+          const progressValue = isLongStep ? seconds : percentage;
+          const greenThreshold = isLongStep ? 90 : 50;
+          const orangeThreshold = isLongStep ? 30 : 20;
+
+          if (progressValue > greenThreshold) {
               bar.style.backgroundColor = '#30d158';
-          } else if (percentage > 20) {
+          } else if (progressValue > orangeThreshold) {
               bar.style.backgroundColor = '#ff9f0a';
           } else {
               bar.style.backgroundColor = '#ff453a';

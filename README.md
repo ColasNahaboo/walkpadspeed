@@ -1,6 +1,6 @@
 # walkpadspeed
 
-<img src="docs/walkpadspeed.svg" align="right" width="256" height="256">Control your Bluetooth walking pad from your phone or computer without installing anything, and run your own custom interval routines from simple text files. **The walkpad app for geeks!**
+<img src="docs/walkpadspeed.svg" align="right" width="256" height="256">Control your **Bluetooth** walking pad from your phone or computer without installing anything, and run your own custom interval routines from simple **text files**, optionally **driven by your heart rate** monitored in real time. **The walkpad app for geeks!**
 
 (**Quickstart:** Open https://walkpad.fr in Google Chrome on your phone or tablet)
 
@@ -456,6 +456,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v0.9.2 2026-09-17 ui: step progress bar only turn orange then red at 1m30s and 30s before end instead of percentages.
 - v0.9.1 2026-08-09 fix: prev step `⏮` and next step `⏭` buttons were resetting the elapsed time, distance, steps.
 - v0.9.0 2026-08-01
   - auto-speed-adjust is smarter: adapts to the current heart response
