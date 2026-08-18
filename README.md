@@ -176,7 +176,7 @@ You can also maintain your routines file in a <a href='https://gist.github.com/'
 
 - I create a new Gist at https://gist.github.com/
 - I get one at URL https://gist.github.com/ColasNahaboo/058bbe224c26b5c157bbc3d30225a18b
-- I paste my routines file into it (the ones in `docs/colas-routines.txt`)
+- I paste my routines file into it (the ones in `docs/colas-routines.txt`) (Note: see their explanations at [My own routines](#my-own-routines)
 - I clone this gist locally as it is a Github repository:\
   `git clone git@gist.github.com:058bbe224c26b5c157bbc3d30225a18b.git ~/git/walkpadspeed-colas-routines` \
   See the script I use: `docs/colas-routines-publish.sh`
