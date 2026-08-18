@@ -408,6 +408,27 @@ The only features I plan to add currently would be:
 - Support for some hardware quirks when reported, if possible.
 - Export of the log data in a CSV format that can be used in Health tracking systems like Google Health. 
 
+## My own routines
+
+As an example, here are the routines I use the most in my `docs/colas-routines.txt`
+
+- **Short Digestive** A 15mn relaxed walk done 15mn after each meal (thus 3 times a day), to lower the glycemic charge, the spike in sugar and thus insulin in the blood. It keeps the heart rate at "Zone 0", because walking faster will triggere the liver to release sugar in the blood, anticipating its need because it beleives we are going to need it. It is also called a... [Fart Walk](https://en.wikipedia.org/wiki/Fart_walk)! \
+You can stop after just 5mn with most of the benefits, or lengthen it (just hit "previous step" before the end) if you are watching a captivating video.
+- **Z2 40mn** This is the recommended brisk walk that is the most efficient to burn fat. Must be done on an empty stomach. Heart rate staying in Zone 2 mobilizes fat burning, but without the stress of a faster walk or jog that triggers a cortisol spike and prevents fat burning. It [boosts your endurance and metabolism](https://www.trainingpeaks.com/blog/zone-2-training-for-endurance-athletes/). I do it 2 to 3 times a week.
+- **Japan IWT 38mn Fixed** The famous [Japanese Interval Walking Training](https://www.theguardian.com/lifeandstyle/2025/aug/09/japanese-interval-walking-the-viral-exercise-trend-that-could-put-a-spring-in-your-step) has proven to be extremely efficient to enhance cardio and fitness, and is a practical solution for walking pads, that are not designed to resist to actual full on running. My routine implements the common [Japanese Walking Protocol](https://thebestwalkingpads.com/reviews/japanese-walking-method-walking-pad-2026). I do it once a week.\
+I also wrote a variant **Japan IWT 38mn Zones** alternating between Zone 4 and Zone 1 out of curiosity but I do not think it is work the trouble of having the speeds varying so much. I recommend however that you try first this Zones version to evaluate what fixed speeds seems to give the most adequate results for you.
+
+Thus, my weekly schedule is 3 digestive walks after each meal, and per day of the week:
+1. Japanese IWT
+2. Zone 2
+3. Resistance training
+4. Zone 2
+5. Resistance training
+6. Zone 2
+7. Rest or Resistance training if I feel like it
+
+Resistance training for me is short (20mn) but at the [highest intensity](https://www.youtube.com/watch?v=QxGQv7179OI) as I am over 60.
+
 ## Optional: Installation & Deployment
 
 If you do not want to use the walkpadspeed.html hosted here or on walkpad.fr, host a version modified for your needs, since the interface is entirely self-contained inside a single file, setup is minimal:
