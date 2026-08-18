@@ -410,7 +410,7 @@ The only features I plan to add currently would be:
 
 ## My own routines
 
-As an example, here are the routines I use the most in my `docs/colas-routines.txt`
+As an example, here are the routines I use the most in my [docs/colas-routines.txt](docs/colas-routines.txt):
 
 - **Short Digestive** A 15mn relaxed walk done 15mn after each meal (thus 3 times a day), to lower the glycemic charge, the spike in sugar and thus insulin in the blood. It keeps the heart rate at "Zone 0", because walking faster will triggere the liver to release sugar in the blood, anticipating its need because it beleives we are going to need it. It is also called a... [Fart Walk](https://en.wikipedia.org/wiki/Fart_walk)! \
 You can stop after just 5mn with most of the benefits, or lengthen it (just hit "previous step" before the end) if you are watching a captivating video.
