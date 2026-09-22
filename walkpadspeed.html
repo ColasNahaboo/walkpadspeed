@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.0";}
+      #version:after {content: "v1.0.1-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1025,7 +1025,7 @@
               dataView.setUint16(1, speedRaw, true);
 
               await ftmsControlCharacteristic.writeValue(buffer);
-              updateStatus(`Speed set to ${speedKmh} km/h`);
+              updateStatus(`Speed set to ${speedKmh.toFixed(1)} km/h`);
 
               // Re-enable remote state detection after speed stabilizes
               setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
@@ -3078,7 +3078,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                               durationStr += `${secs}s`;
                           }
                       }
-                      const avgSpeed = totalDuration > 0 ? (distanceAccumulator / totalDuration).toFixed(2) : "0.0";
+                      const avgSpeed = totalDuration > 0 ? (distanceAccumulator / totalDuration).toFixed(1) : "0.0";
 
                       routines.push({
                           name: routineName,
