@@ -437,9 +437,9 @@ If you do not want to use the walkpadspeed.html hosted here or on walkpad.fr, ho
 2. Deploy the file to any web server or service (e.g., Apache, Nginx, a Wiki or GitHub Pages).
 3. Access the file using your browser on your Bluetooth-enabled device (your phone, tablet, computer...) over an `https://` connection. E.g: `https://my-domain.org/walkpad/wps.html`
 
-**Heart rate monitor simulation** In test mode (enabled by a switch in the manager view), you can also simulate an hear rate monitor device, such as an armband or chest band. For this, you need to make a text file `hr.txt` that will be downloadable at the same place  as the application is hosted. In the example above, `https://my-domain.org/walkpad/hr.txt`
+**Heart rate monitor simulation** In test mode (enabled by a switch in the manager view), you can also simulate an hear rate monitor device, such as an armband or chest band. The simulated profile is **embedded in the application HTML itself**: to customize it, edit the `<script type="text/plain" id="hrData">` block near the top of `walkpadspeed.html`.
 
-The file must contain lines of pairs of number: the pulse (bpm) to report and the time in seconds from the start of the tested routine at which it is reached. Empty lines and comments (lines starting with `#` are ignored). For instance:
+The block must contain lines of pairs of number: the pulse (bpm) to report and the time in seconds from the start of the tested routine at which it is reached. Empty lines and comments (lines starting with `#` are ignored). For instance:
 
 ```
 70 0
@@ -450,7 +450,7 @@ The file must contain lines of pairs of number: the pulse (bpm) to report and th
 105 60
 ```
 
-See the one I use in [docs/hr.txt](docs/hr.txt).
+See the one I use, also embedded in the HTML, in [docs/hr.txt](docs/hr.txt).
 
 ## Implementation
 
@@ -481,6 +481,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.
 - v1.0.0 2026-08-17 VERSION 1: the app is now mature and feature-complete enough to be released as "version one".
 - v0.9.2 2026-08-17 ui: step progress bar only turn orange then red at 1m30s and 30s before end instead of percentages.
 - v0.9.1 2026-08-09 fix: prev step `⏮` and next step `⏭` buttons were resetting the elapsed time, distance, steps.
