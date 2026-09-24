@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>walkpadclean</title>
+<style>
+    :root {
+        --accent: #ff9f0a;
+        --bg: #000000;
+        --panel: #1c1c1e;
+        --panel2: #2c2c2e;
+        --text: #ffffff;
+        --muted: #b0b0b0;
+        --danger: #ff4535;
+        --ok: #34c759;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+        margin: 0; padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        min-height: 100%;
+    }
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        padding: max(20px, env(safe-area-inset-top)) 16px min(20px, env(safe-area-inset-bottom));
+    }
+    header {
+        text-align: center;
+        margin-bottom: 8px;
+    }
+    h1 {
+        font-size: 1.6rem;
+        margin: 0;
+        letter-spacing: 0.5px;
+    }
+    .subtitle {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 4px;
+        text-align: center;
+        max-width: 22rem;
+    }
+    main {
+        width: 100%;
+        max-width: 26rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex-grow: 1;
+    }
+    .view { display: none; width: 100%; flex-direction: column; align-items: center; }
+    .view.active { display: flex; }
+
+    button {
+        padding: 1.2rem 1.4rem;
+        font-size: 1.2rem;
+        font-weight: bold;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s, opacity 0.2s;
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    .connect-btn {
+        background: var(--accent);
+        color: #121212;
+        width: 100%;
+    }
+    .clean-btn {
+        background: var(--panel2);
+        color: var(--text);
+        width: 100%;
+        margin: 6px 0;
+        font-size: 1.4rem;
+    }
+    .cancel-btn {
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid var(--danger);
+        width: 100%;
+        margin-top: 8px;
+        padding: 0.9rem 1rem;
+    }
+
+    .status {
+        text-align: center;
+        font-size: 1.05rem;
+        color: var(--muted);
+        min-height: 2.6rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 12px 0;
+        text-align: center;
+        line-height: 1.3;
+    }
+    .status.waiting { color: var(--accent); }
+    .status.running { color: var(--accent); }
+    .status.done { color: var(--ok); }
+    .status.error { color: var(--danger); }
+
+    .speed-readout {
+        font-size: 1.1rem;
+        color: var(--muted);
+        margin-top: 4px;
+    }
+    .speed-readout b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .countdown {
+        font-size: 8rem;
+        font-weight: 800;
+        line-height: 1;
+        margin: 20px 0;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+    }
+    .countdown .unit {
+        font-size: 1.6rem;
+        color: var(--muted);
+        font-weight: 500;
+        display: block;
+        margin-top: 6px;
+    }
+
+    .progress-track {
+        width: 100%;
+        max-width: 20rem;
+        height: 10px;
+        background: var(--panel2);
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 8px 0 4px;
+    }
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        transition: width 0.2s linear;
+    }
+
+    .footer {
+        text-align: center;
+        color: #666;
+        font-size: 0.75rem;
+        margin-top: 16px;
+    }
+    .footer a { color: #888; }
+</style>
+</head>
+<body>
+<header>
+    <h1>walkpadclean</h1>
+</header>
+
+<main>
+    <!-- CONNECT VIEW -->
+    <section id="connectView" class="view active">
+        <p class="subtitle">Clean and oil your walkpad belt. Connect, pick a duration, start the belt with the remote, and this app stops it for you.</p>
+        <button id="connectBtn" class="connect-btn">Connect to walkpad</button>
+        <p id="connectStatus" class="status"></p>
+    </section>
+
+    <!-- PANEL VIEW -->
+    <section id="panelView" class="view">
+        <p class="subtitle">Start the belt with the physical remote, then tap a duration below.</p>
+        <p id="speedReadout" class="speed-readout">Belt speed: <b id="liveSpeed">0.0</b> km/h</p>
+        <p id="panelStatus" class="status"></p>
+        <button id="cleanBtn30"  class="clean-btn" data-ms="30000">30s</button>
+        <button id="cleanBtn45"  class="clean-btn" data-ms="45000">45s</button>
+        <button id="cleanBtn60"  class="clean-btn" data-ms="60000">1mn</button>
+        <button id="cleanBtn90"  class="clean-btn" data-ms="90000">1mn30s</button>
+        <button id="cleanBtn120" class="clean-btn" data-ms="120000">2mn</button>
+        <button id="cancelBtn" class="cancel-btn">Cancel</button>
+    </section>
+
+    <!-- COUNTDOWN VIEW -->
+    <section id="countdownView" class="view">
+        <div id="countdown" class="countdown">0<span class="unit">seconds</span></div>
+        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+        <p id="countdownStatus" class="status running">Counting down</p>
+        <button id="cancelBtn2" class="cancel-btn">Cancel</button>
+    </section>
+</main>
+
+<footer class="footer">
+    walkpadclean &middot; standalone cleaning tool
+</footer>
+
+<script>
+(function () {
+    "use strict";
+
+    // === FTMS constants (same protocol as walkpadspeed.html) ===
+    var FTMS_SERVICE_UUID = 0x1826;
+    var FTMS_CONTROL_POINT_UUID = 0x2AD9;
+    var FTMS_DATA_UUID = 0x2ACD;
+
+    // Belt is considered "spinning" above this threshold (km/h).
+    var START_SPEED_KMH = 0.1;
+
+    // === State ===
+    var bluetoothDevice = null;
+    var controlChar = null;
+    var latestSpeed = 0.0; // km/h, last value received from the pad
+
+    var cycleTotalMs = 0;
+    var cycleRemainingMs = 0;
+    var cyclePhase = "idle"; // "idle" | "waiting" | "countdown" | "done"
+    var progressTimer = null;
+    var wakeLock = null;
+
+    // === DOM ===
+    var connectView = document.getElementById("connectView");
+    var panelView = document.getElementById("panelView");
+    var countdownView = document.getElementById("countdownView");
+    var connectBtn = document.getElementById("connectBtn");
+    var connectStatus = document.getElementById("connectStatus");
+    var liveSpeedEl = document.getElementById("liveSpeed");
+    var cleanBtns = Array.prototype.slice.call(document.querySelectorAll("button.clean-btn"));
+    var cancelBtn = document.getElementById("cancelBtn");
+    var cancelBtn2 = document.getElementById("cancelBtn2");
+    var countdownEl = document.getElementById("countdown");
+    var progressFill = document.getElementById("progressFill");
+    var countdownStatus = document.getElementById("countdownStatus");
+
+    function show(view) {
+        [connectView, panelView, countdownView].forEach(function (v) {
+            v.classList.toggle("active", v === view);
+        });
+    }
+
+    function setStatus(el, text, cls) {
+        el.textContent = text;
+        el.className = "status" + (cls ? " " + cls : "");
+    }
+
+    // === BLE connection ===
+    async function connect() {
+        if (!navigator.bluetooth) {
+            setStatus(connectStatus, "Web Bluetooth is not available. Use Chrome over HTTPS.");
+            return;
+        }
+        connectBtn.disabled = true;
+        setStatus(connectStatus, "Requesting Bluetooth device...", "");
+        try {
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ services: [FTMS_SERVICE_UUID] }],
+                optionalServices: [FTMS_SERVICE_UUID]
+            });
+
+            bluetoothDevice.addEventListener("gattdisconnected", onDisconnected);
+
+            setStatus(connectStatus, "Connecting to GATT server...", "");
+            var server = await bluetoothDevice.gatt.connect();
+
+            setStatus(connectStatus, "Getting Fitness Machine service...", "");
+            var service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+
+            setStatus(connectStatus, "Getting control point...", "");
+            controlChar = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+
+            setStatus(connectStatus, "Subscribing to speed data...", "");
+            var dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
+            dataChar.addEventListener("characteristicvaluechanged", onSpeedChanged);
+            await dataChar.startNotifications();
+
+            setStatus(connectStatus, "Connected & ready!", "done");
+            connectBtn.disabled = false;
+            connectBtn.style.display = "none";
+            show(panelView);
+            await requestWakeLock();
+        } catch (err) {
+            connectBtn.disabled = false;
+            setStatus(connectStatus, "Error: " + (err.message || err), "error");
+        }
+    }
+
+    function onSpeedChanged(event) {
+        var data = event.target.value;
+        if (!data || data.byteLength < 2) return;
+        var flags = data.getUint16(0, true);
+        var offset = 2;
+        // Bit 0 == 0 means speed is present (per FTMS / walkpadspeed.html).
+        if ((flags & 0x0001) === 0) {
+            latestSpeed = data.getUint16(offset, true) / 100;
+            offset += 2;
+        }
+        if (flags & 0x0002) offset += 2;
+        if (flags & 0x0004) offset += 3;
+        if (flags & 0x0008) offset += 4;
+        liveSpeedEl.textContent = latestSpeed.toFixed(1);
+    }
+
+    function onDisconnected() {
+        controlChar = null;
+        latestSpeed = 0.0;
+        liveSpeedEl.textContent = "0.0";
+        abortCycle(true);
+        show(connectView);
+        setStatus(connectStatus, "Disconnected — tap to reconnect.", "error");
+        connectBtn.style.display = "";
+        connectBtn.disabled = false;
+    }
+
+    async function stopPad() {
+        if (!controlChar) return;
+        try {
+            // Speed-0 frame (opcode 0x02, speed 0) then pause (opcode 0x08).
+            var buf = new ArrayBuffer(3);
+            var dv = new DataView(buf);
+            dv.setUint8(0, 0x02);
+            dv.setUint16(1, 0, true);
+            await controlChar.writeValue(buf);
+            await new Promise(function (r) { setTimeout(r, 200); });
+            await controlChar.writeValue(new Uint8Array([0x08]));
+        } catch (err) {
+            console.error("Failed to stop pad:", err);
+        }
+    }
+
+    // === Wake lock ===
+    async function requestWakeLock() {
+        try {
+            if (navigator.wakeLock && navigator.wakeLock.request) {
+                wakeLock = await navigator.wakeLock.request("screen");
+                document.addEventListener("visibilitychange", function () {
+                    if (document.visibilityState === "visible" && wakeLock) {
+                        wakeLock.request("screen");
+                    }
+                });
+            }
+        } catch (e) { /* non-critical */ }
+    }
+
+    // === Beep ===
+    function beep() {
+        try {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            var ctx = new AC();
+            var notes = [660, 880, 660];
+            notes.forEach(function (freq, i) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.frequency.value = freq;
+                osc.type = "sine";
+                var t0 = ctx.currentTime + i * 0.18;
+                gain.gain.setValueAtTime(0.0001, t0);
+                gain.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start(t0);
+                osc.stop(t0 + 0.16);
+            });
+        } catch (e) { /* non-critical */ }
+    }
+
+    // === Cycle logic ===
+    function startCycle(totalMs) {
+        if (cyclePhase === "waiting" || cyclePhase === "countdown") return;
+        cycleTotalMs = totalMs;
+        cycleRemainingMs = totalMs;
+        cyclePhase = "waiting";
+
+        show(panelView);
+        updatePanelStatus("Waiting for belt to spin — start it with the remote.", "waiting");
+
+        var poll = setInterval(function () {
+            if (cyclePhase !== "waiting") { clearInterval(poll); return; }
+            if (latestSpeed > START_SPEED_KMH) {
+                clearInterval(poll);
+                beginCountdown();
+            }
+        }, 200);
+    }
+
+    function beginCountdown() {
+        cyclePhase = "countdown";
+        show(countdownView);
+        countdownStatus.textContent = "Counting down";
+        countdownStatus.className = "status running";
+        renderCountdown();
+        var tickStart = Date.now();
+        progressTimer = setInterval(function () {
+            if (cyclePhase !== "countdown") { clearInterval(progressTimer); return; }
+            // If the belt stopped mid-cycle (manual pause), abort and return.
+            if (latestSpeed <= 0) {
+                clearInterval(progressTimer);
+                abortCycle(false);
+                updatePanelStatus("Belt stopped — aborted.", "error");
+                return;
+            }
+            var elapsed = Date.now() - tickStart;
+            cycleRemainingMs = Math.max(0, cycleTotalMs - elapsed);
+            renderCountdown();
+            if (cycleRemainingMs <= 0) {
+                clearInterval(progressTimer);
+                finishCycle();
+            }
+        }, 100);
+    }
+
+    function renderCountdown() {
+        var secs = Math.ceil(cycleRemainingMs / 1000);
+        countdownEl.innerHTML = secs + '<span class="unit">seconds</span>';
+        var pct = cycleTotalMs > 0 ? (1 - cycleRemainingMs / cycleTotalMs) * 100 : 0;
+        progressFill.style.width = pct.toFixed(1) + "%";
+    }
+
+    function finishCycle() {
+        cyclePhase = "done";
+        countdownStatus.textContent = "Done — stopping pad";
+        countdownStatus.className = "status done";
+        beep();
+        stopPad();
+        releaseWakeLock();
+        // Return to the panel shortly after issuing the stop.
+        setTimeout(function () {
+            if (cyclePhase === "done") {
+                cyclePhase = "idle";
+                show(panelView);
+                updatePanelStatus("Clean done. Belt stopped — ready for another round.", "done");
+            }
+        }, 600);
+    }
+
+    function abortCycle(isDisconnect) {
+        if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+        cyclePhase = "idle";
+        if (!isDisconnect) {
+            show(panelView);
+            updatePanelStatus("Cancelled.", "");
+        }
+    }
+
+    function updatePanelStatus(text, cls) {
+        var el = document.getElementById("panelStatus");
+        if (!el) return;
+        el.textContent = text;
+        el.className = "status" + (cls ? " " + cls : "");
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock) { wakeLock.release(); wakeLock = null; }
+    }
+
+    // === Wire up events ===
+    connectBtn.addEventListener("click", connect);
+
+    cleanBtns.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            startCycle(parseInt(btn.getAttribute("data-ms"), 10));
+        });
+    });
+
+    cancelBtn.addEventListener("click", function () { abortCycle(false); });
+    cancelBtn2.addEventListener("click", function () { abortCycle(false); });
+
+})();
+</script>
+</body>
+</html>
