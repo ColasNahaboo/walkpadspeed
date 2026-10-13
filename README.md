@@ -481,6 +481,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v1.0.2 2026-10-13 ui: Speed in status is now always rounded to one decimal
 - v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.
 - v1.0.0 2026-08-17 VERSION 1: the app is now mature and feature-complete enough to be released as "version one".
 - v0.9.2 2026-08-17 ui: step progress bar only turn orange then red at 1m30s and 30s before end instead of percentages.
