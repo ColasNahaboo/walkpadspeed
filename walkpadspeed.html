@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.6";}
+      #version:after {content: "v1.0.3-dev.7";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -579,7 +579,7 @@
           <input type="checkbox" id="erudaCheckbox">
           <span class="test-toggle-track"></span>
         </label>
-        <p>Show a floating developer console on the page (Eruda)
+        <p>Show a floating developer console on the page (Eruda)</p>
       </div>
     </div>
 
@@ -603,7 +603,7 @@
           <input type="checkbox" id="testModeCheckbox">
           <span class="test-toggle-track"></span>
         </label>
-        <p>Test mode allows to test the application without connecting to an actual Walkpad
+        <p>Test mode allows to test the application without connecting to an actual Walkpad</p>
       </div>
 
       <div id="controls" style="display:none; margin-top: 20px;">
@@ -1033,6 +1033,8 @@
       // only expose 0x2AD4, so both are probed at connect time.
       const FTMS_SUPPORTED_SPEED_RANGE_UUID = 0x2AD4;
       const FTMS_SUPPORTED_SPEED_RANGE_UUID_LEGACY = 0x2AD1;
+      // Supported Inclination Range (0x2AD5): 6 bytes = 3 × UINT16 LE at 0.1 %.
+      const FTMS_SUPPORTED_INCLINATION_RANGE_UUID = 0x2AD5;
       const spinUpTime = 5000;
 
       // Effective speed cap (km/h). Updated by updateMaxSpeedLimit() from either
@@ -1044,6 +1046,8 @@
       let bleMinSpeed = null;       // min supported speed reported by pad
       let bleMaxSpeed = null;       // max supported speed reported by pad (km/h)
       let bleMinIncrement = null;   // smallest speed increment supported by pad — unused for now
+      let bleMinIncline = null;     // min inclination % reported by pad
+      let bleMaxIncline = null;     // max inclination % reported by pad
       let metaMaxSpeed = null;      // #max-speed override from routines file
       let metaMinSpeed = null;      // #min-speed override from routines file
       let maxSpeedLimit = DEFAULT_MAX_SPEED;
@@ -1080,6 +1084,7 @@
       // from the localStorage cached file. Used later for HR zones, calories, etc.
       let metaName = null;           // #name:             rider name (string)
       let metaBirthYear = null;      // #birth:            birth year YYYY
+      let metaAge = null;            // derived from #birth: (current year - birth year)
 
       let metaWeight = null;         // #weight:           kg (number)
       let metaRestHeartRate = null;  // #rest-heart-rate:  BPM at rest (integer)
@@ -1570,7 +1575,14 @@
 
           if (!ftmsControlCharacteristic) return;
 
-          percent = Math.max(0, Math.min(99, percent));
+          // Clamp to the pad's advertised range when known (W60: 0–12 %);
+          // a target above it is rejected as an invalid parameter.
+          const inclineMin = (bleMinIncline !== null && !isNaN(bleMinIncline)) ? bleMinIncline : 0;
+          const inclineMax = (bleMaxIncline !== null && !isNaN(bleMaxIncline)) ? bleMaxIncline : 99;
+          if (percent > inclineMax) {
+              console.warn(`Incline ${percent}% is above the pad maximum ${inclineMax}% — clamping.`);
+          }
+          percent = Math.max(inclineMin, Math.min(inclineMax, percent));
 
           currentTargetIncline = percent;
           lastInclineCommand = { percent, at: Date.now() };
@@ -1778,7 +1790,7 @@
           // target speed instead of being held mid-routine.
           if (isInitialStart) {
               const started = await startTreadmill();
-              if (!started) return;
+              if (!started) return false;
               const startTs = Date.now();
 
               if (inclineToSend !== undefined && inclineToSend !== null) {
@@ -1803,7 +1815,7 @@
 
               await sendSpeed(step.speed);
               scheduleBeltStartCheck(step.speed);
-              return;
+              return true;
           }
 
           // For zone-terminated steps, always send the speed (no zone-control skip)
@@ -1813,13 +1825,14 @@
                   if (inclineToSend !== undefined && inclineToSend !== null) {
                       await sendIncline(inclineToSend);
                   }
-                  return; // already in zone — let zone control drive from here
+                  return true; // already in zone — let zone control drive from here
               }
           }
           await sendSpeed(step.speed);
           if (inclineToSend !== undefined && inclineToSend !== null) {
               await sendIncline(inclineToSend);
           }
+          return true;
       }
 
       // Incline the current step expects: its own X% token, else the #incline
@@ -2013,7 +2026,7 @@
           const title = document.getElementById('hrmTitle');
           const value = document.getElementById('hrmValue');
           const box   = document.getElementById('hrmMetric');
-          if (!box) return;
+          if (!box || !title || !value) return;
 
           if (state === 'idle') {
               title.textContent = '❤ HR';
@@ -2267,7 +2280,16 @@
       }
 
       async function stopTreadmill(completed = false) {
-          if (!ftmsControlCharacteristic) return;
+          // Without a live link the belt cannot be commanded, but the session
+          // must still be closed and the UI reset — otherwise a disconnect
+          // mid-routine leaves the clock running and the session unlogged.
+          if (!ftmsControlCharacteristic) {
+              finalizeSessionLog(completed);
+              resetRoutineState();
+              releaseWakeLock();
+              updateStatus('Stopped (walkpad not connected).');
+              return;
+          }
           try {
               // Capture and persist the session log entry before resetRoutineState()
               // wipes actualElapsedSeconds and the other state it depends on.
@@ -2404,7 +2426,7 @@
       function parseMetadata(text) {
           // Reset all metadata globals so loading a new file starts clean
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
-          metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = null;
+          metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = 1;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
           metaMaxSpeed = null; metaMinSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH; exportLogsUrl = null;
 
@@ -2502,6 +2524,7 @@
                   ? parseInt(szMatch[3], 10) : null;
               const zoneTerminate = szMatch && szMatch[2] && szMatch[2].startsWith('>');
               let durationPart = parts[1];
+              if (!durationPart) return null; // malformed packed step — no duration token
               let incline = previousIncline;
               if (durationPart.includes('%_')) {
                   const inclinePart = durationPart.split('%_');
@@ -2841,7 +2864,9 @@
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
                           remotePauseDebounce = null;
-                          handleRemoteStateChange(currentSpeed);
+                          // Re-read the live speed: the pad may have recovered
+                          // (or dropped further) during the debounce window.
+                          handleRemoteStateChange(currentLiveSpeed);
                       }, 1500);
                   }
               } else {
@@ -2860,7 +2885,9 @@
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
                           remotePauseDebounce = null;
-                          handleRemoteStateChange(currentSpeed);
+                          // Re-read the live speed: the pad may have recovered
+                          // (or dropped further) during the debounce window.
+                          handleRemoteStateChange(currentLiveSpeed);
                       }, 1500);
                   }
               } else {
@@ -2933,6 +2960,14 @@
 
       function updateStatus(msg) {
           document.getElementById('driverStatus').innerText = "Status: " + msg;
+      }
+
+      // Escapes text that reaches innerHTML (routine file lines, network error
+      // messages) so a routines file cannot inject markup into the manager.
+      function escapeHtml(value) {
+          return String(value).replace(/[&<>"']/g, c => (
+              { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+          ));
       }
 
       function setSpeedMod(mod, btnElement) {
@@ -3291,8 +3326,11 @@
           if (erudaEnabled) loadEruda();
 
           const gistParam = urlParams.get('gist');
+          const httpsParam = urlParams.get('https');
           if (gistParam) {
               loadGistRoutines(gistParam, statusText);
+          } else if (httpsParam) {
+              loadHttpsRoutines(httpsParam, statusText);
           } else {
               const cachedData = localStorage.getItem('wpss_cached_routines');
               if (cachedData) {
@@ -3339,7 +3377,7 @@
                       localStorage.setItem('wpss_cached_routines', fileContent);
                       parseAndGenerateLinks(fileContent);
                   } catch (err) {
-                      statusText.innerHTML = `<span class="error-msg">Parser Critical Failure: ${err.message}</span>`;
+                      statusText.innerHTML = `<span class="error-msg">Parser Critical Failure: ${escapeHtml(err.message)}</span>`;
                   }
               };
 
@@ -3481,7 +3519,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   setGistUrlParam(gistId);
                   statusEl.innerText = `Status: Loaded routines from gist "${file.filename}".`;
               } catch (err) {
-                  statusEl.innerHTML = `<span class="error-msg">Gist load failed: ${err.message}</span>`;
+                  statusEl.innerHTML = `<span class="error-msg">Gist load failed: ${escapeHtml(err.message)}</span>`;
               }
           }
 
@@ -3518,7 +3556,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   setHttpsUrlParam(httpsId);
                   statusEl.innerText = `Status: Loaded routines from "${httpsId}".`;
               } catch (err) {
-                  statusEl.innerHTML = `<span class="error-msg">Https load of ${httpsId} failed: ${err.message}</span>`;
+                  statusEl.innerHTML = `<span class="error-msg">Https load of ${escapeHtml(httpsId)} failed: ${escapeHtml(err.message)}</span>`;
               }
           }
 
@@ -3716,7 +3754,7 @@ Climb with Inclines // For walkpads with automatic incline settings
               renderRoutineList(routines, 1);
               if (routineParseErrors.length > 0) {
                   statusText.innerHTML = '<span class="error-msg">Ignored bogus step line(s) — fix them in your routines file:<br>' +
-                      routineParseErrors.join('<br>') + '</span>';
+                      routineParseErrors.map(escapeHtml).join('<br>') + '</span>';
               }
           }
           
@@ -3891,7 +3929,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                                   const rawSpeed = new DataView(buffer).getUint16(1, true);
                                   // Keep mock live speed updated
                                   currentLiveSpeed = rawSpeed / 100; 
-                                  document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)}</span>`;
+                                  document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)}`;
                               }
                           }
                       };
@@ -3917,6 +3955,19 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                   updateStatus("Connecting to GATT Server...");
                   const server = await bluetoothDevice.gatt.connect();
+
+                  // Chrome fires this on link loss / pad power-off. Without a
+                  // listener the app kept believing it was connected.
+                  bluetoothDevice.addEventListener('gattserverdisconnected', () => {
+                      ftmsControlCharacteristic = null;
+                      ftmsHasControl = false;
+                      ftmsCpWaiter = null;
+                      updateStatus('Walkpad disconnected — reconnect to continue.');
+                  });
+
+                  // Fresh connection: forget what a previous pad reported.
+                  currentLiveIncline = null;
+                  lastInclineCommand = null;
 
                   updateStatus("Getting Fitness Machine Service...");
                   const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
@@ -4004,6 +4055,18 @@ updateStatus("Subscribing to Walkpad Data stream...");
                         updateSpeedMinThreshold();
                     }
 
+                   // Supported Inclination Range: used to clamp incline commands
+                   // to what the deck can actually do (W60: 0–12 %).
+                   try {
+                       const inclineRangeChar = await service.getCharacteristic(FTMS_SUPPORTED_INCLINATION_RANGE_UUID);
+                       const idv = await inclineRangeChar.readValue();
+                       bleMinIncline = idv.getUint16(0, true) / 10;
+                       bleMaxIncline = idv.getUint16(2, true) / 10;
+                       console.info(`Pad incline range: ${bleMinIncline}–${bleMaxIncline} %.`);
+                   } catch (inclineRangeErr) {
+                       console.info('Supported Inclination Range not readable; incline commands are not clamped.');
+                   }
+
                   document.getElementById('testModeToggle').style.display = 'none';
                   document.getElementById('controls').style.display = 'block';
                   if (routineHasIncline) {
@@ -4071,7 +4134,15 @@ updateStatus("Subscribing to Walkpad Data stream...");
               updateRoutineUI(currentRoutineSteps[currentStepIndex].name, currentRoutineSteps[currentStepIndex].setName, secondsLeftInStep, 100);
 
               const startStep = currentRoutineSteps[currentStepIndex];
-              await enterStepSpeed(startStep, true);
+              const startedOk = await enterStepSpeed(startStep, true);
+              if (!startedOk) {
+                  // The motor refused to start: a running clock over a
+                  // stationary belt would only corrupt the session log.
+                  updateStatus('Routine not started — the walkpad refused to start.');
+                  resetRoutineState();
+                  updateStepsListVisibility();
+                  return;
+              }
               if (startStep.targetZone !== null && !startStep.zoneTerminate && hrmCharacteristic) {
                   startHrmZoneControl(startStep.targetZone);
               }
