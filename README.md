@@ -511,6 +511,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v1.1.0 2026-10-29 work fully with the Merach W60, driving properly the incline. Some bugs were fixed, discovered with this new hardware setup.
 - v1.0.2 2026-10-13 ui: Speed in status is now always rounded to one decimal
 - v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.
 - v1.0.0 2026-08-17 VERSION 1: the app is now mature and feature-complete enough to be released as "version one".
