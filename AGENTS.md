@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.0.3-dev.15**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.0.3-dev.16**.
 
 ---
 
@@ -444,3 +444,11 @@ absent" (it is *More Data*; instantaneous speed is mandatory).
 
 **Behaviour changes worth remembering:** session-log segments only split on a ≥ 2 BPM
 HR move (jitter used to fragment them), and Eruda is pinned to 3.4.3 with SRI.
+
+**In-app trace.** `trace()` records timestamped control-point writes, their result
+codes, machine-status events, step changes and speed/incline changes, and feeds the
+collapsible "Debug log" panel in the player view (Copy/Clear). It is completely inert
+unless the routines file declares `#debug: 1` or the player URL carries `?dbg=1`;
+while enabled, the buffer is mirrored to `localStorage` (`wpss_debug_log`, 800 lines)
+so a reload does not lose a capture. This is what resolved the W60 speed/incline
+problems — reach for it before guessing.

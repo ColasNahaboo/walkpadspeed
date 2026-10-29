@@ -108,6 +108,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - `#min-speed:` normally the minimum speed of the pad is read over Bluetooth. If the pad does not publish it, you can set it via this metadata, e.g: `#min-speed: 1.2`. Default is `1.0`.
   - `#step-length:` the length in meters of one of your steps at 3 km/h. Measure it by walking on your pad at 3.0 km/h, and counting the number `N` of your steps done in 30 seconds. Your step length is then `25 / N`. E.g. for 42 steps counted, enter `#step-length: 0.60`. Note that your step length on a walking pad may differ from your natural step length when walking outside. Walkpadspeed with then adjust the actual step length to use in the session log, as it changes with the speed by the formula: `steplen-at-3kmh * (speed / 3)^0.42`. Defaults to `0.62`.
   - `#export-logs-url:` provides an optional URL of a web server that the application will POST to the log of a session after termination of a routine. See [Auto export of logs](#auto-export-of-logs).
+  - `#debug:` set it to `1` to record a timestamped Bluetooth trace of the session in the player view. Default: `0` (no trace at all). See [Debugging](#debugging).
 
 **Example file:**
 
@@ -452,6 +453,18 @@ The block must contain lines of pairs of number: the pulse (bpm) to report and t
 
 See the one I use, also embedded in the HTML, in [docs/hr.txt](docs/hr.txt).
 
+## Debugging
+
+Walking pads differ a lot, and many of them answer nothing useful when they refuse a command. The app can record what it sends and what the pad reports:
+
+1. add `#debug: 1` to your routines file (or append `?dbg=1` to the player URL),
+2. run the routine,
+3. open the **Debug log** panel under the status line and press **Copy**.
+
+The trace is a timestamped list of the control-point writes (`CP → set speed 3.0 km/h [02 2c 01]`), the pad's answers (`CP ← set speed 3.0 km/h: Success`), the machine-status events, the step changes, and every change in the speed or incline the pad reports. It also shows which build produced it, which matters when reporting a problem.
+
+While `#debug` is on, the capture is kept in the browser's local storage, so it survives an accidental reload; the **Clear** button erases it. Without `#debug` the trace is completely inert: nothing is recorded and no panel is shown.
+
 ## Implementation
 
 - **Pure modern Javascript** is used to interpret your routine, use the browser Web Bluetooth API and manage the timers to send the steps to drive your walking pad.
@@ -481,6 +494,18 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 ![Co-Designed with AI](https://img.shields.io/badge/Co--Designed%20with-AI-blueviolet?style=flat-square&logo=openai)
 
 This repository is developed by me, a human hobbyist in my personal time in close collaboration with various AI programming assistants. System architecture, logic design, and final reviews are handled by me, while code scaffolding, repetitive tasks, and standard styling are co-piloted by AI. AI contributions are commited under their model name, and can be quite verbose for tracability.
+
+## What's new in v1.0.3
+
+- **Pads that enforce the FTMS control point now work.** The app takes control of the machine before sending anything and reads its answers, so a pad that used to beep twice and keep its own speed now obeys. Refusals are reported in the status line instead of looking like success.
+- **Speed and incline limits are read from the pad** (`0x2AD4`, `0x2AD5`) and every command is clamped to them, so a 6 km/h pad is never asked for 12.
+- **Pause and Stop use the standard FTMS opcode** (`0x08` with its mandatory parameter), keeping the older "speed 0" trick as a fallback for pads that ignore it.
+- **Incline works on pads that implement it** — verified on a Merach UltraWalk W60 (0–12 %). A step without its own `X%` token inherits the previous step's incline, and redundant incline commands are skipped so the belt is not interrupted.
+- **Incline-aware start**: when the first step changes the incline, the app raises the deck and waits for it before starting the routine clock, so step durations are time actually walked.
+- **Watchdogs**: if the pad accepts a speed but the belt never moves, or ignores an incline command, the status line says so.
+- **Quieter session log**: a heart-rate change must reach 2 BPM before a new line is started.
+- **Debug trace**: `#debug: 1` (or `?dbg=1`) adds a timestamped log panel to the player view with a Copy button. See [Debugging](#debugging).
+- **`?https=` routine links** reload correctly, and the heart-rate display no longer vanishes when the file has no `#hrm:` line.
 
 ## History
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.15";}
+      #version:after {content: "v1.0.3-dev.16";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -3093,8 +3093,31 @@
          without bound.
          ---------------------------------------------------------------- */
       const DEBUG_MAX_LINES = 800;
+      const DEBUG_STORAGE_KEY = 'wpss_debug_log';
       let debugLog = [];
       let traceStart = 0;
+      let lastDebugPersist = 0;
+
+      // #debug: 1 only — the capture survives a reload or an accidental
+      // back-navigation, so a run can be inspected after the fact.
+      function persistDebugLog(force = false) {
+          if (!metaDebug) return;
+          const now = Date.now();
+          if (!force && now - lastDebugPersist < 1000) return;
+          lastDebugPersist = now;
+          try { localStorage.setItem(DEBUG_STORAGE_KEY, debugLog.join('\n')); } catch (e) { /* quota */ }
+      }
+
+      function restoreDebugLog() {
+          if (!metaDebug) return;
+          try {
+              const saved = localStorage.getItem(DEBUG_STORAGE_KEY);
+              if (!saved) return;
+              debugLog = saved.split('\n').slice(-DEBUG_MAX_LINES + 1);
+              debugLog.push('--- page reload ---');
+              if (debugLog.length > DEBUG_MAX_LINES) debugLog.shift();
+          } catch (e) { /* ignore */ }
+      }
 
       function trace(msg) {
           if (!metaDebug) return;   // #debug: 1 (or ?dbg=1) enables the trace
@@ -3104,6 +3127,7 @@
           debugLog.push(line);
           if (debugLog.length > DEBUG_MAX_LINES) debugLog.shift();
           console.info(line);
+          persistDebugLog();
       }
 
       // Build label, read from the CSS version string, so a trace always says
@@ -3136,8 +3160,12 @@
       function clearDebugLog() {
           debugLog = [];
           traceStart = 0;
+          try { localStorage.removeItem(DEBUG_STORAGE_KEY); } catch (e) { /* ignore */ }
           refreshDebugView();
       }
+
+      // Flush the last second of the trace when the page goes away.
+      window.addEventListener('pagehide', () => persistDebugLog(true));
 
       function escapeHtml(value) {
           return String(value).replace(/[&<>"']/g, c => (
@@ -4103,6 +4131,10 @@ Climb with Inclines // For walkpads with automatic incline settings
           if (urlParams.get('dbg') === '1') metaDebug = 1;
           const debugPanelEl = document.getElementById('debugPanel');
           if (debugPanelEl) debugPanelEl.style.display = metaDebug ? 'block' : 'none';
+          if (metaDebug) {
+              restoreDebugLog();
+              refreshDebugView();
+          }
 
           renderStepsList();
 
