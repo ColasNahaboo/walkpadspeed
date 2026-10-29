@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.3";}
+      #version:after {content: "v1.0.3-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1092,6 +1092,7 @@
       let metaStepLength = DEFAULT_STEP_LENGTH; // #step-length: m at 3 km/h (number)
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
+      let currentLiveIncline = null; // Incline % reported by the pad (null = never reported)
       let speedMod = 1;
       let audioCtx = null;
       let stepOverhead = 1;
@@ -1245,32 +1246,37 @@
           }
       }
 
+      /* FTMS Treadmill Data (0x2ACD). Flags bit 0 is "More Data", NOT
+         "speed absent" — instantaneous speed is a mandatory field, so it is
+         read unconditionally. Optional fields are skipped by their flag bit;
+         the reported inclination is kept because a pad can hold the belt
+         until an incline move has settled (Merach W60: 0→9 % ≈ 20 s). */
       function handleTreadmillData(event) {
           const data = event.target.value;
-          if (data.byteLength < 2) return;
+          if (data.byteLength < 4) return;
 
           const flags = data.getUint16(0, true);
           let offset = 2;
 
-          if ((flags & 0x0001) === 0) {
-              const speedRaw = data.getUint16(offset, true);
-              const speedKmh = speedRaw / 100;
-              
-              // Update our global live speed tracker
-              currentLiveSpeed = speedKmh; 
-              
-              document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)}`;
-              offset += 2;
+          const speedKmh = data.getUint16(offset, true) / 100;
+          currentLiveSpeed = speedKmh;
+          document.getElementById('liveSpeed').innerHTML = `${speedKmh.toFixed(1)}`;
+          offset += 2;
 
-              // Detect remote pause/resume via speed changes
-              if (ftmsControlCharacteristic) {
-                  checkRemoteStateChange(speedKmh);
-              }
+          // Detect remote pause/resume via speed changes
+          if (ftmsControlCharacteristic) {
+              checkRemoteStateChange(speedKmh);
           }
 
-          if (flags & 0x0002) offset += 2;
-          if (flags & 0x0004) offset += 3;
-          if (flags & 0x0008) offset += 4;
+          if (flags & 0x0002) offset += 2;   // average speed
+          if (flags & 0x0004) offset += 3;   // total distance
+          if (flags & 0x0008) {              // inclination + ramp angle (0.1 % / 0.1°)
+              if (data.byteLength >= offset + 2) {
+                  const rawIncline = data.getUint16(offset, true);
+                  currentLiveIncline = (rawIncline > 32767 ? rawIncline - 65536 : rawIncline) / 10;
+              }
+              offset += 4;
+          }
       }
 
       // Simulates the remote physical start/pause button
@@ -1524,18 +1530,29 @@
               setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
 
               // One-shot reality check after the initial start: if the pad
-              // acknowledged everything but still reports almost no speed, the
-              // belt never engaged — typically a machine that wants a user on
-              // the deck (or a safety key) before it will run. This is what
-              // separates "command refused" from "accepted but not moving".
+              // acknowledged everything but still reports almost no speed, say
+              // why when we can. A travelling incline is the common case on
+              // pads that hold the belt until the deck has settled.
               if (isInitialStart) {
                   const targetAtStart = effectiveSpeed;
                   setTimeout(() => {
                       if (!isRoutineActive || isPaused) return;
                       if (currentLiveSpeed >= Math.min(0.5, targetAtStart * 0.5)) return;
-                      updateStatus(`Belt not moving: pad reports ${currentLiveSpeed.toFixed(1)} km/h ` +
-                                   `for a ${targetAtStart.toFixed(1)} km/h target — check the safety key / user detection.`);
-                      console.warn('Belt did not start:', { target: targetAtStart, reported: currentLiveSpeed });
+                      const inclineTravelling = currentLiveIncline !== null &&
+                          Math.abs(currentLiveIncline - currentTargetIncline) > 0.6;
+                      if (inclineTravelling) {
+                          updateStatus(`Belt not moving yet — incline travelling to ` +
+                                       `${currentTargetIncline}% (now ${currentLiveIncline.toFixed(1)}%).`);
+                      } else {
+                          updateStatus(`Belt not moving: pad reports ${currentLiveSpeed.toFixed(1)} km/h ` +
+                                       `for a ${targetAtStart.toFixed(1)} km/h target — check the safety key / user detection.`);
+                      }
+                      console.warn('Belt did not start:', {
+                          target: targetAtStart,
+                          reported: currentLiveSpeed,
+                          incline: currentLiveIncline,
+                          inclineTarget: currentTargetIncline
+                      });
                   }, 8000);
               }
           } catch (error) {
