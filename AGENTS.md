@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v0.9.0-dev.6**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.0.3-dev.9**.
 
 ---
 
@@ -30,8 +30,8 @@ Plain `.txt` file. Key features implemented during this session:
 #max-heart-rate: 180
 #speed-unit: mph          # file-wide mph default for all speeds
 #incline: 6               # fixed treadmill incline (suppresses incline metric)
-#max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD1 unreadable (default 12)
-#min-speed: 0.5           # fallback pad min-speed floor when BLE 0x2AD1 unreadable (default 1.0)
+#max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD4/0x2AD1 unreadable (default 12)
+#min-speed: 0.5           # fallback pad min-speed floor when BLE 0x2AD4/0x2AD1 unreadable (default 1.0)
 #version: 1
 
 # routine block (blank line separates routines)
@@ -57,11 +57,11 @@ HIIT
 
 ### Metadata globals (set by `parseMetadata(text)`)
 
-`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when the pad's BLE 0x2AD1 max is unreadable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.7)
+`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when neither BLE speed-range characteristic is readable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.7)
 
 `parseMetadata` is called both in the manager (on file load) and in `initDriverMode` (re-parses from `localStorage` cache since page navigation resets JS globals).
 
-**Speed-cap globals**: `bleMinSpeed`, `bleMaxSpeed`, `bleMinIncrement` (km/h, read from FTMS Supported Speed Range characteristic `0x2AD1` on connect — see "Pad max-speed cap" below; `bleMinSpeed`/`bleMinIncrement` are stored but not yet used); `metaMaxSpeed` (file override); `maxSpeedLimit` (effective cap, resolved by `updateMaxSpeedLimit()` from BLE value → file override → `DEFAULT_MAX_SPEED = 12`).
+**Speed-cap globals**: `bleMinSpeed`, `bleMaxSpeed`, `bleMinIncrement` (km/h, read from FTMS Supported Speed Range characteristic `0x2AD4`, falling back to the deprecated `0x2AD1`, on connect — see "Pad max-speed cap" below; `bleMinSpeed`/`bleMinIncrement` are stored but not yet used); `metaMaxSpeed` (file override); `maxSpeedLimit` (effective cap, resolved by `updateMaxSpeedLimit()` from BLE value → file override → `DEFAULT_MAX_SPEED = 12`).
 
 ---
 
@@ -71,7 +71,7 @@ Uses **Karvonen / Heart Rate Reserve** method. Requires `#rest-heart-rate` and `
 
 ```javascript
 const ZONE_BOUNDARIES = {
-    0: [0.38, 0.50],   // Z0  digestive    purple
+    0: [0.38, 0.43],   // Z0  digestive    purple
     1: [0.50, 0.60],   // Z1  recovery     blue
     2: [0.60, 0.70],   // Z2  aerobic      green
     3: [0.70, 0.80],   // Z3  endurance    yellow
@@ -79,6 +79,10 @@ const ZONE_BOUNDARIES = {
     5: [0.90, 1.00],   // Z5  VO2 max      red (flashes at maxHR)
 };
 ```
+
+The **38–43 %** / **50–60 %** split is intentional: the 43–50 % band belongs to no
+zone, and `getHRZone()` returns `null` there (the UI shows `--`). Do not "fix" it
+to 38–50 % — that was the older design and it is what the README used to say.
 
 `getHRZone(bpm)` returns 0–5 or null. `getZoneBpmBounds(zone)` returns `{low, high}` BPM for a zone number (**integer-rounded** via `Math.round`).
 
@@ -385,3 +389,58 @@ After implementation, the user reported NaN time displays and a global progress 
 3. Division by zero in `startClockLoop` when `totalStepDuration = 0`.
 
 Version bumped through `v0.8.10-dev.2` → `v0.9.0-dev.6` across the session.
+
+---
+
+### Session 2026-10-29: Merach W60 support — FTMS control point, pause/stop, review pass
+
+Field work on a **Merach UltraWalk W60** (BLE name `MR-W60.2-0093`, random address; its
+classic audio endpoint advertises separately as `W60.2-0093_Audio`). Two problems were
+blocking it, and both were in our code / the environment rather than the pad.
+
+**Environment.** Chrome on Linux does not expose `navigator.bluetooth` by default
+(`typeof navigator.bluetooth === 'undefined'`, even in a secure context); it needs
+`--enable-features=WebBluetooth`. Colas's Xubuntu launches Chrome through the
+`Ctrl+Alt+O` keybinding (`google-chrome`, spawned by `xfsettingsd`) and via
+`~/.local/share/applications/google-chrome.desktop`; both now carry the flag. Also,
+a pad connected to another central (the MERACH phone app) does not advertise, so it is
+invisible to every scanner. Verified on Chrome 156; phone Chrome needs no flag.
+
+**Root cause of the refused speed.** The app never sent FTMS *Request Control*
+(`0x00`) and never subscribed to the control point's indications, so a spec-compliant
+pad rejected `Set Target Speed` (two beeps, speed snapped back to its own 1.0 km/h)
+and the app reported success anyway. New control-point layer (before `startTreadmill()`):
+`sendControlCommand()` serialises every write on a promise chain, requests control once
+per connection, waits for the `[0x80, opcode, result]` indication (1.2 s) and retries
+once after re-acquiring control on `0x05`. Pads that never indicate are detected by the
+connect-time probe (`FTMS_CP_PROBE_TIMEOUT_MS`) and keep fire-and-forget behaviour.
+Refusals now surface as `Pad refused 3.0 km/h (Operation failed)`.
+
+**Pause/Stop.** `0x02` with speed 0 is below every pad's minimum (invalid parameter);
+pause/stop now use `0x08` with its mandatory parameter (`0x02` pause / `0x01` stop),
+falling back to the speed-0 trick only when the pad ignores it or does not answer.
+
+**What the W60 reports** (`0x2ACC`/`0x2AD4`/`0x2AD5`): speed 1.00–6.00 km/h (0.10 step),
+incline 0–12 % (1 % step), target-setting features = speed + incline. It exposes
+`0x2AD4` only — reading the deprecated `0x2AD1` failed silently and left the cap at
+12 km/h — plus a vendor channel `0xFFF0` (`0xFFF1` notify, `0xFFF2` write) and an
+undocumented `d18d2c10-…` write characteristic. Incline works over plain FTMS `0x03`
+(9 % verified): the "encrypted Merach handshake" in TODO.md is wrong.
+
+**Incline sequencing rules (learned the hard way).** The pad ignores a target incline
+while it is idle, drops back to 0 % when it stops, and suspends the belt while the deck
+travels (0→9 % ≈ 15–20 s). Initial start is therefore: `Start → Set Incline → wait for
+the reported incline to settle → Set Speed`, with the deck progress in the status line.
+`currentLiveIncline` is parsed from `0x2ACD` flag bit 3 and `scheduleBeltStartCheck()`
+reports a belt that never engaged.
+
+**Also fixed in the review pass:** `metaHRM` reset to `null` on every parse (hid the HR
+metric unless `#hrm:` was present), implicit `metaAge` global, `buildRoutineSteps()`
+throwing on a packed step without a duration, the clock running over a refused start,
+`stopTreadmill()` doing nothing without a link, missing `gattserverdisconnected`
+handler, `?https=` never read back, HTML escaping of file content in the manager
+status, incline clamped to `0x2AD5`, and `Treadmill Data` flag bit 0 misread as "speed
+absent" (it is *More Data*; instantaneous speed is mandatory).
+
+**Behaviour changes worth remembering:** session-log segments only split on a ≥ 2 BPM
+HR move (jitter used to fragment them), and Eruda is pinned to 3.4.3 with SRI.
