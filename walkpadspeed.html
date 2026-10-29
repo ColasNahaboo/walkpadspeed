@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.9";}
+      #version:after {content: "v1.0.3-dev.10";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1792,29 +1792,35 @@
           if (isInitialStart) {
               const started = await startTreadmill();
               if (!started) return false;
-              const startTs = Date.now();
+
+              // Spin-up first, then the speed, and only then the incline: the
+              // W60 ignores an incline target sent before a target speed has
+              // been set (it then keeps its default 1.0 km/h with the deck at
+              // 0 %, and waiting for the deck to settle just burns the timeout).
+              updateStatus("Waiting for motor initialization...");
+              await new Promise(resolve => setTimeout(resolve, spinUpTime));
+              await sendSpeed(step.speed);
 
               if (inclineToSend !== undefined && inclineToSend !== null) {
                   updateStatus(`Raising incline to ${inclineToSend}%…`);
                   await sendIncline(inclineToSend);
-                  // The W60 suspends the belt while the deck travels, so show
-                  // the move rather than a frozen "0.0 km/h".
+
+                  // Wait for the deck before the routine clock starts, so the
+                  // first step's duration is time actually walked. The stall
+                  // detector gives up quickly when the command was ignored
+                  // instead of burning the whole timeout.
                   let lastShown = -1;
-                  await waitForInclineSettle(inclineToSend, 40000, now => {
-                      if (Math.abs(now - lastShown) < 1) return;
-                      lastShown = now;
-                      updateStatus(`Raising incline to ${inclineToSend}%… (at ${now.toFixed(1)}%)`);
+                  const settled = await waitForInclineSettle(inclineToSend, {
+                      stallMs: 7000,
+                      onProgress: now => {
+                          if (Math.abs(now - lastShown) < 0.5) return;
+                          lastShown = now;
+                          updateStatus(`Raising incline to ${inclineToSend}%… (at ${now.toFixed(1)}%)`);
+                      }
                   });
+                  if (!settled) verifyInclineApplied(inclineToSend); // async retry
               }
 
-              // Always give the motor at least the usual spin-up time.
-              const elapsed = Date.now() - startTs;
-              if (elapsed < spinUpTime) {
-                  updateStatus("Waiting for motor initialization...");
-                  await new Promise(resolve => setTimeout(resolve, spinUpTime - elapsed));
-              }
-
-              await sendSpeed(step.speed);
               scheduleBeltStartCheck(step.speed);
               return true;
           }
@@ -1832,8 +1838,29 @@
           await sendSpeed(step.speed);
           if (inclineToSend !== undefined && inclineToSend !== null) {
               await sendIncline(inclineToSend);
+              verifyInclineApplied(inclineToSend);  // async: retries once if ignored
           }
           return true;
+      }
+
+      // Pads can silently ignore an incline target (observed on the W60 when it
+      // is sent before a speed target exists). Watch the reported incline for a
+      // few seconds and re-send once if the deck never starts moving.
+      async function verifyInclineApplied(targetPercent, waitMs = 6000) {
+          if (currentLiveIncline === null || targetPercent === null || targetPercent === undefined) return;
+          if (Math.abs(currentLiveIncline - targetPercent) <= 0.6) return; // already there
+
+          const startValue = currentLiveIncline;
+          const t0 = Date.now();
+          while (Date.now() - t0 < waitMs) {
+              await new Promise(resolve => setTimeout(resolve, 250));
+              if (Math.abs(currentLiveIncline - targetPercent) <= 0.6) return;  // arrived
+              if (Math.abs(currentLiveIncline - startValue) > 0.4) return;       // travelling
+          }
+
+          console.warn(`Incline ${targetPercent}% had no effect — retrying once.`);
+          updateStatus(`Incline did not move — retrying ${targetPercent}%.`);
+          await sendIncline(targetPercent);
       }
 
       // Incline the current step expects: its own X% token, else the #incline
@@ -1846,14 +1873,23 @@
       }
 
       // Waits until the pad reports the incline at (or very near) the target.
-      // Returns false immediately when the pad does not report inclination.
-      // onProgress(reportedPercent) is called while the deck is travelling, so
-      // the status line can show the move instead of looking frozen.
-      async function waitForInclineSettle(targetPercent, timeoutMs = 40000, onProgress = null) {
+      // Returns false immediately when the pad does not report inclination, when
+      // the deck stalls (no movement for stallMs) or at the timeout.
+      // onProgress(reportedPercent) is called while travelling, so the status
+      // line can show the move instead of looking frozen.
+      async function waitForInclineSettle(targetPercent, options = {}) {
+          const { timeoutMs = 40000, stallMs = 0, onProgress = null } = options;
           if (currentLiveIncline === null || targetPercent === null || targetPercent === undefined) return false;
           const started = Date.now();
+          let lastValue = currentLiveIncline;
+          let lastMoveAt = Date.now();
           while (Date.now() - started < timeoutMs) {
               if (Math.abs(currentLiveIncline - targetPercent) <= 0.6) return true;
+              if (Math.abs(currentLiveIncline - lastValue) > 0.4) {
+                  lastValue = currentLiveIncline;
+                  lastMoveAt = Date.now();
+              }
+              if (stallMs > 0 && Date.now() - lastMoveAt > stallMs) return false;
               if (onProgress) onProgress(currentLiveIncline);
               await new Promise(resolve => setTimeout(resolve, 500));
           }
