@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.14";}
+      #version:after {content: "v1.0.3-dev.15";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -680,7 +680,7 @@
 
       <p id="driverStatus" class="status-text">Status: Disconnected</p>
 
-      <details id="debugPanel" style="text-align:left; margin-top:12px;" ontoggle="refreshDebugView()">
+      <details id="debugPanel" style="display:none; text-align:left; margin-top:12px;" ontoggle="refreshDebugView()">
         <summary id="debugSummary" style="cursor:pointer; color:#8e8e93; font-size:0.85rem;">Debug log</summary>
         <div style="display:flex; gap:8px; margin:8px 0;">
           <button onclick="copyDebugLog()" style="flex:1; padding:0.6rem;">Copy</button>
@@ -1104,6 +1104,7 @@
       let metaIncline = null;        // #incline:          fixed treadmill incline % (number);
       //                    suppresses the incline metric in the UI
       let metaHRM = 1; // #hrm: enable HRM metric in the UI
+      let metaDebug = 0; // #debug: 1 = record the in-app trace and show its panel
       let metaStepLength = DEFAULT_STEP_LENGTH; // #step-length: m at 3 km/h (number)
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
@@ -2538,7 +2539,7 @@
       function parseMetadata(text) {
           // Reset all metadata globals so loading a new file starts clean
           metaName = null; metaAge = null; metaBirthYear = null; metaWeight = null;
-          metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = 1;
+          metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = 1; metaDebug = 0;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
           metaMaxSpeed = null; metaMinSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH; exportLogsUrl = null;
 
@@ -2564,6 +2565,7 @@
                   case 'min-speed':        metaMinSpeed       = parseFloat(val);   break;
                   case 'step-length':      metaStepLength     = parseFloat(val);   break;
                   case 'hrm':              metaHRM            = parseInt(val, 10); break;
+                  case 'debug':            metaDebug          = parseInt(val, 10); break;
                   case 'export-logs-url':  exportLogsUrl       = val;               break;
               }
           }
@@ -3095,6 +3097,7 @@
       let traceStart = 0;
 
       function trace(msg) {
+          if (!metaDebug) return;   // #debug: 1 (or ?dbg=1) enables the trace
           if (!traceStart) traceStart = Date.now();
           const t = ((Date.now() - traceStart) / 1000).toFixed(1).padStart(6, ' ');
           const line = `+${t}s ${msg}`;
@@ -4093,6 +4096,13 @@ Climb with Inclines // For walkpads with automatic incline settings
           // metaRestHeartRate etc. are available in the driver view.
           const cachedForMeta = localStorage.getItem('wpss_cached_routines');
           if (cachedForMeta) parseMetadata(cachedForMeta);
+
+          // The trace is off unless the routines file declares "#debug: 1", or
+          // the player URL carries ?dbg=1 (handy for a one-off capture without
+          // touching the file).
+          if (urlParams.get('dbg') === '1') metaDebug = 1;
+          const debugPanelEl = document.getElementById('debugPanel');
+          if (debugPanelEl) debugPanelEl.style.display = metaDebug ? 'block' : 'none';
 
           renderStepsList();
 
