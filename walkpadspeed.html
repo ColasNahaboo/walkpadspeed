@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.12";}
+      #version:after {content: "v1.0.3-dev.13";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -680,6 +680,15 @@
 
       <p id="driverStatus" class="status-text">Status: Disconnected</p>
 
+      <details id="debugPanel" style="text-align:left; margin-top:12px;" ontoggle="refreshDebugView()">
+        <summary id="debugSummary" style="cursor:pointer; color:#8e8e93; font-size:0.85rem;">Debug log</summary>
+        <div style="display:flex; gap:8px; margin:8px 0;">
+          <button onclick="copyDebugLog()" style="flex:1; padding:0.6rem;">Copy</button>
+          <button onclick="clearDebugLog()" style="flex:1; padding:0.6rem;">Clear</button>
+        </div>
+        <pre id="debugText" class="routine-raw-view" style="display:block; max-height:50vh; overflow:auto;"></pre>
+      </details>
+
           <!-- Simulated Remote Start/Pause Button -->
       <button title="Simulates play/pause physical control" class="plause-btn" id="simStartPauseBtn" style="display: none; padding: 0rem 1rem;font-size:3rem;">⏯</button>
       <div id="stepsListContainer" style="display:none;">
@@ -1099,6 +1108,8 @@
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
       let currentLiveIncline = null; // Incline % reported by the pad (null = never reported)
+      let lastTracedSpeed = -1;      // last speed written to the trace buffer
+      let lastTracedIncline = -1;    // last incline written to the trace buffer
       let lastInclineCommand = null; // {percent, at} of the last incline we asked for
       let speedMod = 1;
       let audioCtx = null;
@@ -1284,6 +1295,15 @@
               }
               offset += 4;
           }
+
+          // Trace only changes, so a long routine cannot flood the buffer.
+          const inclineChanged = currentLiveIncline !== null &&
+              Math.abs(currentLiveIncline - lastTracedIncline) >= 0.5;
+          if (Math.abs(speedKmh - lastTracedSpeed) >= 0.1 || inclineChanged) {
+              trace(`DATA speed=${speedKmh.toFixed(1)} incline=${currentLiveIncline === null ? '?' : currentLiveIncline.toFixed(1) + '%'}`);
+              lastTracedSpeed = speedKmh;
+              if (currentLiveIncline !== null) lastTracedIncline = currentLiveIncline;
+          }
       }
 
       // Simulates the remote physical start/pause button
@@ -1404,7 +1424,7 @@
               const tenths = raw[1] | (raw[2] << 8);
               detail = ` → ${(tenths > 32767 ? tenths - 65536 : tenths) / 10}%`;
           }
-          console.info(`FTMS status: ${name}${detail}`);
+          trace(`STATUS ${name}${detail}`);
       }
 
       // Control point indications are [0x80, request opcode, result code].
@@ -1412,14 +1432,14 @@
           const dv = event.target.value;
           const raw = Array.from(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
           if (raw[0] !== 0x80) {
-              console.info('FTMS control point:', raw.map(b => b.toString(16)).join(' '));
+              trace(`CP raw ${raw.map(b => b.toString(16)).join(' ')}`);
               return;
           }
           const op = raw[1];
           const result = raw[2];
           ftmsCpResponses++;
           if (op === FTMS_OP_REQUEST_CONTROL) ftmsHasControl = (result === FTMS_RESULT_SUCCESS);
-          console.info(`FTMS control point: op 0x${op.toString(16)} → ${ftmsResultName(result)}`);
+          trace(`CP indication op 0x${op.toString(16)} → ${ftmsResultName(result)}`);
           const waiter = ftmsCpWaiter;
           if (waiter && waiter.op === op) {
               ftmsCpWaiter = null;
@@ -1453,6 +1473,7 @@
       // assumed to have granted it (fire-and-forget, as before).
       async function ensureControl() {
           if (isTestMode || ftmsHasControl || !ftmsControlCharacteristic) return true;
+          trace('CONTROL request (not held)');
           const waitMs = ftmsCpResponses > 0 ? FTMS_CP_RESPONSE_TIMEOUT_MS : 0;
           const result = await writeControlPoint(
               ftmsControlCharacteristic, Uint8Array.of(FTMS_OP_REQUEST_CONTROL), waitMs);
@@ -1472,15 +1493,16 @@
               if (!ftmsControlCharacteristic) return null;
               await ensureControl();
               const waitMs = ftmsCpResponses > 0 ? FTMS_CP_RESPONSE_TIMEOUT_MS : 0;
+              const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+              trace(`CP → ${label} [${hex}]`);
               let result = await writeControlPoint(ftmsControlCharacteristic, bytes, waitMs);
               if (result === FTMS_RESULT_NO_CONTROL) {
                   ftmsHasControl = false;
                   await ensureControl();
+                  trace(`CP → ${label} [${hex}] (retry after re-acquiring control)`);
                   result = await writeControlPoint(ftmsControlCharacteristic, bytes, waitMs);
               }
-              if (result !== null && result !== FTMS_RESULT_SUCCESS) {
-                  console.warn(`FTMS ${label}: ${ftmsResultName(result)}`);
-              }
+              trace(`CP ← ${label}: ${result === null ? 'no response' : ftmsResultName(result)}`);
               return result;
           };
           const next = ftmsCommandChain.then(run, run);
@@ -1490,6 +1512,7 @@
 
       async function startTreadmill() {
           if (!ftmsControlCharacteristic) return false;
+          trace('START requested');
           try {
               let result = await sendControlCommand(
                   Uint8Array.of(FTMS_OP_START_RESUME), 'start');
@@ -1592,7 +1615,7 @@
           // incline command, so a redundant write stutters the walk.
           if (percent === currentTargetIncline &&
               (currentLiveIncline === null || Math.abs(currentLiveIncline - percent) <= 0.6)) {
-              return;
+              return false;   // nothing to do
           }
 
           currentTargetIncline = percent;
@@ -1612,6 +1635,7 @@
           if (result !== null && result !== FTMS_RESULT_SUCCESS) {
               updateStatus(`Pad refused incline ${percent}% (${ftmsResultName(result)})`);
           }
+          return true;
       }
 
       /* ================================================================
@@ -1792,6 +1816,8 @@
 
       async function enterStepSpeed(step, isInitialStart) {
           const inclineToSend = (step.incline !== undefined && step.incline !== null) ? step.incline : metaIncline;
+          trace(`STEP ${currentStepIndex + 1}/${currentRoutineSteps.length} "${step.name}" ` +
+                `speed=${step.speed} incline=${inclineToSend} initial=${!!isInitialStart}`);
 
           // Initial start has its own sequence: the pad only accepts a target
           // incline once the machine is started, and it suspends the belt while
@@ -1815,27 +1841,30 @@
                   // Let the pad digest the speed target before moving the deck.
                   await new Promise(resolve => setTimeout(resolve, 400));
                   updateStatus(`Raising incline to ${inclineToSend}%…`);
-                  await sendIncline(inclineToSend);
+                  const inclineSent = await sendIncline(inclineToSend);
 
-                  // Wait for the deck before the routine clock starts, so the
-                  // first step's duration is time actually walked. The stall
-                  // detector gives up quickly when the command was ignored
-                  // instead of burning the whole timeout.
-                  let lastShown = -1;
-                  const settled = await waitForInclineSettle(inclineToSend, {
-                      stallMs: 7000,
-                      onProgress: now => {
-                          if (Math.abs(now - lastShown) < 0.5) return;
-                          lastShown = now;
-                          updateStatus(`Raising incline to ${inclineToSend}%… (at ${now.toFixed(1)}%)`);
-                      }
-                  });
-                  if (!settled) verifyInclineApplied(inclineToSend); // async retry
+                  if (inclineSent) {
+                      // Wait for the deck before the routine clock starts, so
+                      // the first step's duration is time actually walked. The
+                      // stall detector gives up quickly when the command was
+                      // ignored instead of burning the whole timeout.
+                      let lastShown = -1;
+                      const settled = await waitForInclineSettle(inclineToSend, {
+                          stallMs: 7000,
+                          onProgress: now => {
+                              if (Math.abs(now - lastShown) < 0.5) return;
+                              lastShown = now;
+                              updateStatus(`Raising incline to ${inclineToSend}%… (at ${now.toFixed(1)}%)`);
+                          }
+                      });
+                      if (!settled) verifyInclineApplied(inclineToSend); // async retry
 
-                  // The W60 forgets the speed target while it moves the deck and
-                  // falls back to its default 1.0 km/h: re-assert it once the
-                  // deck is in place.
-                  if (settled) await sendSpeed(step.speed);
+                      // The W60 forgets the speed target while it moves the deck
+                      // and falls back to its default 1.0 km/h: re-assert it once
+                      // the deck is in place. Only when the deck actually moved —
+                      // re-sending right away would double-beep and is a no-op.
+                      if (settled) await sendSpeed(step.speed);
+                  }
               }
 
               scheduleBeltStartCheck(step.speed);
@@ -1855,9 +1884,11 @@
           await sendSpeed(step.speed);
           if (inclineToSend !== undefined && inclineToSend !== null) {
               await new Promise(resolve => setTimeout(resolve, 400));
-              await sendIncline(inclineToSend);
-              verifyInclineApplied(inclineToSend);      // async: retries once if ignored
-              reassertSpeedAfterIncline(inclineToSend); // async: the pad drops the target
+              const inclineSent = await sendIncline(inclineToSend);
+              if (inclineSent) {
+                  verifyInclineApplied(inclineToSend);      // async: retries once if ignored
+                  reassertSpeedAfterIncline(inclineToSend); // async: the pad drops the target
+              }
           }
           return true;
       }
@@ -2249,6 +2280,7 @@
           const btn = document.getElementById('pauseToggleBtn');
 
           if (!isPaused) {
+              trace('PAUSE requested');
               try {
                   // Suppress remote detection during our own pause command
                   ignoreSpeedChanges = true;
@@ -2285,6 +2317,7 @@
                   ignoreSpeedChanges = false;
               }
           } else {
+              trace('RESUME requested');
               try {
                   // Suppress remote detection during our own resume sequence
                   ignoreSpeedChanges = true;
@@ -2350,6 +2383,7 @@
       }
 
       async function stopTreadmill(completed = false) {
+          trace(`STOP requested (completed=${completed})`);
           // Without a live link the belt cannot be commanded, but the session
           // must still be closed and the UI reset — otherwise a disconnect
           // mid-routine leaves the clock running and the session unlogged.
@@ -2973,7 +3007,7 @@
       async function handleRemoteStateChange(currentSpeed) {
           // Remote pause: we're running, not paused, expect non-zero speed, but pad reports ~0
           if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && currentSpeed < speedMinThreshold) {
-              console.log("Remote pause detected");
+              trace('REMOTE pause detected');
               isPaused = true;
               clearAllIntervals();
               const btn = document.getElementById('pauseToggleBtn');
@@ -2985,7 +3019,7 @@
 
           // Remote resume: we're paused, and pad reports speed coming back
           if (isRoutineActive && isPaused && currentSpeed > speedMinThreshold) {
-              console.log("Remote resume detected");
+              trace('REMOTE resume detected');
               isPaused = false;
               const btn = document.getElementById('pauseToggleBtn');
               btn.innerText = "PAUSE";
@@ -3034,6 +3068,59 @@
 
       // Escapes text that reaches innerHTML (routine file lines, network error
       // messages) so a routines file cannot inject markup into the manager.
+      /* ----------------------------------------------------------------
+         TRACE BUFFER
+         Timestamped log of what the app sends and what the pad reports,
+         readable and copyable from the driver view (no devtools needed on a
+         phone). Kept in memory only; capped so a long routine cannot grow it
+         without bound.
+         ---------------------------------------------------------------- */
+      const DEBUG_MAX_LINES = 800;
+      let debugLog = [];
+      let traceStart = 0;
+
+      function trace(msg) {
+          if (!traceStart) traceStart = Date.now();
+          const t = ((Date.now() - traceStart) / 1000).toFixed(1).padStart(6, ' ');
+          const line = `+${t}s ${msg}`;
+          debugLog.push(line);
+          if (debugLog.length > DEBUG_MAX_LINES) debugLog.shift();
+          console.info(line);
+      }
+
+      // Build label, read from the CSS version string, so a trace always says
+      // which version produced it.
+      function buildVersion() {
+          try {
+              return getComputedStyle(document.getElementById('version'), '::after')
+                  .content.replace(/["']/g, '') || '?';
+          } catch (e) { return '?'; }
+      }
+
+      function refreshDebugView() {
+          const pre = document.getElementById('debugText');
+          const summary = document.getElementById('debugSummary');
+          if (pre) pre.innerText = debugLog.length ? debugLog.join('\n') : '(empty)';
+          if (summary) summary.innerText = `Debug log (${debugLog.length} lines)`;
+      }
+
+      async function copyDebugLog() {
+          refreshDebugView();
+          try {
+              await navigator.clipboard.writeText(debugLog.join('\n'));
+              updateStatus('Debug log copied to clipboard.');
+          } catch (err) {
+              console.error('Copy failed:', err);
+              alert('Could not copy automatically — select the text in the panel and copy it manually.');
+          }
+      }
+
+      function clearDebugLog() {
+          debugLog = [];
+          traceStart = 0;
+          refreshDebugView();
+      }
+
       function escapeHtml(value) {
           return String(value).replace(/[&<>"']/g, c => (
               { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -4037,6 +4124,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                       filters: [{ services: [FTMS_SERVICE_UUID] }]
                   });
 
+                  trace(`CONNECT ${bluetoothDevice.name || '(unnamed)'} id=${bluetoothDevice.id || '?'} build=${buildVersion()}`);
                   updateStatus("Connecting to GATT Server...");
                   const server = await bluetoothDevice.gatt.connect();
 
@@ -4080,10 +4168,13 @@ Climb with Inclines // For walkpads with automatic incline settings
                           Uint8Array.of(FTMS_OP_REQUEST_CONTROL),
                           FTMS_CP_PROBE_TIMEOUT_MS);
                       if (controlResult === null) {
+                          trace('CONTROL no indication (fire-and-forget)');
                           console.info('Pad does not indicate control point responses — fire-and-forget mode.');
                       } else if (controlResult === FTMS_RESULT_SUCCESS) {
+                          trace('CONTROL acquired');
                           updateStatus('Control point acquired.');
                       } else {
+                          trace(`CONTROL refused: ${ftmsResultName(controlResult)}`);
                           updateStatus(`Control point refused (${ftmsResultName(controlResult)}).`);
                       }
                   } catch (cpErr) {
@@ -4132,7 +4223,7 @@ updateStatus("Subscribing to Walkpad Data stream...");
                        bleMinIncrement = dv.getUint16(4, true) / 100;
                         updateMaxSpeedLimit();
                         updateSpeedMinThreshold();
-                        console.info(`Pad speed range: ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}). Cap set to ${maxSpeedLimit} km/h.`);
+                        trace(`RANGE speed ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}) → cap ${maxSpeedLimit}`);
                     } catch (rangeErr) {
                         console.warn("Supported Speed Range not readable; using #max-speed fallback. ", rangeErr.message);
                         updateMaxSpeedLimit();
@@ -4146,7 +4237,7 @@ updateStatus("Subscribing to Walkpad Data stream...");
                        const idv = await inclineRangeChar.readValue();
                        bleMinIncline = idv.getUint16(0, true) / 10;
                        bleMaxIncline = idv.getUint16(2, true) / 10;
-                       console.info(`Pad incline range: ${bleMinIncline}–${bleMaxIncline} %.`);
+                       trace(`RANGE incline ${bleMinIncline}–${bleMaxIncline} %`);
                    } catch (inclineRangeErr) {
                        console.info('Supported Inclination Range not readable; incline commands are not clamped.');
                    }

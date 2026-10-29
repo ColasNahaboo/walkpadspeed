@@ -15,8 +15,8 @@
 
 Test
 2.0 6% 20s
-3.1 12% 20s
-2.6 20s
+3.1 11% 20s
+2.6 12% 20s
 2.8 20s
 
 Short Digestive // with a Pre-Warmup: Ankle Circles, Calf Raises, Hip Swings
