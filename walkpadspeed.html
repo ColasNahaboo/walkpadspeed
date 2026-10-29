@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.1";}
+      #version:after {content: "v1.0.3-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1026,9 +1026,13 @@
       const FTMS_SERVICE_UUID = 0x1826;
       const FTMS_CONTROL_POINT_UUID = 0x2AD9;
       const FTMS_DATA_UUID = 0x2ACD;
-      // Supported Speed Range (FTMS 0x2AD1): read-only, 6 bytes = 3 × sint16 LE at 0.01 km/h.
+      // Supported Speed Range: read-only, 6 bytes = 3 × UINT16 LE at 0.01 km/h.
       // Returns [minimum speed, maximum speed, minimum increment].
-      const FTMS_SUPPORTED_SPEED_RANGE_UUID = 0x2AD1;
+      // 0x2AD4 is the current FTMS characteristic; 0x2AD1 is its deprecated
+      // predecessor, still exposed by older pads. Modern pads (Merach W60)
+      // only expose 0x2AD4, so both are probed at connect time.
+      const FTMS_SUPPORTED_SPEED_RANGE_UUID = 0x2AD4;
+      const FTMS_SUPPORTED_SPEED_RANGE_UUID_LEGACY = 0x2AD1;
       const spinUpTime = 5000;
 
       // Effective speed cap (km/h). Updated by updateMaxSpeedLimit() from either
@@ -1330,6 +1334,10 @@
       const FTMS_OP_SET_INCLINE     = 0x03;
       const FTMS_OP_START_RESUME    = 0x07;
       const FTMS_OP_STOP_PAUSE      = 0x08;
+
+      // Parameter of "Stop or Pause" (mandatory single byte)
+      const FTMS_STOP_PAUSE_STOP  = 0x01;
+      const FTMS_STOP_PAUSE_PAUSE = 0x02;
 
       const FTMS_RESULT_SUCCESS    = 0x01;
       const FTMS_RESULT_NO_CONTROL = 0x05;
@@ -1992,7 +2000,12 @@
           totalElapsedSeconds = 0;
           actualElapsedSeconds = 0;
           isPaused = false;
-          routineTotalDuration = 0;
+          // The routine total is a property of the routine text, not of the run:
+          // recompute it instead of zeroing it, so Remain and the global progress
+          // bar stay correct after a Stop. A zero total here is what produced
+          // NaN / negative remain times and a frozen progress eraser after a
+          // stop or a step-jump (dev/bug1.md, Bug A).
+          routineTotalDuration = routineTotalDurationGet(routineRawCached);
           lastValidRoutineLabel = '';
           ignoreSpeedChanges = false;
           if (remotePauseDebounce) {
@@ -2030,10 +2043,17 @@
                   // Mimic physical remote: store current speed to restore it later
                   const speedToRestore = currentTargetSpeed;
 
-                  // Send speed 0.0. The walkpad firmware interprets this as "Pause"
-                  // and updates its built-in screen to show "Pause".
-                  await sendControlCommand(
-                      Uint8Array.of(FTMS_OP_SET_SPEED, 0x00, 0x00), 'pause (speed 0)');
+                  // FTMS Pause (Stop or Pause + Pause parameter). A speed target
+                  // of 0 is below every pad's minimum and is rejected as an
+                  // invalid parameter by compliant machines, so the opcode is
+                  // the correct way to pause. Pads that do not implement it (or
+                  // do not answer) keep the historical "speed 0" trick.
+                  const pauseResult = await sendControlCommand(
+                      Uint8Array.of(FTMS_OP_STOP_PAUSE, FTMS_STOP_PAUSE_PAUSE), 'pause');
+                  if (pauseResult === null || pauseResult !== FTMS_RESULT_SUCCESS) {
+                      await sendControlCommand(
+                          Uint8Array.of(FTMS_OP_SET_SPEED, 0x00, 0x00), 'pause (speed 0 fallback)');
+                  }
 
                   // Restore the app's internal target speed so resume works correctly
                   currentTargetSpeed = speedToRestore;
@@ -2117,16 +2137,18 @@
               resetRoutineState();
               updateStatus("Stopping walkpad...");
 
-              await sendControlCommand(
-                  Uint8Array.of(FTMS_OP_SET_SPEED, 0x00, 0x00), 'stop (speed 0)');
-
-              await new Promise(resolve => setTimeout(resolve, 200));
-
               // FTMS "Stop or Pause" carries a mandatory parameter:
-              // 0x01 = Stop, 0x02 = Pause. Sending the opcode alone is
-              // rejected as an invalid parameter by compliant pads.
-              await sendControlCommand(
-                  Uint8Array.of(FTMS_OP_STOP_PAUSE, 0x01), 'stop');
+              // 0x01 = Stop, 0x02 = Pause. Trust the pad's acknowledgement when
+              // it indicates; pads that ignore the opcode (or do not answer)
+              // also get the historical "speed 0" command, which every walkpad
+              // understands.
+              const stopResult = await sendControlCommand(
+                  Uint8Array.of(FTMS_OP_STOP_PAUSE, FTMS_STOP_PAUSE_STOP), 'stop');
+              if (stopResult === null || stopResult !== FTMS_RESULT_SUCCESS) {
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                  await sendControlCommand(
+                      Uint8Array.of(FTMS_OP_SET_SPEED, 0x00, 0x00), 'stop (speed 0 fallback)');
+              }
 
               releaseWakeLock();
               updateStatus("Stopped.");
@@ -2200,12 +2222,14 @@
       }
 
       function updateLiveTimeDisplay(totalSeconds) {
+          if (!Number.isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
           const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
           const secs = (totalSeconds % 60).toString().padStart(2, '0');
           document.getElementById('liveTime').innerText = `${mins}:${secs}`;
       }
 
       function updateLiveRemainDisplay(totalSeconds) {
+          if (!Number.isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
           const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
           const secs = (totalSeconds % 60).toString().padStart(2, '0');
           document.getElementById('liveRemain').innerText = `${mins}:${secs}`;
@@ -2285,6 +2309,7 @@
       }
 
       function minutesSeconds(totalSeconds) {
+          if (!Number.isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
           const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
           const secs = (totalSeconds % 60).toString().padStart(2, '0');
           return `${mins}:${secs}`;
@@ -2378,6 +2403,12 @@
       }
 
       function updateRoutineUI(label, setLabel, seconds, percentage) {
+          // Defensive: a 0-length step or a stale jump can feed NaN/negative
+          // values here, which used to surface as "NaN:NaN" and "NaN%" bars.
+          if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+          if (!Number.isFinite(percentage)) percentage = 0;
+          percentage = Math.max(0, Math.min(100, percentage));
+
           if (label.trim() === '-') {
               label = lastValidRoutineLabel;
           } else if (setLabel.trim() !== '') {
@@ -2474,7 +2505,8 @@
       }
 
       function updateGlobalProgress(elapsed) {
-          if (routineTotalDuration <= 0) return;
+          if (!Number.isFinite(elapsed) || elapsed < 0) elapsed = 0;
+          if (!Number.isFinite(routineTotalDuration) || routineTotalDuration <= 0) return;
           const pct = Math.min(100, (elapsed / routineTotalDuration) * 100);
           document.getElementById('globalProgressEraser').style.width = `${pct}%`;
       }
@@ -3791,17 +3823,25 @@ updateStatus("Subscribing to Walkpad Data stream...");
                        console.warn("Metrics channel initialization skipped: ", dataErr.message);
                    }
 
-                   // Read the pad's supported speed range (FTMS 0x2AD1) so we
-                   // can cap sent speeds at the pad's real maximum. Many pads
-                   // don't expose this characteristic — on any failure we fall
-                   // back to the #max-speed file override (or the default).
+                   // Read the pad's supported speed range so we can cap sent
+                   // speeds at the pad's real maximum. 0x2AD4 (current FTMS) is
+                   // probed first, then the deprecated 0x2AD1; pads exposing
+                   // neither fall back to the #max-speed override (or default).
                    try {
                        updateStatus("Reading pad speed range...");
-                       const speedRangeChar = await service.getCharacteristic(FTMS_SUPPORTED_SPEED_RANGE_UUID);
+                       let speedRangeChar = null;
+                       for (const uuid of [FTMS_SUPPORTED_SPEED_RANGE_UUID,
+                                           FTMS_SUPPORTED_SPEED_RANGE_UUID_LEGACY]) {
+                           try {
+                               speedRangeChar = await service.getCharacteristic(uuid);
+                               break;
+                           } catch (missingErr) { /* try the next UUID */ }
+                       }
+                       if (!speedRangeChar) throw new Error('no Supported Speed Range characteristic');
                        const dv = await speedRangeChar.readValue();
-                       bleMinSpeed     = dv.getInt16(0, true) / 100;
-                       bleMaxSpeed     = dv.getInt16(2, true) / 100;
-                       bleMinIncrement = dv.getInt16(4, true) / 100;
+                       bleMinSpeed     = dv.getUint16(0, true) / 100;
+                       bleMaxSpeed     = dv.getUint16(2, true) / 100;
+                       bleMinIncrement = dv.getUint16(4, true) / 100;
                         updateMaxSpeedLimit();
                         updateSpeedMinThreshold();
                         console.info(`Pad speed range: ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}). Cap set to ${maxSpeedLimit} km/h.`);
