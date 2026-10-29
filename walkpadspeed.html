@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.13";}
+      #version:after {content: "v1.0.3-dev.14";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1512,6 +1512,11 @@
 
       async function startTreadmill() {
           if (!ftmsControlCharacteristic) return false;
+          // Between Start and the first speed command the pad reports ~0 km/h.
+          // Without this, the remote-pause detector treats that as the physical
+          // remote pausing the routine (observed 2 s after START: the clock
+          // froze and the app then "resumed" on its own).
+          ignoreSpeedChanges = true;
           trace('START requested');
           try {
               let result = await sendControlCommand(
@@ -1532,11 +1537,13 @@
 
               if (result !== null && result !== FTMS_RESULT_SUCCESS) {
                   updateStatus(`Failed to start motor: ${ftmsResultName(result)}`);
+                  ignoreSpeedChanges = false;
                   return false;
               }
               return true;
           } catch (error) {
               updateStatus("Failed to start motor: " + error.message);
+              ignoreSpeedChanges = false;
               return false;
           }
       }
@@ -2254,6 +2261,7 @@
           routineTotalDuration = routineTotalDurationGet(routineRawCached);
           lastValidRoutineLabel = '';
           ignoreSpeedChanges = false;
+          lastInclineCommand = null;
           if (remotePauseDebounce) {
               clearTimeout(remotePauseDebounce);
               remotePauseDebounce = null;
@@ -2958,11 +2966,18 @@
          REMOTE PAUSE / RESUME DETECTION
          ================================================================ */
 
+      // A pad suspends the belt while it moves the deck, so a reported ~0 km/h
+      // during an incline change is not the user pausing the routine.
+      function inclineIsTravelling() {
+          return currentLiveIncline !== null && lastInclineCommand !== null &&
+              Math.abs(currentLiveIncline - lastInclineCommand.percent) > 0.6;
+      }
+
       function checkRemoteStateChange(currentSpeed) {
           if (ignoreSpeedChanges) return;
 
           // Detect Pause: Running, expecting speed, but pad drops below threshold
-          if (isRoutineActive && !isPaused && currentTargetSpeed > 0) {
+          if (isRoutineActive && !isPaused && currentTargetSpeed > 0 && !inclineIsTravelling()) {
               if (currentSpeed < speedMinThreshold) {
                   // Start timer if not already started
                   if (!remotePauseDebounce) {
