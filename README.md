@@ -140,7 +140,7 @@ This file describes two separate routines: a 17-minute steady walk, and an inter
 
 Save the file and keep it handy — you'll upload it on the Manager screen.
 
-**Note:** As I do not have a walkpad with automatic incline setting, the code to drive the incline on the pad should work, but is not actually tested. Feedback welcome!
+**Note:** Incline is driven through the standard FTMS control point (`0x03`) and has been verified on a Merach UltraWalk W60 (0–12%). Two firmware quirks to expect: some pads only honour an incline target once the machine is started, and many suspend the belt while the deck travels — so a routine that opens with an incline change can take ~15–20 s before the belt moves.
 
 **Share your routines!** Feel free to share your routines with others as [discussions](https://github.com/ColasNahaboo/walkpadspeed/discussions/categories/your-routines) on this repository!
 
@@ -247,7 +247,7 @@ If you wear an heart rate monitoring system (armband, chest band, smart watch...
 
 Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
 
-* **Z0 (38–50% | Digestive/Glucose | Purple):** Optimizes postprandial glycemic control by actively clearing glucose from the bloodstream through light muscle contractions after meals.
+* **Z0 (38–43% | Digestive/Glucose | Purple):** Optimizes postprandial glycemic control by actively clearing glucose from the bloodstream through light muscle contractions after meals. The 43–50% band is intentionally left outside any zone (the display shows `--`).
 * **Z1 (50–60% | Recovery/Light | Blue):** Promotes active recovery and boosts circulation to help flush out metabolic waste without placing additional stress on the body.
 * **Z2 (60–70% | Aerobic/Fat Burn | Green):** Maximizes fat oxidation and builds a robust mitochondrial foundation to improve your baseline aerobic efficiency.
 * **Z3 (70–80% | Endurance | Yellow):** Enhances overall cardiovascular capacity and stamina, training the heart and lungs to sustain moderate efforts for longer periods.
@@ -466,8 +466,11 @@ See the one I use, also embedded in the HTML, in [docs/hr.txt](docs/hr.txt).
 Hardware Support & Core Blueprint: This control system operates across standard FTMS profile architectures:
 
 * **Service UUID:** `0x1826` (Fitness Machine Service)
-* **Control Characteristic:** `0x2AD9` (Machine Control Point)
+* **Control Characteristic:** `0x2AD9` (Machine Control Point) — the app requests control (`0x00`) and waits for the machine's answer before sending Start/Speed/Incline
+* **Supported Speed Range:** `0x2AD4` (falling back to the deprecated `0x2AD1`) — speeds are capped at what the pad reports
+* **Supported Inclination Range:** `0x2AD5` — incline commands are clamped to the pad's range
 * **Live Telemetry Stream:** `0x2ACD` (Treadmill Data)
+* **Machine Status:** `0x2ADA` — the pad's own events, logged to the console
 
 ## License
 

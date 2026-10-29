@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.7";}
+      #version:after {content: "v1.0.3-dev.8";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -21,6 +21,7 @@
           background: #121212;
           color: #e0e0e0;
           max-width: var(--app-max-width);
+          margin: 0 auto;      /* centre the column on wide screens */
           position: relative; /* Anchors absolute child elements inside body */
       }
       h1 { color: #ffffff; margin-bottom: 0.5rem; }
@@ -42,8 +43,8 @@
           max-width: 100vw;
           margin: 20px auto;
           padding: 30px 20px;
-          background: #0044aa;
-          border: 2px dashed #2c2c2e;
+          background: #1c1c1e;
+          border: 2px dashed #3a3a3c;
           border-radius: 12px;
           cursor: pointer;
           transition: border-color 0.2s, background 0.2s;
@@ -56,7 +57,7 @@
       .file-zone span { color: #ff9f0a; font-weight: bold; font-size:1.2rem;}
       #fileInput { display: none; }
       #defLoad { background: #444; color: #aaa;font-weight: 300;
-                 width: 100%; max-width: 100vw; padding-bottom: 20px;}
+                 width: 100%; max-width: 100vw; padding: 1.2rem 1rem;}
       #defLoad:hover  { background: #222224; color: #ccc;font-weight: 500;}
       #gistLoadBtn { background: #444; color: #aaa;}
       #gistLoadBtn:hover  { background: #222224; color: #ddd;}
@@ -3036,8 +3037,15 @@
           }
 
           const cur = currentSession.current;
+          // HR jitter of ±1 BPM would otherwise split a steady walk into
+          // one-second segments and flood the log: only a 2 BPM move (or a
+          // gain/loss of the signal) counts as a change.
+          const prevHr = cur.hr ?? null;
+          const nextHr = snapshot.hr ?? null;
+          const hrChanged = (prevHr === null) !== (nextHr === null) ||
+              (prevHr !== null && Math.abs(prevHr - nextHr) >= 2);
           const changed = cur.speed !== snapshot.speed || cur.zone !== snapshot.zone ||
-              cur.incline !== snapshot.incline || cur.hr !== snapshot.hr ||
+              cur.incline !== snapshot.incline || hrChanged ||
               cur.stepName !== snapshot.stepName;
           if (!changed) return;
 
@@ -3846,11 +3854,18 @@ Climb with Inclines // For walkpads with automatic incline settings
           });
       }
 
-      // Loads Eruda from CDN (idempotent — re-init if already loaded)
+      // Loads Eruda from CDN (idempotent — re-init if already loaded).
+      // Pinned to an exact version and verified with Subresource Integrity so a
+      // changed or compromised CDN response cannot execute arbitrary code.
+      const ERUDA_URL = 'https://cdn.jsdelivr.net/npm/eruda@3.4.3/eruda.min.js';
+      const ERUDA_SRI = 'sha384-F7xQBvh3l6dG/mMD6QPIeVmXtzWT4Ce3ZDu8ysPuzMWMx9bFOIMGnRPUhLuQipss';
+
       function loadEruda() {
           if (!window.eruda) {
               const s = document.createElement('script');
-              s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+              s.src = ERUDA_URL;
+              s.integrity = ERUDA_SRI;
+              s.crossOrigin = 'anonymous';
               s.onload = () => { eruda.init(); };
               s.onerror = () => alert('Failed to load Eruda console from CDN.');
               document.head.appendChild(s);
