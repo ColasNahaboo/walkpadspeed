@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.2";}
+      #version:after {content: "v1.0.3-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1361,6 +1361,39 @@
           }
       }
 
+      // Fitness Machine Status (0x2ADA): the pad's own account of what changed.
+      // Diagnostic channel — it says whether the machine considers itself
+      // started/stopped, and what it thinks its target speed/incline are.
+      const FTMS_STATUS_UUID = 0x2ADA;
+      const FTMS_STATUS_NAMES = {
+          0x01: 'Reset',
+          0x02: 'Machine stopped or paused (by the user)',
+          0x03: 'Machine started or resumed (by the user)',
+          0x04: 'Target speed changed',
+          0x05: 'Target incline changed',
+          0x06: 'Target resistance changed',
+          0x07: 'Target power changed',
+          0x08: 'Target heart rate changed',
+          0x0C: 'Targeted distance changed',
+          0x0D: 'Targeted training time changed',
+          0x13: 'Spin down status',
+          0xFF: 'Control permission lost'
+      };
+
+      function handleMachineStatus(event) {
+          const dv = event.target.value;
+          const raw = Array.from(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+          const name = FTMS_STATUS_NAMES[raw[0]] || `opcode 0x${raw[0].toString(16)}`;
+          let detail = '';
+          if (raw[0] === 0x04 && raw.length >= 3) {
+              detail = ` → ${((raw[1] | (raw[2] << 8)) / 100).toFixed(2)} km/h`;
+          } else if (raw[0] === 0x05 && raw.length >= 3) {
+              const tenths = raw[1] | (raw[2] << 8);
+              detail = ` → ${(tenths > 32767 ? tenths - 65536 : tenths) / 10}%`;
+          }
+          console.info(`FTMS status: ${name}${detail}`);
+      }
+
       // Control point indications are [0x80, request opcode, result code].
       function handleControlPointIndication(event) {
           const dv = event.target.value;
@@ -1489,6 +1522,22 @@
 
               // Re-enable remote state detection after speed stabilizes
               setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
+
+              // One-shot reality check after the initial start: if the pad
+              // acknowledged everything but still reports almost no speed, the
+              // belt never engaged — typically a machine that wants a user on
+              // the deck (or a safety key) before it will run. This is what
+              // separates "command refused" from "accepted but not moving".
+              if (isInitialStart) {
+                  const targetAtStart = effectiveSpeed;
+                  setTimeout(() => {
+                      if (!isRoutineActive || isPaused) return;
+                      if (currentLiveSpeed >= Math.min(0.5, targetAtStart * 0.5)) return;
+                      updateStatus(`Belt not moving: pad reports ${currentLiveSpeed.toFixed(1)} km/h ` +
+                                   `for a ${targetAtStart.toFixed(1)} km/h target — check the safety key / user detection.`);
+                      console.warn('Belt did not start:', { target: targetAtStart, reported: currentLiveSpeed });
+                  }, 8000);
+              }
           } catch (error) {
               updateStatus("Failed to set speed: " + error.message);
               ignoreSpeedChanges = false;
@@ -3811,6 +3860,17 @@ Climb with Inclines // For walkpads with automatic incline settings
                       }
                   } catch (cpErr) {
                       console.warn('Request Control failed: ', cpErr.message);
+                  }
+
+                  // Fitness Machine Status channel: the pad's own events.
+                  // This is what distinguishes "command refused" from
+                  // "accepted but the belt is not moving".
+                  try {
+                      const statusChar = await service.getCharacteristic(FTMS_STATUS_UUID);
+                      statusChar.addEventListener('characteristicvaluechanged', handleMachineStatus);
+                      await statusChar.startNotifications();
+                  } catch (statusErr) {
+                      console.info('Machine status channel unavailable: ', statusErr.message);
                   }
 
                   try {
