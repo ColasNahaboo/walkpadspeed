@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.5";}
+      #version:after {content: "v1.0.3-dev.6";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1093,6 +1093,7 @@
 
       let currentLiveSpeed = 0.0; // Tracks live speed reported FROM the walkpad
       let currentLiveIncline = null; // Incline % reported by the pad (null = never reported)
+      let lastInclineCommand = null; // {percent, at} of the last incline we asked for
       let speedMod = 1;
       let audioCtx = null;
       let stepOverhead = 1;
@@ -1489,11 +1490,13 @@
 
               // A pad busy travelling its incline can refuse Start. Wait for the
               // deck to settle, then try once more.
-              if (result !== null && result !== FTMS_RESULT_SUCCESS &&
+              const inclineMoving = lastInclineCommand !== null &&
+                  Date.now() - lastInclineCommand.at < 60000 &&
                   currentLiveIncline !== null &&
-                  Math.abs(currentLiveIncline - currentTargetIncline) > 0.6) {
+                  Math.abs(currentLiveIncline - lastInclineCommand.percent) > 0.6;
+              if (result !== null && result !== FTMS_RESULT_SUCCESS && inclineMoving) {
                   updateStatus(`Start refused while the incline moves — waiting for it to settle…`);
-                  await waitForInclineSettle(currentTargetIncline);
+                  await waitForInclineSettle(lastInclineCommand.percent);
                   result = await sendControlCommand(
                       Uint8Array.of(FTMS_OP_START_RESUME), 'start (retry)');
               }
@@ -1509,20 +1512,13 @@
           }
       }
 
-      async function sendSpeed(speedKmh, isInitialStart = false) {
+      async function sendSpeed(speedKmh) {
           if (!ftmsControlCharacteristic) return;
           currentTargetSpeed = speedKmh;
 
           try {
               // Suppress remote state detection during our own speed commands
               ignoreSpeedChanges = true;
-
-              if (isInitialStart) {
-                  const started = await startTreadmill();
-                  if (!started) return;
-                  updateStatus("Waiting for motor initialization...");
-                  await new Promise(resolve => setTimeout(resolve, spinUpTime));
-              }
 
               // Cap the effective (modifier-applied) speed at maxSpeedLimit, the
               // pad's advertized cap or the #max-speed override.
@@ -1540,37 +1536,34 @@
 
               // Re-enable remote state detection after speed stabilizes
               setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
-
-              // One-shot reality check after the initial start: if the pad
-              // acknowledged everything but still reports almost no speed, say
-              // why when we can. A travelling incline is the common case on
-              // pads that hold the belt until the deck has settled.
-              if (isInitialStart) {
-                  const targetAtStart = effectiveSpeed;
-                  setTimeout(() => {
-                      if (!isRoutineActive || isPaused) return;
-                      if (currentLiveSpeed >= Math.min(0.5, targetAtStart * 0.5)) return;
-                      const inclineTravelling = currentLiveIncline !== null &&
-                          Math.abs(currentLiveIncline - currentTargetIncline) > 0.6;
-                      if (inclineTravelling) {
-                          updateStatus(`Belt not moving yet — incline travelling to ` +
-                                       `${currentTargetIncline}% (now ${currentLiveIncline.toFixed(1)}%).`);
-                      } else {
-                          updateStatus(`Belt not moving: pad reports ${currentLiveSpeed.toFixed(1)} km/h ` +
-                                       `for a ${targetAtStart.toFixed(1)} km/h target — check the safety key / user detection.`);
-                      }
-                      console.warn('Belt did not start:', {
-                          target: targetAtStart,
-                          reported: currentLiveSpeed,
-                          incline: currentLiveIncline,
-                          inclineTarget: currentTargetIncline
-                      });
-                  }, 8000);
-              }
           } catch (error) {
               updateStatus("Failed to set speed: " + error.message);
               ignoreSpeedChanges = false;
           }
+      }
+
+      // One-shot reality check after the initial start: if the pad acknowledged
+      // the speed but still reports almost no motion, say why when we can.
+      function scheduleBeltStartCheck(targetSpeed) {
+          setTimeout(() => {
+              if (!isRoutineActive || isPaused) return;
+              if (currentLiveSpeed >= Math.min(0.5, targetSpeed * 0.5)) return;
+              const inclineTravelling = currentLiveIncline !== null &&
+                  Math.abs(currentLiveIncline - currentTargetIncline) > 0.6;
+              if (inclineTravelling) {
+                  updateStatus(`Belt not moving yet — incline travelling to ` +
+                               `${currentTargetIncline}% (now ${currentLiveIncline.toFixed(1)}%).`);
+              } else {
+                  updateStatus(`Belt not moving: pad reports ${currentLiveSpeed.toFixed(1)} km/h ` +
+                               `for a ${targetSpeed.toFixed(1)} km/h target — check the safety key / user detection.`);
+              }
+              console.warn('Belt did not start:', {
+                  target: targetSpeed,
+                  reported: currentLiveSpeed,
+                  incline: currentLiveIncline,
+                  inclineTarget: currentTargetIncline
+              });
+          }, 8000);
       }
 
       async function sendIncline(percent) {
@@ -1580,6 +1573,7 @@
           percent = Math.max(0, Math.min(99, percent));
 
           currentTargetIncline = percent;
+          lastInclineCommand = { percent, at: Date.now() };
 
           /*
             FTMS Inclination command:
@@ -1776,28 +1770,54 @@
       async function enterStepSpeed(step, isInitialStart) {
           const inclineToSend = (step.incline !== undefined && step.incline !== null) ? step.incline : metaIncline;
 
-          // Raise the deck before starting: the W60 resets its incline to 0 on
-          // stop and holds the belt until the incline has settled (~15-20 s for
-          // 0→9 %), so travelling it first overlaps the motor spin-up instead
-          // of delaying the belt after it. Only on the initial start — later
-          // steps keep speed-then-incline order.
-          if (isInitialStart && inclineToSend !== undefined && inclineToSend !== null) {
-              updateStatus(`Setting incline ${inclineToSend}% before starting…`);
-              await sendIncline(inclineToSend);
+          // Initial start has its own sequence: the pad only accepts a target
+          // incline once the machine is started, and it suspends the belt while
+          // the deck travels (W60: 0→9 % ≈ 15-20 s, and it drops back to 0 % on
+          // stop). So: start, raise the deck, let it settle, then ask for the
+          // step speed. Waiting for the deck here means the belt engages at its
+          // target speed instead of being held mid-routine.
+          if (isInitialStart) {
+              const started = await startTreadmill();
+              if (!started) return;
+              const startTs = Date.now();
+
+              if (inclineToSend !== undefined && inclineToSend !== null) {
+                  updateStatus(`Raising incline to ${inclineToSend}%…`);
+                  await sendIncline(inclineToSend);
+                  // The W60 suspends the belt while the deck travels, so show
+                  // the move rather than a frozen "0.0 km/h".
+                  let lastShown = -1;
+                  await waitForInclineSettle(inclineToSend, 40000, now => {
+                      if (Math.abs(now - lastShown) < 1) return;
+                      lastShown = now;
+                      updateStatus(`Raising incline to ${inclineToSend}%… (at ${now.toFixed(1)}%)`);
+                  });
+              }
+
+              // Always give the motor at least the usual spin-up time.
+              const elapsed = Date.now() - startTs;
+              if (elapsed < spinUpTime) {
+                  updateStatus("Waiting for motor initialization...");
+                  await new Promise(resolve => setTimeout(resolve, spinUpTime - elapsed));
+              }
+
+              await sendSpeed(step.speed);
+              scheduleBeltStartCheck(step.speed);
+              return;
           }
 
           // For zone-terminated steps, always send the speed (no zone-control skip)
           if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic && currentHeartRate > 0) {
               const bounds = getZoneBpmBounds(step.targetZone);
               if (bounds && currentHeartRate >= bounds.low && currentHeartRate <= bounds.high) {
-                  if (!isInitialStart && inclineToSend !== undefined && inclineToSend !== null) {
+                  if (inclineToSend !== undefined && inclineToSend !== null) {
                       await sendIncline(inclineToSend);
                   }
                   return; // already in zone — let zone control drive from here
               }
           }
-          await sendSpeed(step.speed, isInitialStart);
-          if (!isInitialStart && inclineToSend !== undefined && inclineToSend !== null) {
+          await sendSpeed(step.speed);
+          if (inclineToSend !== undefined && inclineToSend !== null) {
               await sendIncline(inclineToSend);
           }
       }
@@ -1813,11 +1833,14 @@
 
       // Waits until the pad reports the incline at (or very near) the target.
       // Returns false immediately when the pad does not report inclination.
-      async function waitForInclineSettle(targetPercent, timeoutMs = 40000) {
+      // onProgress(reportedPercent) is called while the deck is travelling, so
+      // the status line can show the move instead of looking frozen.
+      async function waitForInclineSettle(targetPercent, timeoutMs = 40000, onProgress = null) {
           if (currentLiveIncline === null || targetPercent === null || targetPercent === undefined) return false;
           const started = Date.now();
           while (Date.now() - started < timeoutMs) {
               if (Math.abs(currentLiveIncline - targetPercent) <= 0.6) return true;
+              if (onProgress) onProgress(currentLiveIncline);
               await new Promise(resolve => setTimeout(resolve, 500));
           }
           return false;
@@ -1882,7 +1905,7 @@
           const dirArrow = delta > 0 ? '↑' : '↓';
           updateStatus(`Z${hrmStepTargetZone} control: ${currentHeartRate} BPM → speed ${dirArrow}${newSpeed.toFixed(1)} km/h`);
           currentTargetSpeed = newSpeed;
-          sendSpeed(newSpeed, false);
+          sendSpeed(newSpeed);
       }
 
       /* Online estimate of the rider's HR response to belt speed (BPM per km/h),
@@ -2214,7 +2237,7 @@
                   await new Promise(resolve => setTimeout(resolve, spinUpTime));
 
                   if (currentTargetSpeed > 0) {
-                      await sendSpeed(currentTargetSpeed, false);
+                      await sendSpeed(currentTargetSpeed);
                   }
                   // The W60 drops back to 0 % when it stops, so a resume after a
                   // stop/step-jump must re-apply the step's incline.
@@ -2887,7 +2910,7 @@
                // The physical remote defaults to 1.0 km/h when resumed.
               // We must tell the walkpad to change to the actual routine step speed.
               if (currentTargetSpeed > 0) {
-                  await sendSpeed(currentTargetSpeed, false);
+                  await sendSpeed(currentTargetSpeed);
               }
               const remoteResumeIncline = currentStepIncline();
               if (remoteResumeIncline !== null &&
@@ -2932,7 +2955,7 @@
           // current step's base (pre-modifier) speed, so re-sending it lets
           // sendSpeed() recompute speedRaw with the freshly-updated speedMod.
           if (isRoutineActive && !isPaused) {
-              sendSpeed(currentTargetSpeed, false);
+              sendSpeed(currentTargetSpeed);
           }
 
           // Reflect the modifier change in the session log right away, rather
