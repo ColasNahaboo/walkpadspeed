@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.16";}
+      #version:after {content: "v1.0.3-dev.17";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2625,7 +2625,11 @@
           const steps = splitSteps(raw);
           const totalSteps = steps.length;
           let previousIncline = (metaIncline !== null && metaIncline !== undefined) ? metaIncline : 0;
-          routineHasIncline = false;
+          // #incline: makes the routine incline-aware in its own right: the deck
+          // is set at start and the incline metric is shown, exactly as if the
+          // first step carried the X% token. (It used to be a display-only
+          // setting for manually-inclined pads, which hid the metric.)
+          routineHasIncline = (metaIncline !== null && metaIncline !== undefined);
           return steps.map((item, index) => {
               const parts = item.split('-');
               // Speed token may include a zone suffix: "4.5", "4.5Z2" (zone-targeted),

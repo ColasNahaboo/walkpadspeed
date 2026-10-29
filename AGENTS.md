@@ -2,7 +2,7 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.0.3-dev.16**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.0.3-dev.17**.
 
 ---
 
@@ -29,7 +29,7 @@ Plain `.txt` file. Key features implemented during this session:
 #rest-heart-rate: 55
 #max-heart-rate: 180
 #speed-unit: mph          # file-wide mph default for all speeds
-#incline: 6               # fixed treadmill incline (suppresses incline metric)
+#incline: 6               # fixed treadmill incline, applied at start and shown like a step token
 #max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD4/0x2AD1 unreadable (default 12)
 #min-speed: 0.5           # fallback pad min-speed floor when BLE 0x2AD4/0x2AD1 unreadable (default 1.0)
 #version: 1
@@ -198,7 +198,7 @@ The walkpad's physical remote is detected via BLE speed notifications. The thres
 - **Step-jump list**: shown when routine is idle/stopped; tapping a step positions the routine there in paused state with all widgets updated. RESUME then starts from that point.
 - **Modifier buttons** (`--- -- - = + ++ +++`): apply ±5/10/20% speed multiplier; fires `sendSpeed` immediately when clicked mid-routine.
 - **GitHub Gist loading**: "Load Gist from Clipboard" button reads clipboard, extracts gist ID via regex (handles normal/raw/anonymous URLs), fetches via GitHub REST API (CORS-safe), parses as routines file, and sets `?gist=<id>` in URL for bookmarking.
-- **Incline support**: FTMS opcode `0x03`, signed 16-bit at 0.1% resolution. `routineHasIncline` tracks whether any step has explicit incline; `metaIncline` suppresses the incline metric when a fixed treadmill incline is declared in metadata.
+- **Incline support**: FTMS opcode `0x03`, signed 16-bit at 0.1% resolution. `routineHasIncline` tracks whether the routine has any incline at all — a per-step `X%` token *or* the `#incline:` metadata, which now counts exactly like a step token (it used to be a display-only setting that hid the metric).
 - **Wake lock**: screen kept on during active workout via `navigator.wakeLock.request('screen')`. Bug fix: also acquired on non-standard start paths (step-jump → resume).
 
 ---
@@ -359,7 +359,7 @@ Driven by `DEV/colas-2026-07-31.log` analysis (50-min `Z2 1h` step 7: only 55% t
 
 #### Incline metric regression fix (v0.9.0-dev.2, commit `0e7492a`)
 
-When `#incline: N` was set in the routines file's metadata (which suppresses the fixed-incline metric from the UI per design), the `!metaIncline` guard in the connect path also blocked the metric from appearing when per-step inline `X%` incline overrides existed in the packed URL. The fix removes `!metaIncline` from the two `classList.remove('metric-off')` calls (test-mode connect and BLE connect paths) so `routineHasIncline` alone controls visibility. The `#incline:` metadata still suppresses the metric when all steps use the implicit default.
+When `#incline: N` was set in the routines file's metadata (which suppresses the fixed-incline metric from the UI per design), the `!metaIncline` guard in the connect path also blocked the metric from appearing when per-step inline `X%` incline overrides existed in the packed URL. The fix removes `!metaIncline` from the two `classList.remove('metric-off')` calls (test-mode connect and BLE connect paths) so `routineHasIncline` alone controls visibility. The `#incline:` metadata still suppressed the metric when all steps used the implicit default (changed in v1.0.3-dev.17: metadata now shows and drives the incline like a step token).
 
 Root cause traced to commit `739c672` which added the `!metaIncline` guard alongside metadata support.
 
