@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.10";}
+      #version:after {content: "v1.0.3-dev.11";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1584,6 +1584,16 @@
               console.warn(`Incline ${percent}% is above the pad maximum ${inclineMax}% — clamping.`);
           }
           percent = Math.max(inclineMin, Math.min(inclineMax, percent));
+
+          // A step without its own X% token inherits the previous step's
+          // incline (buildRoutineSteps already carries it forward), so most
+          // transitions ask for the value the deck is already at. Sending it
+          // again is not free: the pad suspends the belt while it processes an
+          // incline command, so a redundant write stutters the walk.
+          if (percent === currentTargetIncline &&
+              (currentLiveIncline === null || Math.abs(currentLiveIncline - percent) <= 0.6)) {
+              return;
+          }
 
           currentTargetIncline = percent;
           lastInclineCommand = { percent, at: Date.now() };
