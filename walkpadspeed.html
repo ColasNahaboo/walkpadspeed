@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.11";}
+      #version:after {content: "v1.0.3-dev.12";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1812,6 +1812,8 @@
               await sendSpeed(step.speed);
 
               if (inclineToSend !== undefined && inclineToSend !== null) {
+                  // Let the pad digest the speed target before moving the deck.
+                  await new Promise(resolve => setTimeout(resolve, 400));
                   updateStatus(`Raising incline to ${inclineToSend}%…`);
                   await sendIncline(inclineToSend);
 
@@ -1829,6 +1831,11 @@
                       }
                   });
                   if (!settled) verifyInclineApplied(inclineToSend); // async retry
+
+                  // The W60 forgets the speed target while it moves the deck and
+                  // falls back to its default 1.0 km/h: re-assert it once the
+                  // deck is in place.
+                  if (settled) await sendSpeed(step.speed);
               }
 
               scheduleBeltStartCheck(step.speed);
@@ -1847,10 +1854,26 @@
           }
           await sendSpeed(step.speed);
           if (inclineToSend !== undefined && inclineToSend !== null) {
+              await new Promise(resolve => setTimeout(resolve, 400));
               await sendIncline(inclineToSend);
-              verifyInclineApplied(inclineToSend);  // async: retries once if ignored
+              verifyInclineApplied(inclineToSend);      // async: retries once if ignored
+              reassertSpeedAfterIncline(inclineToSend); // async: the pad drops the target
           }
           return true;
+      }
+
+      // While the deck travels, the W60 abandons the current speed target (the
+      // belt falls back to 1.0 km/h). Once the incline has settled, re-send the
+      // speed the routine expects. Background task: never blocks a step change.
+      async function reassertSpeedAfterIncline(targetIncline) {
+          if (currentLiveIncline === null) return;
+          const settled = await waitForInclineSettle(targetIncline, { stallMs: 7000 });
+          if (!settled || !isRoutineActive || isPaused) return;
+          if (currentStepIncline() !== targetIncline && targetIncline !== null) {
+              // A newer step already asked for a different incline.
+              if (Math.abs((currentStepIncline() ?? 0) - targetIncline) > 0.6) return;
+          }
+          await sendSpeed(currentTargetSpeed);
       }
 
       // Pads can silently ignore an incline target (observed on the W60 when it
