@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.0.3-dev.4";}
+      #version:after {content: "v1.0.3-dev.5";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1484,8 +1484,20 @@
       async function startTreadmill() {
           if (!ftmsControlCharacteristic) return false;
           try {
-              const result = await sendControlCommand(
+              let result = await sendControlCommand(
                   Uint8Array.of(FTMS_OP_START_RESUME), 'start');
+
+              // A pad busy travelling its incline can refuse Start. Wait for the
+              // deck to settle, then try once more.
+              if (result !== null && result !== FTMS_RESULT_SUCCESS &&
+                  currentLiveIncline !== null &&
+                  Math.abs(currentLiveIncline - currentTargetIncline) > 0.6) {
+                  updateStatus(`Start refused while the incline moves — waiting for it to settle…`);
+                  await waitForInclineSettle(currentTargetIncline);
+                  result = await sendControlCommand(
+                      Uint8Array.of(FTMS_OP_START_RESUME), 'start (retry)');
+              }
+
               if (result !== null && result !== FTMS_RESULT_SUCCESS) {
                   updateStatus(`Failed to start motor: ${ftmsResultName(result)}`);
                   return false;
@@ -1764,20 +1776,51 @@
       async function enterStepSpeed(step, isInitialStart) {
           const inclineToSend = (step.incline !== undefined && step.incline !== null) ? step.incline : metaIncline;
 
+          // Raise the deck before starting: the W60 resets its incline to 0 on
+          // stop and holds the belt until the incline has settled (~15-20 s for
+          // 0→9 %), so travelling it first overlaps the motor spin-up instead
+          // of delaying the belt after it. Only on the initial start — later
+          // steps keep speed-then-incline order.
+          if (isInitialStart && inclineToSend !== undefined && inclineToSend !== null) {
+              updateStatus(`Setting incline ${inclineToSend}% before starting…`);
+              await sendIncline(inclineToSend);
+          }
+
           // For zone-terminated steps, always send the speed (no zone-control skip)
           if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic && currentHeartRate > 0) {
               const bounds = getZoneBpmBounds(step.targetZone);
               if (bounds && currentHeartRate >= bounds.low && currentHeartRate <= bounds.high) {
-                  if (inclineToSend !== undefined && inclineToSend !== null) {
+                  if (!isInitialStart && inclineToSend !== undefined && inclineToSend !== null) {
                       await sendIncline(inclineToSend);
                   }
                   return; // already in zone — let zone control drive from here
               }
           }
           await sendSpeed(step.speed, isInitialStart);
-          if (inclineToSend !== undefined && inclineToSend !== null) {
+          if (!isInitialStart && inclineToSend !== undefined && inclineToSend !== null) {
               await sendIncline(inclineToSend);
           }
+      }
+
+      // Incline the current step expects: its own X% token, else the #incline
+      // metadata. null when neither is set.
+      function currentStepIncline() {
+          const step = currentRoutineSteps[currentStepIndex];
+          const inc = (step && step.incline !== undefined && step.incline !== null)
+              ? step.incline : metaIncline;
+          return (inc === undefined || inc === null) ? null : inc;
+      }
+
+      // Waits until the pad reports the incline at (or very near) the target.
+      // Returns false immediately when the pad does not report inclination.
+      async function waitForInclineSettle(targetPercent, timeoutMs = 40000) {
+          if (currentLiveIncline === null || targetPercent === null || targetPercent === undefined) return false;
+          const started = Date.now();
+          while (Date.now() - started < timeoutMs) {
+              if (Math.abs(currentLiveIncline - targetPercent) <= 0.6) return true;
+              await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          return false;
       }
 
       function startHrmZoneControl(zoneStr) {
@@ -2173,6 +2216,14 @@
                   if (currentTargetSpeed > 0) {
                       await sendSpeed(currentTargetSpeed, false);
                   }
+                  // The W60 drops back to 0 % when it stops, so a resume after a
+                  // stop/step-jump must re-apply the step's incline.
+                  const resumeIncline = currentStepIncline();
+                  if (resumeIncline !== null &&
+                      (currentLiveIncline === null ||
+                       Math.abs(currentLiveIncline - resumeIncline) > 0.6)) {
+                      await sendIncline(resumeIncline);
+                  }
 
                   recordSessionState();
                   if (isRoutineActive && !routineInterval) {
@@ -2265,10 +2316,6 @@
                   const step = currentRoutineSteps[currentStepIndex];
                   currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
                   await enterStepSpeed(step, false);
-                  if (step.incline !== undefined &&
-                      step.incline !== currentTargetIncline) {
-                      await sendIncline(step.incline);
-                  }
                   stopHrmZoneControl();
                   if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic) {
                       startHrmZoneControl(step.targetZone);
@@ -2841,6 +2888,12 @@
               // We must tell the walkpad to change to the actual routine step speed.
               if (currentTargetSpeed > 0) {
                   await sendSpeed(currentTargetSpeed, false);
+              }
+              const remoteResumeIncline = currentStepIncline();
+              if (remoteResumeIncline !== null &&
+                  (currentLiveIncline === null ||
+                   Math.abs(currentLiveIncline - remoteResumeIncline) > 0.6)) {
+                  await sendIncline(remoteResumeIncline);
               }
               recordSessionState();
                if (isRoutineActive && !routineInterval) {
