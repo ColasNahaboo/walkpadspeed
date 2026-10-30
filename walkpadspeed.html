@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.1-dev.1";}
+      #version:after {content: "v1.1.1-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1119,6 +1119,8 @@
       let currentLiveIncline = null; // Incline % reported by the pad (null = never reported)
       let lastTracedSpeed = -1;      // last speed written to the trace buffer
       let lastTracedIncline = -1;    // last incline written to the trace buffer
+      let completeDataFramesSeen = 0; // Treadmill Data frames without the More Data bit
+      let moreDataFramesSkipped = 0;  // continuation frames ignored (see handleTreadmillData)
       let lastInclineCommand = null; // {percent, at} of the last incline we asked for
       let speedMod = 1;
       let audioCtx = null;
@@ -1273,16 +1275,37 @@
           }
       }
 
-      /* FTMS Treadmill Data (0x2ACD). Flags bit 0 is "More Data", NOT
-         "speed absent" — instantaneous speed is a mandatory field, so it is
-         read unconditionally. Optional fields are skipped by their flag bit;
-         the reported inclination is kept because a pad can hold the belt
-         until an incline move has settled (Merach W60: 0→9 % ≈ 20 s). */
+      /* FTMS Treadmill Data (0x2ACD). Instantaneous speed is a mandatory field,
+         but pads disagree on flags bit 0 ("More Data"):
+           - most pads clear it, and every frame carries the speed;
+           - the Merach W60 sets it on every frame and still carries the speed;
+           - the Fousae ZX-390 sends a *second* frame per second with the bit set
+             that has no speed field at all: its first two bytes are a cumulative
+             total (distance/energy) that reads as 0.1, 0.2, … km/h. That frame
+             used to hijack the live speed display, and — worse — looked like the
+             physical remote pausing the belt.
+         So the bit only means "this frame has no speed field" once the same pad
+         has been seen clearing it. Pads that never clear it (W60) keep working
+         exactly as before. Optional fields are skipped by their flag bit; the
+         reported inclination is kept because a pad can hold the belt until an
+         incline move has settled (W60: 0→9 % ≈ 20 s). */
       function handleTreadmillData(event) {
           const data = event.target.value;
           if (data.byteLength < 4) return;
 
           const flags = data.getUint16(0, true);
+          const moreData = (flags & 0x0001) !== 0;
+
+          if (moreData && completeDataFramesSeen > 0) {
+              moreDataFramesSkipped++;
+              if (moreDataFramesSkipped === 1) {
+                  trace(`DATA flags=0x${flags.toString(16)} continuation frame ignored ` +
+                        `[${hexBytes(data)}] — this pad also sends complete frames`);
+              }
+              return;
+          }
+          if (!moreData) completeDataFramesSeen++;
+
           let offset = 2;
 
           const speedKmh = data.getUint16(offset, true) / 100;
@@ -1309,7 +1332,8 @@
           const inclineChanged = currentLiveIncline !== null &&
               Math.abs(currentLiveIncline - lastTracedIncline) >= 0.5;
           if (Math.abs(speedKmh - lastTracedSpeed) >= 0.1 || inclineChanged) {
-              trace(`DATA speed=${speedKmh.toFixed(1)} incline=${currentLiveIncline === null ? '?' : currentLiveIncline.toFixed(1) + '%'}`);
+              trace(`DATA flags=0x${flags.toString(16)} speed=${speedKmh.toFixed(1)} ` +
+                    `incline=${currentLiveIncline === null ? '?' : currentLiveIncline.toFixed(1) + '%'}`);
               lastTracedSpeed = speedKmh;
               if (currentLiveIncline !== null) lastTracedIncline = currentLiveIncline;
           }
@@ -1526,6 +1550,7 @@
           // remote pausing the routine (observed 2 s after START: the clock
           // froze and the app then "resumed" on its own).
           ignoreSpeedChanges = true;
+          cancelRemotePauseDebounce();
           trace('START requested');
           try {
               let result = await sendControlCommand(
@@ -1562,8 +1587,12 @@
           currentTargetSpeed = speedKmh;
 
           try {
-              // Suppress remote state detection during our own speed commands
+              // Suppress remote state detection during our own speed commands,
+              // and drop any pause it had already armed: a "the belt slowed
+              // down" observation from just before our command is stale, and
+              // letting it fire mid-change pauses the whole routine.
               ignoreSpeedChanges = true;
+              cancelRemotePauseDebounce();
 
               // Cap the effective (modifier-applied) speed at maxSpeedLimit, the
               // pad's advertized cap or the #max-speed override.
@@ -3037,6 +3066,13 @@
               Math.abs(currentLiveIncline - lastInclineCommand.percent) > 0.6;
       }
 
+      function cancelRemotePauseDebounce() {
+          if (remotePauseDebounce) {
+              clearTimeout(remotePauseDebounce);
+              remotePauseDebounce = null;
+          }
+      }
+
       function checkRemoteStateChange(currentSpeed) {
           if (ignoreSpeedChanges) return;
 
@@ -3061,9 +3097,12 @@
               }
           }
 
-          // Detect Resume: Paused, but pad speeds up above threshold
+          // Detect Resume: Paused, but pad speeds up above threshold. The test is
+          // inclusive: a pad resuming from its physical remote restores its own
+          // minimum speed, which is exactly speedMinThreshold (1.0 km/h on the
+          // Fousae), and a strict ">" made that resume invisible.
           if (isRoutineActive && isPaused) {
-              if (currentSpeed > speedMinThreshold) {
+              if (currentSpeed >= speedMinThreshold) {
                   // Start timer if not already started
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
@@ -3096,8 +3135,9 @@
               return;
           }
 
-          // Remote resume: we're paused, and pad reports speed coming back
-          if (isRoutineActive && isPaused && currentSpeed > speedMinThreshold) {
+          // Remote resume: we're paused, and pad reports speed coming back.
+          // Inclusive threshold — see checkRemoteStateChange().
+          if (isRoutineActive && isPaused && currentSpeed >= speedMinThreshold) {
               trace('REMOTE resume detected');
               isPaused = false;
               const btn = document.getElementById('pauseToggleBtn');

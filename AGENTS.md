@@ -191,6 +191,16 @@ Markdown log of each workout session, stored in `localStorage` under `wpss_sessi
 
 The walkpad's physical remote is detected via BLE speed notifications. The threshold below which the walkpad is considered stopped is `speedMinThreshold` (resolved from BLE `bleMinSpeed` → `#min-speed` file metadata → `DEFAULT_MIN_SPEED = 1.0` km/h). When the pad sends a speed notification below this threshold, the app interprets it as a stop/pause from the remote. This makes the detection absolute rather than adaptive to the routine's slowest step.
 
+Two details learned the hard way (2026-10-30, Fousae):
+- **Resume is inclusive** (`>= speedMinThreshold`): a pad resumed from the physical
+  remote restores its own minimum speed, which *is* the threshold (1.0 km/h on the
+  Fousae), so a strict `>` made every remote resume invisible.
+- **Our own commands cancel the pending detection**: `sendSpeed()` / `startTreadmill()`
+  set `ignoreSpeedChanges` for 7 s, and used to leave an already-armed pause timer
+  running. A low frame from just before a step change then paused the whole routine
+  1.5 s later, in the middle of the next step. Both now call
+  `cancelRemotePauseDebounce()` when they take over the speed.
+
 ---
 
 ### Other notable features
@@ -491,3 +501,39 @@ pad shapes: Fousae-like (bogus `0x2AD4` + sane `0x2AD1`) → 3.0 sent; W60 (`0x2
 only, 1–6) → 3.0; tenths-of-km/h `0x2AD4` alone with and without `#max-speed` → 3.0
 (fallback); a genuine 3.0 km/h pad → 3.0 for a 3.0 step and a *visible* limit for the
 5.5 step; no range characteristic at all → 3.0. `node --check` on the extracted script.
+
+#### Follow-up (v1.1.1-dev.2): the Fousae's two frames per second
+
+With the cap fixed, the Fousae still showed **0.1 km/h in the live speed metric,
+creeping up by 0.1** every ~25 s, and **step 2 froze the routine at 00:59**. Both
+come from the same thing: the pad sends **two Treadmill Data (0x2ACD) frames per
+second**. One carries the real speed; the other has flags bit 0 ("More Data") set and
+**no speed field at all** — its first two payload bytes are a cumulative total
+(distance/energy) that reads as 0.10, 0.20, … km/h. Because it arrives last, it owned
+the `#liveSpeed` display; worse, `checkRemoteStateChange()` saw 0.3 km/h <
+`speedMinThreshold` on every one of those frames.
+
+Why the timer froze rather than just flickering: the pause detector debounces 1.5 s,
+and the alternating good/bad frames kept cancelling it — until a step change called
+`sendSpeed()`, which sets `ignoreSpeedChanges` for 7 s. During that window the good
+frames were no longer *cancelling* the timer, so a timer armed from the last bad frame
+fired, `handleRemoteStateChange()` saw the stale `currentLiveSpeed = 0.3` and paused the
+routine. With the belt still running at the new speed, the app sat paused forever.
+
+The fix is to honour bit 0 the way the pad means it, **adaptively**: a frame with the
+More Data bit is treated as a continuation (no speed, no pause check) *only once the
+same pad has been seen sending a frame without it*. Pads that never clear the bit
+(Merach W60, which carries a valid speed in every frame) keep working unchanged — this
+is also why v1.0.2's unconditional `if ((flags & 0x0001) === 0)` worked on the Fousae
+and showed no live speed on the W60. `handleTreadmillData()` traces the first ignored
+continuation frame with its raw bytes, and every DATA trace line now carries the flags.
+
+Also fixed on the way: resume detection was strict (`currentSpeed > speedMinThreshold`)
+while a pad resumed by its remote reports exactly its minimum speed (1.0 km/h), so a
+remote resume never registered; and a pending pause timer is now cancelled whenever the
+app takes over the speed.
+
+Verified with the Playwright FTMS mock over three data shapes (Fousae pairs, W60
+all-bit-0, plain 0x0000): the live metric shows 0.0 → 3.0 → 3.5 only, steps 1→2→3 run
+through without a pause, and a simulated physical stop/resume pauses, freezes the
+clock, resumes and re-sends the step speed.

@@ -511,7 +511,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v1.1.1 2026-10-30 fix: a pad whose Supported Speed Range reads nonsense (Fousae ZX-390: 0.30 km/h) no longer caps every speed to it — implausible ranges are ignored and the other characteristic or `#max-speed` is used. A speed that really is capped now says so in the status line.
+- v1.1.1 2026-10-30 fix: a pad whose Supported Speed Range reads nonsense (Fousae ZX-390: 0.30 km/h) no longer caps every speed to it — implausible ranges are ignored and the other characteristic or `#max-speed` is used. A speed that really is capped now says so in the status line. Also fixes the Fousae's extra "More Data" data frames (they showed up as a live speed of 0.1 km/h and could pause the routine at a step change) and makes a remote resume at the pad's minimum speed register.
 - v1.1.0 2026-10-29 work fully with the Merach W60, driving properly the incline. Some bugs were fixed, discovered with this new hardware setup.
 - v1.0.2 2026-10-13 ui: Speed in status is now always rounded to one decimal
 - v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.
