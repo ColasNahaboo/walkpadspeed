@@ -3,7 +3,6 @@
 #max-heart-rate: 154
 #step-length: 0.47
 #version: 1
-#incline: 12
 #hrm: 1
 #max-speed: 6
 #min-speed: 1
