@@ -106,7 +106,7 @@ Cardio 40mn Zone-adjusted intervals
 3.5 1m -
 4.0 1m -
 4.5 1m -
-5.0 1m -
+55.0 1m -
 5.5 1m -
 6.0>Z4 2m work
 4.0 1m mandatory rest 
