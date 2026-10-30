@@ -466,6 +466,8 @@ The trace is a timestamped list of the control-point writes (`CP → set speed 3
 
 While `#debug` is on, the capture is kept in the browser's local storage, so it survives an accidental reload; the **Clear** button erases it. Without `#debug` the trace is completely inert: nothing is recorded and no panel is shown.
 
+If you are adding support for a new pad, [docs/HARDWARE.md](docs/HARDWARE.md) explains what to look for in that trace and has a template to write the pad up.
+
 ## Implementation
 
 - **Pure modern Javascript** is used to interpret your routine, use the browser Web Bluetooth API and manage the timers to send the steps to drive your walking pad.
@@ -485,6 +487,10 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 * **Supported Inclination Range:** `0x2AD5` — incline commands are clamped to the pad's range
 * **Live Telemetry Stream:** `0x2ACD` (Treadmill Data)
 * **Machine Status:** `0x2ADA` — the pad's own events, logged to the console
+
+**Per-pad field notes** — what each machine actually implements, its firmware quirks and
+the bugs they caused — are in [docs/HARDWARE.md](docs/HARDWARE.md). It also contains a
+recipe for capturing a new pad's behaviour and a template to document it.
 
 ## License
 
@@ -511,7 +517,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v1.1.1 2026-10-30 fix: a pad whose Supported Speed Range reads nonsense (Fousae ZX-390: 0.30 km/h) no longer caps every speed to it — implausible ranges are ignored and the other characteristic or `#max-speed` is used. A speed that really is capped now says so in the status line. Also fixes the Fousae's extra "More Data" data frames (they showed up as a live speed of 0.1 km/h and could pause the routine at a step change) and makes a remote resume at the pad's minimum speed register.
+- v1.1.1 2026-10-30 fix: the Fousae's extra "More Data" data frames (they showed up as a live speed of 0.1, 0.2, 0.3 … km/h — that is the "speed divided by ten" report — and could pause the routine at a step change), plus a remote resume at the pad's minimum speed now registering. A padded safety net was also added: a pad whose Supported Speed Range reads nonsense is ignored instead of capping every speed to it, and a speed that really is capped now says so in the status line.
 - v1.1.0 2026-10-29 work fully with the Merach W60, driving properly the incline. Some bugs were fixed, discovered with this new hardware setup.
 - v1.0.2 2026-10-13 ui: Speed in status is now always rounded to one decimal
 - v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.

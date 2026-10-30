@@ -2,7 +2,11 @@
 
 ### What the project is
 
-`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.0.3-dev.17**.
+`walkpadspeed` is a **single-file HTML web app** (`walkpadspeed.html`) for controlling Bluetooth walking pads and treadmills via the Web Bluetooth FTMS protocol. It lives at [github.com/ColasNahaboo/walkpadspeed](https://github.com/ColasNahaboo/walkpadspeed). There is no build system, no framework, no server — everything is one self-contained HTML file with inline CSS and JS. The current version is **v1.1.1**.
+
+**Hardware**: per-pad field notes (Fousae ZX-390, Merach UltraWalk W60, and how to
+capture a new one) live in [`docs/HARDWARE.md`](docs/HARDWARE.md). Read it before
+touching the data-frame parsing, the speed cap or the control-point handshake.
 
 ---
 
@@ -467,23 +471,27 @@ problems — reach for it before guessing.
 
 ### Session 2026-10-30: Fousae ZX-390 speed divided by ten (v1.1.1-dev.1)
 
-**Report.** After the W60 work, the old Fousae ZX-390 (last good: v1.0.2, commit
-`72880ed`) transmitted every speed divided by ten — a `3.0` step displayed and ran at
-`0.3`. The routine itself was parsed correctly; nothing in the speed path divides.
+> **Correction (2026-10-30, same day).** The root cause below is *wrong*. The next run's
+> trace shows the Fousae reporting a perfectly good `0x2AD4`: `speed 1–6 km/h (inc 0.1)
+> [64 00 58 02 0a 00]`, so the cap was 6 all along and 3.0 km/h really was sent. The
+> "0.3" was the **continuation frame** being displayed as a live speed — see "Follow-up
+> (v1.1.1-dev.2)" below. The plausibility guard added here stays (it protects against
+> pads that do report nonsense, and it made the cap visible when it does apply), but it
+> fixed nothing on this pad. Lesson: a wrong *reading* and a wrong *command* look the
+> same from the outside; get the trace before concluding.
 
-**Root cause: the speed cap, not the speed.** v1.0.2 read only `0x2AD1` (the deprecated
-Supported Speed Range) for the cap. The W60 work flipped the probe order to `0x2AD4`
-first and stopped at the first characteristic that *exists*. The Fousae exposes both,
-and its `0x2AD4` reads back garbage — maximum field `30`, i.e. `0.30 km/h` — so
-`maxSpeedLimit` became 0.3 and `sendSpeed()` clamped every request to it
-(`min(3.0, 0.3) = 0.3`) with no message: the status still said "Speed set to 3.0 km/h"
-while the frame carried `02 1e 00`. A Playwright mock reproducing "0x2AD4 = 0.1–0.3,
-0x2AD1 = 1.0–6.0" shows v1.0.2 sending `02 2c 01` (3.00 km/h) and v1.1.0 sending
-`02 1e 00` (0.30 km/h), byte-for-byte the reported symptom.
+**Report.** After the W60 work, the old Fousae ZX-390 (last good: v1.0.2, commit
+`72880ed`) appeared to transmit every speed divided by ten — a `3.0` step displayed and
+ran at `0.3`. The routine itself was parsed correctly; nothing in the speed path divides.
+
+**Root cause: the speed cap, not the speed.** *(superseded — see the correction above)*
+v1.0.2 read only `0x2AD1` (the deprecated Supported Speed Range) for the cap. The W60
+work flipped the probe order to `0x2AD4` first and stopped at the first characteristic
+that *exists*, so any pad whose `0x2AD4` reads garbage would cap every speed at it.
 
 **Fix (`readPadSpeedRange()`, new helper next to `updateMaxSpeedLimit()`):**
-- both characteristics are probed, not only the first that resolves — `0x2AD4` first,
-  then `0x2AD1`, which is exactly the Fousae case (`0x2AD4` rejected → `0x2AD1` used);
+- both characteristics are probed, not only the first that resolves, so a pad whose
+  `0x2AD4` is a stub can be rescued by a sane `0x2AD1`;
 - a reading is only accepted when its maximum is plausible
   (`SPEED_RANGE_PLAUSIBLE_MIN = 1.5`, `SPEED_RANGE_PLAUSIBLE_MAX = 30` km/h); anything
   else is traced with its raw hex and skipped, leaving `bleMaxSpeed` null so
@@ -497,10 +505,11 @@ while the frame carried `02 1e 00`. A Playwright mock reproducing "0x2AD4 = 0.1�
   then `RANGE using pad range → cap 6 km/h, floor 1 km/h`.
 
 **Verified** with a Playwright FTMS mock (control point, data, status, range) over six
-pad shapes: Fousae-like (bogus `0x2AD4` + sane `0x2AD1`) → 3.0 sent; W60 (`0x2AD4`
-only, 1–6) → 3.0; tenths-of-km/h `0x2AD4` alone with and without `#max-speed` → 3.0
-(fallback); a genuine 3.0 km/h pad → 3.0 for a 3.0 step and a *visible* limit for the
-5.5 step; no range characteristic at all → 3.0. `node --check` on the extracted script.
+pad shapes: a stub `0x2AD4` (0.3) next to a sane `0x2AD1` (1–6) → 3.0 sent; W60
+(`0x2AD4` only, 1–6) → 3.0; tenths-of-km/h `0x2AD4` alone with and without `#max-speed`
+→ 3.0 (fallback); a genuine 3.0 km/h pad → 3.0 for a 3.0 step and a *visible* limit for
+the 5.5 step; no range characteristic at all → 3.0. `node --check` on the extracted
+script. None of these shapes is the Fousae — its real range is valid, see below.
 
 #### Follow-up (v1.1.1-dev.2): the Fousae's two frames per second
 
