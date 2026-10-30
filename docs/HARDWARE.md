@@ -104,8 +104,9 @@ Entry-level: a belt, a speed motor, a manual incline you set by hand and no sens
 - Minimum usable speed is 1.0 km/h, so `#min-speed: 1` matches the hardware (and is the
   default anyway). Speeds below that are not reachable.
 
-**The data stream quirk (this one caused two bugs).** The pad sends *two* Treadmill Data
-frames per second:
+**The data stream quirk (this one caused two bugs).** The pad sends *two* Treadmill
+Data frames per second (captured with v1.1.0, which still traced every frame; current
+code traces only the first ignored continuation):
 
 ```
 14.9s DATA flags=0x8 speed=3.0 incline=0.0%   ← complete frame: speed + inclination

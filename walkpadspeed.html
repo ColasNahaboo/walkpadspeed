@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.1-dev.3";}
+      #version:after {content: "v1.1.1-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1047,10 +1047,10 @@
       const FTMS_SUPPORTED_INCLINATION_RANGE_UUID = 0x2AD5;
       // Plausible bounds for a pad's advertised *maximum* speed. Walking pads
       // run up to 6 km/h and treadmills up to ~25, so anything outside this
-      // window is a bogus read rather than a real limit. This matters: cheap
-      // pads (Fousae ZX-390) expose a 0x2AD4 whose maximum field reads back as
-      // 30 (0.30 km/h). Trusting it silently caps every speed sent at 0.3 km/h,
-      // which looks exactly like "the routine's 3.0 km/h was divided by ten".
+      // window is a bogus read rather than a real limit. This matters: some
+      // cheap pads expose a 0x2AD4 whose maximum field reads back in the wrong
+      // units (e.g. 30 = 0.30 km/h). Trusting it silently caps every speed
+      // sent, which looks exactly like "the routine's speed was divided by ten".
       const SPEED_RANGE_PLAUSIBLE_MIN = 1.5;   // km/h
       const SPEED_RANGE_PLAUSIBLE_MAX = 30;    // km/h
       const spinUpTime = 5000;
@@ -2588,8 +2588,8 @@
       /* Reads the pad's Supported Speed Range and applies it as the speed cap.
          Both characteristics are probed instead of stopping at the first one
          that exists, and an implausible maximum is rejected: a pad can expose a
-         0x2AD4 that reads back garbage (Fousae ZX-390 reports 0.30 km/h there,
-         which used to cap every speed at 0.3 — the "speed divided by ten" bug).
+         0x2AD4 that reads back garbage, which would silently cap every speed
+         sent (see docs/HARDWARE.md §5 for the pads seen so far).
          Returns true when a usable range was found; false leaves bleMaxSpeed /
          bleMinSpeed null so #max-speed / #min-speed (or the defaults) apply. */
       async function readPadSpeedRange(service) {
@@ -3083,6 +3083,10 @@
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
                           remotePauseDebounce = null;
+                          // The app may have taken over the speed since the
+                          // timer was armed (own pause command, step change):
+                          // a detection from before that is stale.
+                          if (ignoreSpeedChanges) return;
                           // Re-read the live speed: the pad may have recovered
                           // (or dropped further) during the debounce window.
                           handleRemoteStateChange(currentLiveSpeed);
@@ -3107,6 +3111,8 @@
                   if (!remotePauseDebounce) {
                       remotePauseDebounce = setTimeout(() => {
                           remotePauseDebounce = null;
+                          // Stale-timer guard — see the pause branch above.
+                          if (ignoreSpeedChanges) return;
                           // Re-read the live speed: the pad may have recovered
                           // (or dropped further) during the debounce window.
                           handleRemoteStateChange(currentLiveSpeed);
@@ -4299,6 +4305,8 @@ Climb with Inclines // For walkpads with automatic incline settings
                   // Fresh connection: forget what a previous pad reported.
                   currentLiveIncline = null;
                   lastInclineCommand = null;
+                  completeDataFramesSeen = 0;
+                  moreDataFramesSkipped = 0;
 
                   updateStatus("Getting Fitness Machine Service...");
                   const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
