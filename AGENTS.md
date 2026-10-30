@@ -30,8 +30,8 @@ Plain `.txt` file. Key features implemented during this session:
 #max-heart-rate: 180
 #speed-unit: mph          # file-wide mph default for all speeds
 #incline: 6               # fixed treadmill incline, applied at start and shown like a step token
-#max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD4/0x2AD1 unreadable (default 12)
-#min-speed: 0.5           # fallback pad min-speed floor when BLE 0x2AD4/0x2AD1 unreadable (default 1.0)
+#max-speed: 8             # fallback pad max-speed cap when BLE 0x2AD4/0x2AD1 is absent or implausible (default 12)
+#min-speed: 0.5           # fallback pad min-speed floor when BLE 0x2AD4/0x2AD1 is absent or implausible (default 1.0)
 #version: 1
 
 # routine block (blank line separates routines)
@@ -452,3 +452,42 @@ unless the routines file declares `#debug: 1` or the player URL carries `?dbg=1`
 while enabled, the buffer is mirrored to `localStorage` (`wpss_debug_log`, 800 lines)
 so a reload does not lose a capture. This is what resolved the W60 speed/incline
 problems — reach for it before guessing.
+
+---
+
+### Session 2026-10-30: Fousae ZX-390 speed divided by ten (v1.1.1-dev.1)
+
+**Report.** After the W60 work, the old Fousae ZX-390 (last good: v1.0.2, commit
+`72880ed`) transmitted every speed divided by ten — a `3.0` step displayed and ran at
+`0.3`. The routine itself was parsed correctly; nothing in the speed path divides.
+
+**Root cause: the speed cap, not the speed.** v1.0.2 read only `0x2AD1` (the deprecated
+Supported Speed Range) for the cap. The W60 work flipped the probe order to `0x2AD4`
+first and stopped at the first characteristic that *exists*. The Fousae exposes both,
+and its `0x2AD4` reads back garbage — maximum field `30`, i.e. `0.30 km/h` — so
+`maxSpeedLimit` became 0.3 and `sendSpeed()` clamped every request to it
+(`min(3.0, 0.3) = 0.3`) with no message: the status still said "Speed set to 3.0 km/h"
+while the frame carried `02 1e 00`. A Playwright mock reproducing "0x2AD4 = 0.1–0.3,
+0x2AD1 = 1.0–6.0" shows v1.0.2 sending `02 2c 01` (3.00 km/h) and v1.1.0 sending
+`02 1e 00` (0.30 km/h), byte-for-byte the reported symptom.
+
+**Fix (`readPadSpeedRange()`, new helper next to `updateMaxSpeedLimit()`):**
+- both characteristics are probed, not only the first that resolves — `0x2AD4` first,
+  then `0x2AD1`, which is exactly the Fousae case (`0x2AD4` rejected → `0x2AD1` used);
+- a reading is only accepted when its maximum is plausible
+  (`SPEED_RANGE_PLAUSIBLE_MIN = 1.5`, `SPEED_RANGE_PLAUSIBLE_MAX = 30` km/h); anything
+  else is traced with its raw hex and skipped, leaving `bleMaxSpeed` null so
+  `#max-speed` / `DEFAULT_MAX_SPEED` apply as if the pad exposed nothing;
+- short (< 6 byte) values are ignored the same way.
+- `sendSpeed()` now says when it had to cap: `Speed 5.5 km/h limited to 3.0 km/h (pad
+  maximum)` instead of the misleading `Speed set to 5.5 km/h`. A silent cap is what
+  made this bug look like a unit conversion.
+- The trace line now carries both the chosen source and the raw bytes:
+  `RANGE 0x2AD4: 0.1–0.3 km/h (inc 0.1) [0a 00 1e 00 0a 00] — implausible, ignored`
+  then `RANGE using pad range → cap 6 km/h, floor 1 km/h`.
+
+**Verified** with a Playwright FTMS mock (control point, data, status, range) over six
+pad shapes: Fousae-like (bogus `0x2AD4` + sane `0x2AD1`) → 3.0 sent; W60 (`0x2AD4`
+only, 1–6) → 3.0; tenths-of-km/h `0x2AD4` alone with and without `#max-speed` → 3.0
+(fallback); a genuine 3.0 km/h pad → 3.0 for a 3.0 step and a *visible* limit for the
+5.5 step; no range characteristic at all → 3.0. `node --check` on the extracted script.

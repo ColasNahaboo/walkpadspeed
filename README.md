@@ -481,7 +481,7 @@ Hardware Support & Core Blueprint: This control system operates across standard 
 
 * **Service UUID:** `0x1826` (Fitness Machine Service)
 * **Control Characteristic:** `0x2AD9` (Machine Control Point) — the app requests control (`0x00`) and waits for the machine's answer before sending Start/Speed/Incline
-* **Supported Speed Range:** `0x2AD4` (falling back to the deprecated `0x2AD1`) — speeds are capped at what the pad reports
+* **Supported Speed Range:** `0x2AD4` (falling back to the deprecated `0x2AD1`) — speeds are capped at what the pad reports, provided the reported maximum is plausible (1.5–30 km/h); a nonsense reading is ignored instead of capping every speed to it
 * **Supported Inclination Range:** `0x2AD5` — incline commands are clamped to the pad's range
 * **Live Telemetry Stream:** `0x2ACD` (Treadmill Data)
 * **Machine Status:** `0x2ADA` — the pad's own events, logged to the console
@@ -511,6 +511,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v1.1.1 2026-10-30 fix: a pad whose Supported Speed Range reads nonsense (Fousae ZX-390: 0.30 km/h) no longer caps every speed to it — implausible ranges are ignored and the other characteristic or `#max-speed` is used. A speed that really is capped now says so in the status line.
 - v1.1.0 2026-10-29 work fully with the Merach W60, driving properly the incline. Some bugs were fixed, discovered with this new hardware setup.
 - v1.0.2 2026-10-13 ui: Speed in status is now always rounded to one decimal
 - v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.

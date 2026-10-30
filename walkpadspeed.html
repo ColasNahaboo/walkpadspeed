@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.0";}
+      #version:after {content: "v1.1.1-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1045,6 +1045,14 @@
       const FTMS_SUPPORTED_SPEED_RANGE_UUID_LEGACY = 0x2AD1;
       // Supported Inclination Range (0x2AD5): 6 bytes = 3 × UINT16 LE at 0.1 %.
       const FTMS_SUPPORTED_INCLINATION_RANGE_UUID = 0x2AD5;
+      // Plausible bounds for a pad's advertised *maximum* speed. Walking pads
+      // run up to 6 km/h and treadmills up to ~25, so anything outside this
+      // window is a bogus read rather than a real limit. This matters: cheap
+      // pads (Fousae ZX-390) expose a 0x2AD4 whose maximum field reads back as
+      // 30 (0.30 km/h). Trusting it silently caps every speed sent at 0.3 km/h,
+      // which looks exactly like "the routine's 3.0 km/h was divided by ten".
+      const SPEED_RANGE_PLAUSIBLE_MIN = 1.5;   // km/h
+      const SPEED_RANGE_PLAUSIBLE_MAX = 30;    // km/h
       const spinUpTime = 5000;
 
       // Effective speed cap (km/h). Updated by updateMaxSpeedLimit() from either
@@ -1559,14 +1567,21 @@
 
               // Cap the effective (modifier-applied) speed at maxSpeedLimit, the
               // pad's advertized cap or the #max-speed override.
-              const effectiveSpeed = Math.min(speedKmh * speedMod, maxSpeedLimit);
+              const requestedSpeed = speedKmh * speedMod;
+              const effectiveSpeed = Math.min(requestedSpeed, maxSpeedLimit);
               const speedRaw = Math.round(effectiveSpeed * 100);
+              const capped = effectiveSpeed < requestedSpeed - 0.05;
 
               const result = await sendControlCommand(
                   Uint8Array.of(FTMS_OP_SET_SPEED, speedRaw & 0xff, (speedRaw >> 8) & 0xff),
                   `set speed ${effectiveSpeed.toFixed(1)} km/h`);
               if (result !== null && result !== FTMS_RESULT_SUCCESS) {
-                  updateStatus(`Pad refused ${speedKmh.toFixed(1)} km/h (${ftmsResultName(result)})`);
+                  updateStatus(`Pad refused ${effectiveSpeed.toFixed(1)} km/h (${ftmsResultName(result)})`);
+              } else if (capped) {
+                  // Never hide a cap: a bogus pad range otherwise looks like the
+                  // app quietly sending a tenth of the routine's speed.
+                  updateStatus(`Speed ${requestedSpeed.toFixed(1)} km/h limited to ` +
+                               `${effectiveSpeed.toFixed(1)} km/h (pad maximum)`);
               } else {
                   updateStatus(`Speed set to ${speedKmh.toFixed(1)} km/h`);
               }
@@ -2534,6 +2549,49 @@
           } else {
               speedMinThreshold = DEFAULT_MIN_SPEED;
           }
+      }
+
+      function hexBytes(dataView) {
+          return Array.from(new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength))
+              .map(b => b.toString(16).padStart(2, '0')).join(' ');
+      }
+
+      /* Reads the pad's Supported Speed Range and applies it as the speed cap.
+         Both characteristics are probed instead of stopping at the first one
+         that exists, and an implausible maximum is rejected: a pad can expose a
+         0x2AD4 that reads back garbage (Fousae ZX-390 reports 0.30 km/h there,
+         which used to cap every speed at 0.3 — the "speed divided by ten" bug).
+         Returns true when a usable range was found; false leaves bleMaxSpeed /
+         bleMinSpeed null so #max-speed / #min-speed (or the defaults) apply. */
+      async function readPadSpeedRange(service) {
+          for (const uuid of [FTMS_SUPPORTED_SPEED_RANGE_UUID,
+                              FTMS_SUPPORTED_SPEED_RANGE_UUID_LEGACY]) {
+              const label = `0x${uuid.toString(16).toUpperCase()}`;
+              let dv;
+              try {
+                  dv = await (await service.getCharacteristic(uuid)).readValue();
+              } catch (missingErr) {
+                  continue; // characteristic not exposed by this pad
+              }
+              if (!dv || dv.byteLength < 6) {
+                  trace(`RANGE ${label}: ${dv ? dv.byteLength : 0} byte(s) — ignored`);
+                  continue;
+              }
+              const min = dv.getUint16(0, true) / 100;
+              const max = dv.getUint16(2, true) / 100;
+              const inc = dv.getUint16(4, true) / 100;
+              const hex = hexBytes(dv);
+              if (max < SPEED_RANGE_PLAUSIBLE_MIN || max > SPEED_RANGE_PLAUSIBLE_MAX) {
+                  trace(`RANGE ${label}: ${min}–${max} km/h (inc ${inc}) [${hex}] — implausible, ignored`);
+                  continue;
+              }
+              bleMinSpeed     = min;
+              bleMaxSpeed     = max;
+              bleMinIncrement = inc;
+              trace(`RANGE ${label}: speed ${min}–${max} km/h (inc ${inc}) [${hex}]`);
+              return true;
+          }
+          return false;
       }
 
       function parseMetadata(text) {
@@ -4266,30 +4324,19 @@ updateStatus("Subscribing to Walkpad Data stream...");
                    // Read the pad's supported speed range so we can cap sent
                    // speeds at the pad's real maximum. 0x2AD4 (current FTMS) is
                    // probed first, then the deprecated 0x2AD1; pads exposing
-                   // neither fall back to the #max-speed override (or default).
+                   // neither — or only implausible values — fall back to the
+                   // #max-speed override (or the default cap).
+                   updateStatus("Reading pad speed range...");
+                   let gotSpeedRange = false;
                    try {
-                       updateStatus("Reading pad speed range...");
-                       let speedRangeChar = null;
-                       for (const uuid of [FTMS_SUPPORTED_SPEED_RANGE_UUID,
-                                           FTMS_SUPPORTED_SPEED_RANGE_UUID_LEGACY]) {
-                           try {
-                               speedRangeChar = await service.getCharacteristic(uuid);
-                               break;
-                           } catch (missingErr) { /* try the next UUID */ }
-                       }
-                       if (!speedRangeChar) throw new Error('no Supported Speed Range characteristic');
-                       const dv = await speedRangeChar.readValue();
-                       bleMinSpeed     = dv.getUint16(0, true) / 100;
-                       bleMaxSpeed     = dv.getUint16(2, true) / 100;
-                       bleMinIncrement = dv.getUint16(4, true) / 100;
-                        updateMaxSpeedLimit();
-                        updateSpeedMinThreshold();
-                        trace(`RANGE speed ${bleMinSpeed}–${bleMaxSpeed} km/h (inc ${bleMinIncrement}) → cap ${maxSpeedLimit}`);
-                    } catch (rangeErr) {
-                        console.warn("Supported Speed Range not readable; using #max-speed fallback. ", rangeErr.message);
-                        updateMaxSpeedLimit();
-                        updateSpeedMinThreshold();
-                    }
+                       gotSpeedRange = await readPadSpeedRange(service);
+                   } catch (rangeErr) {
+                       console.warn("Reading the pad speed range failed: ", rangeErr.message);
+                   }
+                   updateMaxSpeedLimit();
+                   updateSpeedMinThreshold();
+                   trace(`RANGE ${gotSpeedRange ? 'using pad range' : 'no usable pad range (#max-speed fallback)'}` +
+                         ` → cap ${maxSpeedLimit} km/h, floor ${speedMinThreshold} km/h`);
 
                    // Supported Inclination Range: used to clamp incline commands
                    // to what the deck can actually do (W60: 0–12 %).
