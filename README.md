@@ -399,6 +399,8 @@ So I designed walkpadspeed to ["scratch my own itch"](https://dev.to/lirena00/sc
 - **easy to use** simple controls implementing my needs simply.
 - **opiniotated** keep bloat away by refusing to add non-essential features that could be found in other, more complex apps.
 
+Note: As the Fousae show sign or weaar, I bought also a Merach W60, better built, and also with a more conformant implementation of the FTMS Bluetooth protocol.
+
 ### Future developments
 
 Bugs and suggestions are always welcome, but know that I will resist adding features that would add complexity and bloat.
@@ -517,7 +519,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v1.1.1 2026-10-30 fix: the Fousae's extra "More Data" data frames (they showed up as a live speed of 0.1, 0.2, 0.3 … km/h — that is the "speed divided by ten" report — and could pause the routine at a step change), plus a remote resume at the pad's minimum speed now registering. A padded safety net was also added: a pad whose Supported Speed Range reads nonsense is ignored instead of capping every speed to it, and a speed that really is capped now says so in the status line.
+- v1.1.1 2026-10-30 fix: Implementing the proper FTMS handling of the W60 broke some code handling the Fousae's flaky implementation (as I guess most cheap pads). The code now works for both by implementing workaround in case of the common bogus communicatyions with the pad.
 - v1.1.0 2026-10-29 work fully with the Merach W60, driving properly the incline. Some bugs were fixed, discovered with this new hardware setup.
 - v1.0.2 2026-10-13 ui: Speed in status is now always rounded to one decimal
 - v1.0.1 2026-09-23 minor fix: Test mode may not work,as it expected a separate hr.txt file for the heart rate mock test data. Now this file is embedded in the app, so test mode works everywhere.
