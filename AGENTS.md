@@ -98,8 +98,11 @@ to 38–50 % — that was the older design and it is what the README used to say
 
 Standard BLE Heart Rate Profile (`service 0x180D`, characteristic `0x2A37`, Notify). Implemented as:
 
-- **`connectHRM()`** — BLE device picker filtered by `heart_rate` service
+- **`connectHRM()`** — BLE device picker filtered by `heart_rate` service, then `openHrmGatt()` (see below)
 - **`disconnectHRM()`** — clean disconnect
+- **`openHrmGatt()`** — connects, discovers `heart_rate_measurement` and subscribes, retrying up to `HRM_CONNECT_ATTEMPTS = 3` (backoff `HRM_CONNECT_RETRY_MS × attempt`). Two failure modes justify it: BlueZ can resolve `gatt.connect()` before the ATT link is really up (the next operation then throws `GATT Server is disconnected…` on a perfectly good strap), and a link left over from a previous session (strap asleep, laptop suspended) keeps reporting `connected === true` forever while every operation fails — `connect()` short-circuits on it, so it is torn down (`disconnect()`, 150 ms) before each attempt.
+- **`attachHrmDisconnectHandler(device)`** — attaches `gattserverdisconnected` once per device (requestDevice hands back the same `BluetoothDevice` instance every time, so an unguarded listener accumulates); clears `hrmCharacteristic` and `currentHeartRate`
+- **`hrmConnecting`** — guards against double taps on the HR box; `handleHrmBoxClick()` only treats the link as connected when `gatt.connected && hrmCharacteristic`, otherwise a stale server would make the tap "disconnect" nothing
 - **`handleHrmNotification(event)`** — parses flags byte (uint8 vs uint16 HR value), stores `currentHeartRate`, calls `updateHrmUI` + `updateHrZone`
 - **`updateHrmUI(state, bpm)`** — toggles the HR metric box between connect/connecting/connected states
 - **`updateHrZone(bpm)`** — updates zone display, background color, max-HR flash animation, mercury pillars, and calls `applyHrmZoneAdjust()` on zone change

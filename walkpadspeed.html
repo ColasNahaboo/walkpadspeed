@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.1";}
+      #version:after {content: "v1.1.2-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1697,7 +1697,12 @@
          ================================================================ */
 
       function handleHrmBoxClick() {
-          if (hrmDevice && hrmDevice.gatt.connected) {
+          if (hrmConnecting) return;   // a connect attempt is already running
+          // Only a link with a live characteristic counts as connected: after a
+          // strap sleep or a laptop suspend the GATT server can still report
+          // connected === true while every operation fails with "GATT Server is
+          // disconnected", and a tap would then "disconnect" nothing.
+          if (hrmDevice && hrmDevice.gatt.connected && hrmCharacteristic) {
               disconnectHRM();
           } else {
               connectHRM();
@@ -1759,7 +1764,63 @@
           handleHrmNotification({ target: { value: view } });
       }
 
-            async function connectHRM() {
+      /* ================================================================
+         HRM GATT SETUP
+         Two failure modes each cost the user a whole connect attempt:
+         - BlueZ/Chrome can resolve gatt.connect() before the ATT link is
+           really up, so the next operation throws "GATT Server is
+           disconnected..." while the strap is perfectly fine → retry.
+         - a link left over from a previous session (strap slept, laptop
+           suspended, page reloaded) keeps reporting connected === true
+           forever, and connect() short-circuits on it → tear it down first.
+         ================================================================ */
+      const HRM_CONNECT_ATTEMPTS = 3;
+      const HRM_CONNECT_RETRY_MS = 400;
+      let hrmConnecting = false;
+
+      async function openHrmGatt() {
+          let lastErr = null;
+          for (let attempt = 1; attempt <= HRM_CONNECT_ATTEMPTS; attempt++) {
+              try {
+                  if (hrmDevice.gatt.connected) {
+                      hrmDevice.gatt.disconnect();
+                      // disconnect() is asynchronous: give Chrome time to drop
+                      // the old bearer before opening a new one.
+                      await new Promise(resolve => setTimeout(resolve, 150));
+                  }
+                  const server = await hrmDevice.gatt.connect();
+                  if (!server.connected) throw new Error('GATT link closed right after connect');
+                  const service = await server.getPrimaryService('heart_rate');
+                  const characteristic = await service.getCharacteristic('heart_rate_measurement');
+                  await characteristic.startNotifications();
+                  trace(`HRM GATT ready (attempt ${attempt})`);
+                  return characteristic;
+              } catch (err) {
+                  lastErr = err;
+                  trace(`HRM GATT attempt ${attempt}/${HRM_CONNECT_ATTEMPTS} failed: ${err.message}`);
+                  if (attempt < HRM_CONNECT_ATTEMPTS) {
+                      await new Promise(resolve => setTimeout(resolve, HRM_CONNECT_RETRY_MS * attempt));
+                  }
+              }
+          }
+          throw lastErr;
+      }
+
+      /* Chrome fires this on link loss / strap power-off. Attached once per
+         device object: requestDevice hands back the same BluetoothDevice
+         instance on every call, so an unguarded listener would accumulate. */
+      function attachHrmDisconnectHandler(device) {
+          if (!device || device.hrmDisconnectHooked) return;
+          device.hrmDisconnectHooked = true;
+          device.addEventListener('gattserverdisconnected', () => {
+              hrmCharacteristic = null;
+              currentHeartRate = 0;
+              updateHrmUI('idle');
+              updateStatus('Heart Rate Monitor disconnected.');
+          });
+      }
+
+      async function connectHRM() {
           updateHrmUI('connecting');
           
           // ★ TEST MODE BRANCH ★
@@ -1782,34 +1843,38 @@
               return;
           }
 
-          // ★ REAL BLE BRANCH (Your existing code) ★
+          // ★ REAL BLE BRANCH ★
+          hrmConnecting = true;
           try {
               hrmDevice = await navigator.bluetooth.requestDevice({
                   filters: [{ services: ['heart_rate'] }]
               });
+              trace(`HRM CONNECT ${hrmDevice.name || '(unnamed)'} id=${hrmDevice.id || '?'} build=${buildVersion()}`);
 
-              hrmDevice.addEventListener('gattserverdisconnected', () => {
-                  hrmCharacteristic = null;
-                  updateHrmUI('idle');
-                  updateStatus('Heart Rate Monitor disconnected.');
-              });
-
-              const server = await hrmDevice.gatt.connect();
-              const service = await server.getPrimaryService('heart_rate');
-              hrmCharacteristic = await service.getCharacteristic('heart_rate_measurement');
-
-              hrmCharacteristic.addEventListener('characteristicvaluechanged', handleHrmNotification);
-              await hrmCharacteristic.startNotifications();
+              const characteristic = await openHrmGatt();
+              attachHrmDisconnectHandler(hrmDevice);
+              characteristic.addEventListener('characteristicvaluechanged', handleHrmNotification);
+              hrmCharacteristic = characteristic;
 
               updateHrmUI('connected', '--');
               updateStatus(`HRM connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`);
           } catch (err) {
+              // Drop a half-open link so the next tap starts from a clean slate.
+              if (hrmDevice && hrmDevice.gatt.connected) {
+                  try { hrmDevice.gatt.disconnect(); } catch (e) { /* already gone */ }
+              }
               hrmDevice = null;
               hrmCharacteristic = null;
+              currentHeartRate = 0;
               updateHrmUI('idle');
               if (err.name !== 'NotFoundError') {
-                  updateStatus('HRM connection failed: ' + err.message);
+                  const hint = /disconnect|connection failed|not in range|unknown reason/i.test(err.message)
+                      ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
+                      : '';
+                  updateStatus('HRM connection failed: ' + (err.message || err.name) + hint);
               }
+          } finally {
+              hrmConnecting = false;
           }
       }
       
@@ -1826,12 +1891,13 @@
               return;
           }
 
-          // ★ REAL BLE CLEANUP (Your existing code) ★
+          // ★ REAL BLE CLEANUP ★
           if (hrmDevice) {
               if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
               hrmDevice = null;
               hrmCharacteristic = null;
           }
+          currentHeartRate = 0;
           updateHrmUI('idle');
       }
 
