@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.3-dev.1";}
+      #version:after {content: "v1.1.3-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1776,21 +1776,48 @@
 
       /* ================================================================
          HRM GATT SETUP
-         Two failure modes each cost the user a whole connect attempt:
+         Three failure modes each cost the user a whole connect attempt:
          - BlueZ/Chrome can resolve gatt.connect() before the ATT link is
            really up, so the next operation throws "GATT Server is
            disconnected..." while the strap is perfectly fine → retry.
          - a link left over from a previous session (strap slept, laptop
            suspended, page reloaded) keeps reporting connected === true
            forever, and connect() short-circuits on it → tear it down first.
+         - with the strap held by another central (phone app, watch), BlueZ
+           can leave a GATT operation pending forever: nothing throws, the
+           UI stays on the spinner and the app has nothing to report. Every
+           operation is therefore raced against a timeout, and each stage
+           that completes is traced, so a log always says where it stopped.
          ================================================================ */
       const HRM_CONNECT_ATTEMPTS = 3;
       const HRM_CONNECT_RETRY_MS = 400;
+      const HRM_OP_TIMEOUT_MS = 10000;    // per GATT operation
+      const HRM_CONNECT_BUDGET_MS = 40000; // for all attempts together
+      const HRM_FIRST_BEAT_MS = 15000;    // "connected but silent" warning
       let hrmConnecting = false;
+      let hrmFirstBeatSeen = false;
+      let hrmBeatTimer = null;
+
+      function hrmOpTimeout(promise, label) {
+          return Promise.race([
+              promise,
+              new Promise((_, reject) => setTimeout(
+                  () => reject(new Error(`${label} timed out after ${HRM_OP_TIMEOUT_MS / 1000}s`)),
+                  HRM_OP_TIMEOUT_MS)),
+          ]);
+      }
+
+      function stopHrmBeatWatchdog() {
+          if (hrmBeatTimer) { clearTimeout(hrmBeatTimer); hrmBeatTimer = null; }
+      }
 
       async function openHrmGatt() {
           let lastErr = null;
+          const startedAt = Date.now();
           for (let attempt = 1; attempt <= HRM_CONNECT_ATTEMPTS; attempt++) {
+              // Never start an attempt that cannot fit in the budget.
+              if (lastErr && Date.now() - startedAt > HRM_CONNECT_BUDGET_MS) break;
+              updateStatus(`Connecting to HRM (attempt ${attempt}/${HRM_CONNECT_ATTEMPTS})…`);
               try {
                   if (hrmDevice.gatt.connected) {
                       hrmDevice.gatt.disconnect();
@@ -1798,16 +1825,21 @@
                       // the old bearer before opening a new one.
                       await new Promise(resolve => setTimeout(resolve, 150));
                   }
-                  const server = await hrmDevice.gatt.connect();
+                  const server = await hrmOpTimeout(hrmDevice.gatt.connect(), 'gatt.connect()');
                   if (!server.connected) throw new Error('GATT link closed right after connect');
-                  const service = await server.getPrimaryService('heart_rate');
-                  const characteristic = await service.getCharacteristic('heart_rate_measurement');
-                  await characteristic.startNotifications();
-                  trace(`HRM GATT ready (attempt ${attempt})`);
+                  trace(`HRM link up (attempt ${attempt})`);
+                  const service = await hrmOpTimeout(server.getPrimaryService('heart_rate'), 'getPrimaryService');
+                  const characteristic = await hrmOpTimeout(
+                      service.getCharacteristic('heart_rate_measurement'), 'getCharacteristic');
+                  await hrmOpTimeout(characteristic.startNotifications(), 'startNotifications');
+                  trace(`HRM notifications on (attempt ${attempt})`);
                   return characteristic;
               } catch (err) {
                   lastErr = err;
                   trace(`HRM GATT attempt ${attempt}/${HRM_CONNECT_ATTEMPTS} failed: ${err.message}`);
+                  // A hung ATT operation will not answer a second time either:
+                  // report it now instead of making the user wait for 3 timeouts.
+                  if (/timed out/.test(err.message)) break;
                   if (attempt < HRM_CONNECT_ATTEMPTS) {
                       await new Promise(resolve => setTimeout(resolve, HRM_CONNECT_RETRY_MS * attempt));
                   }
@@ -1823,8 +1855,11 @@
           if (!device || device.hrmDisconnectHooked) return;
           device.hrmDisconnectHooked = true;
           device.addEventListener('gattserverdisconnected', () => {
+              trace('HRM disconnected');
+              stopHrmBeatWatchdog();
               hrmCharacteristic = null;
               currentHeartRate = 0;
+              hrmFirstBeatSeen = false;
               updateHrmUI('idle');
               updateStatus('Heart Rate Monitor disconnected.');
           });
@@ -1868,6 +1903,18 @@
 
               updateHrmUI('connected', '--');
               updateStatus(`HRM connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`);
+
+              // A strap that is connected but not worn notifies nothing at all,
+              // which looks exactly like a broken connection. Say so.
+              hrmFirstBeatSeen = false;
+              stopHrmBeatWatchdog();
+              hrmBeatTimer = setTimeout(() => {
+                  hrmBeatTimer = null;
+                  if (!hrmFirstBeatSeen) {
+                      trace('HRM no data after connect');
+                      updateStatus('HRM connected but sending no data — is the strap worn and in contact?');
+                  }
+              }, HRM_FIRST_BEAT_MS);
           } catch (err) {
               // Drop a half-open link so the next tap starts from a clean slate.
               if (hrmDevice && hrmDevice.gatt.connected) {
@@ -1876,9 +1923,11 @@
               hrmDevice = null;
               hrmCharacteristic = null;
               currentHeartRate = 0;
+              hrmFirstBeatSeen = false;
+              stopHrmBeatWatchdog();
               updateHrmUI('idle');
               if (err.name !== 'NotFoundError') {
-                  const hint = /disconnect|connection failed|not in range|unknown reason/i.test(err.message)
+                  const hint = /disconnect|connection failed|not in range|unknown reason|timed out/i.test(err.message)
                       ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
                       : '';
                   updateStatus('HRM connection failed: ' + (err.message || err.name) + hint);
@@ -1908,6 +1957,8 @@
               hrmCharacteristic = null;
           }
           currentHeartRate = 0;
+          hrmFirstBeatSeen = false;
+          stopHrmBeatWatchdog();
           updateHrmUI('idle');
       }
 
@@ -1916,6 +1967,11 @@
           const flags = data.getUint8(0);
           // Bit 0 of flags: 0 = HR value is uint8, 1 = uint16 (little-endian)
           const bpm = (flags & 0x01) ? data.getUint16(1, true) : data.getUint8(1);
+          if (!hrmFirstBeatSeen) {
+              hrmFirstBeatSeen = true;
+              stopHrmBeatWatchdog();
+              trace(`HRM first BPM ${bpm}`);
+          }
           currentHeartRate = bpm;
           // 1 Hz history for the gain learner (learnHrGain), pruned to 4 min
           hrHistory.push({ t: Date.now(), speed: currentTargetSpeed, hr: bpm });
