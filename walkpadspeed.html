@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.3-dev.2";}
+      #version:after {content: "v1.1.3-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1837,10 +1837,18 @@
               } catch (err) {
                   lastErr = err;
                   trace(`HRM GATT attempt ${attempt}/${HRM_CONNECT_ATTEMPTS} failed: ${err.message}`);
-                  // A hung ATT operation will not answer a second time either:
-                  // report it now instead of making the user wait for 3 timeouts.
-                  if (/timed out/.test(err.message)) break;
-                  if (attempt < HRM_CONNECT_ATTEMPTS) {
+                  if (/timed out/.test(err.message)) {
+                      // The stack says the link is up but the strap answered
+                      // nothing: typically a strap that woke up only halfway, or
+                      // a phantom link the controller reconnected from its peer
+                      // cache. A bare retry would reuse that dead link, so tear
+                      // it down and let the next attempt open a real connection.
+                      trace('HRM link answered nothing — tearing it down for the retry');
+                      try {
+                          if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
+                      } catch (e) { /* already gone */ }
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                  } else if (attempt < HRM_CONNECT_ATTEMPTS) {
                       await new Promise(resolve => setTimeout(resolve, HRM_CONNECT_RETRY_MS * attempt));
                   }
               }
@@ -1927,9 +1935,11 @@
               stopHrmBeatWatchdog();
               updateHrmUI('idle');
               if (err.name !== 'NotFoundError') {
-                  const hint = /disconnect|connection failed|not in range|unknown reason|timed out/i.test(err.message)
-                      ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
-                      : '';
+                  const hint = /timed out/i.test(err.message)
+                      ? ' — the strap is not answering: wear it (or touch its contacts) to wake it, and check that no phone or watch is holding it.'
+                      : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)
+                          ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
+                          : '';
                   updateStatus('HRM connection failed: ' + (err.message || err.name) + hint);
               }
           } finally {
