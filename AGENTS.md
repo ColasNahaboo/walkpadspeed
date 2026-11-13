@@ -96,6 +96,8 @@ to 38–50 % — that was the older design and it is what the README used to say
 
 ### HRM (Heart Rate Monitor) feature
 
+**Where it runs:** on Colas's **Android phone, in Chrome for Android** — the `#debug: 1` traces quoted in this file come from there. The Linux host `colas` is a development machine (it ran the app once, for a debug session), so its `bluetoothctl` / `hcitool` state says nothing about the phone's Bluetooth stack. Android-specific causes of a hung GATT setup: the strap bonded in Android's Bluetooth settings (the OS auto-reconnects it, so `gatt.connect()` resolves in ~0.2 s over a link Chrome does not really drive), the COROS app keeping the strap subscribed in the background, and Chrome background tabs frozen by Doze holding a half-dead link. Recovery: *Forget* the strap in Android's Bluetooth settings, force-stop the COROS app, close old Chrome tabs, or toggle the phone's Bluetooth off/on.
+
 Standard BLE Heart Rate Profile (`service 0x180D`, characteristic `0x2A37`, Notify). Implemented as:
 
 - **`connectHRM()`** — BLE device picker filtered by `heart_rate` service, then `openHrmGatt()` (see below)
