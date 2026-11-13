@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.3-dev.3";}
+      #version:after {content: "v1.1.3-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1790,7 +1790,10 @@
            that completes is traced, so a log always says where it stopped.
          ================================================================ */
       const HRM_CONNECT_ATTEMPTS = 3;
-      const HRM_CONNECT_RETRY_MS = 400;
+      // Long enough for Android to really release the old ACL before we ask
+      // for a new one: reconnecting within a few hundred ms is what produced
+      // the "link up but the strap never answers" hang.
+      const HRM_CONNECT_RETRY_MS = 1500;
       const HRM_OP_TIMEOUT_MS = 10000;    // per GATT operation
       const HRM_CONNECT_BUDGET_MS = 40000; // for all attempts together
       const HRM_FIRST_BEAT_MS = 15000;    // "connected but silent" warning
@@ -1819,11 +1822,15 @@
               if (lastErr && Date.now() - startedAt > HRM_CONNECT_BUDGET_MS) break;
               updateStatus(`Connecting to HRM (attempt ${attempt}/${HRM_CONNECT_ATTEMPTS})…`);
               try {
+                  // A link Chrome already has is used as is (v1.1.1 behaviour).
+                  // Tearing it down and reconnecting a few hundred ms later is
+                  // what produced the 2026-11-13 hang — "link up in 0.2 s, then
+                  // startNotifications never answers" — because Android keeps
+                  // the ACL alive while the strap's GATT side is still unwinding
+                  // the old connection. A bad link is now closed in the catch
+                  // below, i.e. only when it has actually failed.
                   if (hrmDevice.gatt.connected) {
-                      hrmDevice.gatt.disconnect();
-                      // disconnect() is asynchronous: give Chrome time to drop
-                      // the old bearer before opening a new one.
-                      await new Promise(resolve => setTimeout(resolve, 150));
+                      trace(`HRM link already up (attempt ${attempt}) — using it as is`);
                   }
                   const server = await hrmOpTimeout(hrmDevice.gatt.connect(), 'gatt.connect()');
                   if (!server.connected) throw new Error('GATT link closed right after connect');
@@ -1837,18 +1844,14 @@
               } catch (err) {
                   lastErr = err;
                   trace(`HRM GATT attempt ${attempt}/${HRM_CONNECT_ATTEMPTS} failed: ${err.message}`);
-                  if (/timed out/.test(err.message)) {
-                      // The stack says the link is up but the strap answered
-                      // nothing: typically a strap that woke up only halfway, or
-                      // a phantom link the controller reconnected from its peer
-                      // cache. A bare retry would reuse that dead link, so tear
-                      // it down and let the next attempt open a real connection.
-                      trace('HRM link answered nothing — tearing it down for the retry');
-                      try {
-                          if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
-                      } catch (e) { /* already gone */ }
-                      await new Promise(resolve => setTimeout(resolve, 500));
-                  } else if (attempt < HRM_CONNECT_ATTEMPTS) {
+                  // Whatever went wrong, the link is now in an unknown state
+                  // (half-dead, or a phantom the stack still believes in), so
+                  // close it: a bare retry would reuse it and fail identically.
+                  try {
+                      if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
+                  } catch (e) { /* already gone */ }
+                  if (attempt < HRM_CONNECT_ATTEMPTS) {
+                      trace('HRM link closed — retrying on a fresh connection');
                       await new Promise(resolve => setTimeout(resolve, HRM_CONNECT_RETRY_MS * attempt));
                   }
               }
