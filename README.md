@@ -256,6 +256,8 @@ Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optim
 * **Z4 (80–90% | Threshold | Orange):** Raises your lactate threshold, teaching your body to buffer metabolic byproducts and maintain higher speeds before hitting fatigue.
 * **Z5 (90–100% | VO2 Max | Red):** Develops peak anaerobic power, maximum cardiac output, and your absolute aerobic ceiling (VO2 max) using short, high-intensity efforts.
 
+If the **❤ HR** display refuses to connect, see [Troubleshooting](#troubleshooting): the usual fix is to reopen the app in a new tab.
+
 Here is how the **❤ HR** display, initially empty on the left view, will appear in different zones:
 
 ![Zones screenshots](docs/zones-screenshot.webp)
@@ -375,6 +377,10 @@ Make sure it's powered on and not already connected to another phone/app — mos
 
 **"No valid routines detected in file."**
 Double check each routine has a name line followed by at least one step line, and that step lines look like `speed duration` (e.g. `5 60`), with a blank line between separate routines.
+
+**The ❤ HR display stays on `…`, or says `HRM connection failed: … timed out`, and no heart rate appears.**
+First wear the strap for a few seconds: a heart-rate band only wakes up and advertises when it detects contact, and it must not be held by something else (the phone's own app, a watch). If the app gives up after three attempts with a `timed out` message, **reload the page, or better, reopen the app in a new tab**. Chrome's Bluetooth session belongs to the page: a write that never completed keeps every later attempt queued behind it, so retrying inside that tab can never succeed, while a new page starts from scratch. An older walkpadspeed would simply hang there forever instead of telling you.
+Note that reloading the player while a routine is running drops the app's control of the pad (the belt keeps its last speed), so stop or finish the routine first — the heart rate is optional and the routine runs fine without it.
 
 Note: to access the browser console to see internal log messages, use the "Console" toggle switch at the bottom of the manager view.
 
