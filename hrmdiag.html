@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HRM diagnostic</title>
+<style>
+    :root {
+        --accent: #ff9f0a;
+        --bg: #000000;
+        --panel: #1c1c1e;
+        --text: #ffffff;
+        --muted: #b0b0b0;
+        --ok: #34c759;
+        --danger: #ff4535;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { padding: 16px 16px 40px; max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.3rem; margin: 0 0 4px; }
+    p.note { color: var(--muted); font-size: 0.85rem; margin: 0 0 16px; line-height: 1.4; }
+    #bpm { font-size: 4rem; font-weight: 700; text-align: center; margin: 8px 0 4px; color: var(--accent); }
+    #bpmSub { text-align: center; color: var(--muted); font-size: 0.8rem; margin-bottom: 16px; }
+    button { display: block; width: 100%; padding: 16px; margin: 8px 0; font-size: 1.05rem;
+        font-weight: 600; border: 0; border-radius: 12px; background: var(--accent); color: #000; }
+    button.secondary { background: var(--panel); color: var(--text); }
+    button:disabled { opacity: 0.4; }
+    label.opt { display: flex; gap: 10px; align-items: center; margin: 12px 0;
+        color: var(--muted); font-size: 0.9rem; }
+    pre { background: var(--panel); border-radius: 12px; padding: 12px; margin-top: 12px;
+        font-size: 0.78rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+        max-height: 55vh; overflow: auto; min-height: 120px; }
+    .ok { color: var(--ok); }
+    .err { color: var(--danger); }
+</style>
+</head>
+<body>
+<h1>HRM diagnostic</h1>
+<p class="note">Connects to a BLE heart-rate strap and subscribes, one step at a time, with
+timings. It shares no code with walkpadspeed, so it separates the strap and the phone
+from the app.</p>
+
+<div id="bpm">--</div>
+<div id="bpmSub">bpm</div>
+
+<button id="connectBtn">Connect</button>
+<button id="disconnectBtn" class="secondary" disabled>Disconnect</button>
+<label class="opt"><input type="checkbox" id="allDevices"> show all BLE devices (skip the heart-rate filter)</label>
+<button id="clearBtn" class="secondary">Clear log</button>
+<pre id="log">ready</pre>
+
+<script>
+const logEl = document.getElementById('log');
+const bpmEl = document.getElementById('bpm');
+const connectBtn = document.getElementById('connectBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
+const allDevices = document.getElementById('allDevices');
+
+let t0 = performance.now();
+let device = null;
+let characteristic = null;
+let firstBeat = false;
+
+function log(msg, cls) {
+    const t = ((performance.now() - t0) / 1000).toFixed(2).padStart(6, ' ');
+    const line = `+${t}s ${msg}`;
+    logEl.textContent += '\n' + line;
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log(line);
+}
+
+function withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(
+            () => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)),
+    ]);
+}
+
+async function start() {
+    logEl.textContent = 'start';
+    t0 = performance.now();
+    firstBeat = false;
+    bpmEl.textContent = '--';
+    connectBtn.disabled = true;
+
+    if (!navigator.bluetooth) {
+        log('navigator.bluetooth is MISSING (page not secure, or Web Bluetooth disabled)', 'err');
+        connectBtn.disabled = false;
+        return;
+    }
+    log(`ua: ${navigator.userAgent}`);
+
+    try {
+        const opts = allDevices.checked
+            ? { acceptAllDevices: true, optionalServices: ['heart_rate'] }
+            : { filters: [{ services: ['heart_rate'] }] };
+        log(allDevices.checked ? 'requestDevice(acceptAllDevices) …' : 'requestDevice(heart_rate filter) …');
+        device = await navigator.bluetooth.requestDevice(opts);
+        log(`device: ${device.name || '(unnamed)'} id=${device.id || '?'}`, 'ok');
+        device.addEventListener('gattserverdisconnected', () => {
+            log('EVENT gattserverdisconnected', 'err');
+            disconnectBtn.disabled = true;
+            connectBtn.disabled = false;
+        });
+
+        log('gatt.connect() …');
+        const server = await withTimeout(device.gatt.connect(), 15000, 'gatt.connect');
+        log(`gatt.connect OK (connected=${server.connected})`, 'ok');
+
+        log('getPrimaryService(heart_rate) …');
+        const service = await withTimeout(server.getPrimaryService('heart_rate'), 10000, 'getPrimaryService');
+        log('service OK', 'ok');
+
+        log('getCharacteristic(heart_rate_measurement) …');
+        characteristic = await withTimeout(
+            service.getCharacteristic('heart_rate_measurement'), 10000, 'getCharacteristic');
+        const props = characteristic.properties;
+        log(`characteristic OK (notify=${!!props.notify} indicate=${!!props.indicate} read=${!!props.read})`, 'ok');
+
+        // Liveness probe: reading the CCCD descriptor is an ordinary ATT read.
+        try {
+            const descriptors = await withTimeout(characteristic.getDescriptors(), 5000, 'getDescriptors');
+            log(`descriptors: ${descriptors.map(d => d.uuid).join(', ') || '(none)'}`);
+            const cccd = descriptors.find(d => d.uuid === '00002902-0000-1000-8000-00805f9b34fb');
+            if (cccd) {
+                log('CCCD readValue …');
+                const v = await withTimeout(cccd.readValue(), 5000, 'CCCD readValue');
+                log(`CCCD = [${Array.from(new Uint8Array(v.buffer)).join(' ')}]`, 'ok');
+            }
+        } catch (e) {
+            log(`descriptor probe: ${e.name}: ${e.message}`, 'err');
+        }
+
+        // The HR characteristic is usually notify-only; this only tells us
+        // whether the server answers reads at all.
+        try {
+            log('readValue on heart_rate_measurement …');
+            await withTimeout(characteristic.readValue(), 5000, 'readValue');
+            log('readValue OK', 'ok');
+        } catch (e) {
+            log(`readValue: ${e.name}: ${e.message}`);
+        }
+
+        characteristic.addEventListener('characteristicvaluechanged', ev => {
+            const dv = ev.target.value;
+            const flags = dv.getUint8(0);
+            const bpm = (flags & 0x01) ? dv.getUint16(1, true) : dv.getUint8(1);
+            bpmEl.textContent = bpm;
+            if (!firstBeat) {
+                firstBeat = true;
+                log(`first BPM ${bpm}`, 'ok');
+            }
+        });
+
+        log('startNotifications() …');
+        await withTimeout(characteristic.startNotifications(), 10000, 'startNotifications');
+        log('startNotifications OK', 'ok');
+        disconnectBtn.disabled = false;
+    } catch (e) {
+        log(`FAILED: ${e.name}: ${e.message}`, 'err');
+        connectBtn.disabled = false;
+    }
+}
+
+connectBtn.addEventListener('click', start);
+
+disconnectBtn.addEventListener('click', () => {
+    try {
+        if (device && device.gatt.connected) device.gatt.disconnect();
+    } catch (e) { /* ignore */ }
+    disconnectBtn.disabled = true;
+    connectBtn.disabled = false;
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    logEl.textContent = 'cleared';
+    t0 = performance.now();
+});
+</script>
+</body>
+</html>
