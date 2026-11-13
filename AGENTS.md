@@ -585,11 +585,19 @@ and still fail; after a reboot nothing changed. Then **v1.0.2 (no timeouts, same
 calls) connected successfully, and the current build connected right afterwards** —
 so it was a transient browser/stack state, not the version.
 
-Recovery recipe, in order: force-stop Chrome (or open the app in a fresh tab — a
-restored tab can carry a poisoned Bluetooth state), toggle the phone's Bluetooth,
-clear the **Bluetooth system app's** storage (drops stale LE bonds and the GATT
-cache; Web Bluetooth needs no pairing), and use **nRF Connect** to decide whether the
-strap or the phone is at fault. `hrmdiag.html` (repo root, deploy it next to
-`walkpadspeed.html`) does the same without a third-party app: it logs requestDevice,
-connect, service, characteristic, a CCCD read, `readValue` and `startNotifications`
-separately, each with a timeout, and shares no code with the app.
+**The wedge lives in the page, not in the phone.** Opening the app in a **new tab** was
+enough to recover — no nRF Connect, no Bluetooth reset, and the reboot had *not* helped.
+Mechanism: Android's GATT client allows one outstanding operation per device, so a
+`writeDescriptor` that never completes makes Chrome queue every later operation behind
+it, and `hrmOpTimeout` only abandons the **JavaScript** wait — it cannot cancel
+Chrome's pending operation. That is why retrying inside the same tab is guaranteed to
+fail, and why the status line now says **RELOAD the page** when a timeout is the final
+error.
+
+Recovery recipe, in order: **reload the app, or open it in a new tab** (first, and
+usually sufficient); then toggle the phone's Bluetooth; then clear the **Bluetooth
+system app's** storage (drops stale LE bonds and the GATT cache; Web Bluetooth needs
+no pairing). `nRF Connect` and `hrmdiag.html` (repo root, deploy it next to
+`walkpadspeed.html`) both decide strap-vs-phone without the app: `hrmdiag.html` logs
+requestDevice, connect, service, characteristic, a CCCD read, `readValue` and
+`startNotifications` separately, each with a timeout, and shares no code with the app.
