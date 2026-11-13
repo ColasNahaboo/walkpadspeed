@@ -555,3 +555,41 @@ Verified with the Playwright FTMS mock over three data shapes (Fousae pairs, W60
 all-bit-0, plain 0x0000): the live metric shows 0.0 → 3.0 → 3.5 only, steps 1→2→3 run
 through without a pause, and a simulated physical stop/resume pauses, freezes the
 clock, resumes and re-sends the step speed.
+
+---
+
+### Session 2026-11-13: HRM connection hardening, and a phone-side hang that was not a regression
+
+Triggered by "I cannot connect to the armband any more" on the phone (Chrome for
+Android). The connect path gained, in order: `openHrmGatt()` with up to 3 attempts,
+per-operation timeouts (`hrmOpTimeout`, 10 s), a same-link retry of the CCCD write
+(5 s, on a freshly obtained characteristic), stage traces, a "connected but silent"
+watchdog, and a clear split between "not answering" (timeout) and "unreachable"
+(connection error) in the status line.
+
+**One genuine regression was introduced and reverted on the way.** v1.1.2-dev.1 added
+`if (gatt.connected) disconnect(); await 150 ms;` before connecting. On Android the ACL
+survives the disconnect, so the reassembled link reports *up* in ~0.2 s while the
+strap is still unwinding the old connection, and `startNotifications` then never
+answers. Since v1.0.0 the app had always used the link it was given. A link Chrome
+already has is now used as is (traced as `HRM link already up … using it as is`) and
+only closed after an attempt has actually failed, with a 1.5 s / 3 s backoff.
+
+**The remaining failures were environment, not code.** Evidence gathered during the
+session: the strap (`D1:F9:A6:A2:FC:6D`, `COROS HEART RATE 7BD111`) advertises with the
+Heart Rate service UUID, `Appearance: 0x0341`, connectable+scannable, battery 100 %;
+from the `colas` Linux host `StartNotify` answers in **35 ms** and notifications
+arrive at 1 Hz (`[00 48]` = 72 bpm), while the same operation hung for 10 s + 5 s on
+every one of three Android links. The phone could see the strap in Settings, pair it,
+and still fail; after a reboot nothing changed. Then **v1.0.2 (no timeouts, same GATT
+calls) connected successfully, and the current build connected right afterwards** —
+so it was a transient browser/stack state, not the version.
+
+Recovery recipe, in order: force-stop Chrome (or open the app in a fresh tab — a
+restored tab can carry a poisoned Bluetooth state), toggle the phone's Bluetooth,
+clear the **Bluetooth system app's** storage (drops stale LE bonds and the GATT
+cache; Web Bluetooth needs no pairing), and use **nRF Connect** to decide whether the
+strap or the phone is at fault. `hrmdiag.html` (repo root, deploy it next to
+`walkpadspeed.html`) does the same without a third-party app: it logs requestDevice,
+connect, service, characteristic, a CCCD read, `readValue` and `startNotifications`
+separately, each with a timeout, and shares no code with the app.
