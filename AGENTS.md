@@ -775,3 +775,26 @@ a red herring; the NPEs were from the walkpad's own orphan notifications,
 unrelated. Fix: race `startNotifications()` against the first
 `characteristicvaluechanged` event — a beat proves the subscription works, so
 treat it as success (both app and hrmdiag, diag v1.1.4-dev.8).
+
+**End of day 2026-11-14 — state for tomorrow.**
+Still failing: `startNotifications` never resolves on the phone (dev.8, fresh
+Chrome, single tab, gearhead stopped). Clean logcat shows: connect OK, MTU 517,
+`onSearchComplete status=0`, `setCharacteristicNotification(0x2A37)` issued,
+notifications arrive at 1 Hz — but **every one NPEs in Chrome's Java layer**
+(`BluetoothGattCharacteristicWrapper.a` null) even after the full wrapper
+warm-up, and `onDescriptorWrite` never comes. So the band pushes notifications
+on a handle Chrome's GATT DB does not know.
+
+**Prime suspect named by Colas: the HR RELAY running on colas** (the phone's
+device list shows `HR RELAY` with the colas dongle address AC:A7:F1:3E:2C:0C).
+The COROS band serves one central at a time: if the relay (re)connects, the
+band is busy streaming there and ignores the phone's CCCD write — matching
+"notifications flow but the write is never acked". Tomorrow:
+1. Stop the HR RELAY on colas (and its reconnect loop), confirm with
+   `bluetoothctl devices` / `menu advertise` that colas advertises nothing,
+   then retry the app on the phone.
+2. If it still fails: capture raw ATT with `btmon` on colas while the phone
+   connects, to see the exact notification handle the band pushes on and
+   whether the band answers the CCCD write at all.
+adb to the phone works (wireless debugging, pair 10.0.0.217 — re-pair needed
+after reboot; `am force-stop com.android.chrome` is the reliable Chrome kill).
