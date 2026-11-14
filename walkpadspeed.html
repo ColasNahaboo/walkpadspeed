@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.5";}
+      #version:after {content: "v1.1.4-dev.6";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2006,7 +2006,18 @@
           hrmConnecting = true;
           try {
               hrmDevice = await navigator.bluetooth.requestDevice({
-                  filters: [{ services: ['heart_rate'] }]
+                  filters: [{ services: ['heart_rate'] }],
+                  // The COROS band pushes unsolicited notifications on its
+                  // vendor services (2026-11-14 logcat: 1 Hz
+                  // onCharacteristicChanged for characteristics Chrome has no
+                  // wrapper for → NullPointerException per notification, and
+                  // the callback thread drowns before our CCCD write completes,
+                  // hanging startNotifications). Declaring these services makes
+                  // Chrome create wrappers so it silently drops them instead.
+                  optionalServices: ['heart_rate', 'device_information', 'battery_service',
+                      '6e400001-b5a3-f393-e0a9-77656c6f6f70',
+                      '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+                      '75f50001-e97c-43f9-9a1d-bd83438f6b99']
               });
               trace(`HRM CONNECT ${hrmDevice.name || '(unnamed)'} id=${hrmDevice.id || '?'} build=${buildVersion()}`);
 

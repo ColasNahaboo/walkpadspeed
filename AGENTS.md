@@ -738,3 +738,18 @@ the real root causes:
   the diagnostic sabotaged itself. Reordered: subscribe first, probe after.
 - The phone was still running **v1.1.4-dev.1** — none of the day's fixes were
   deployed to tm.nahaboo.org. Deploy first, retest second.
+
+**Root cause found via logcat (v1.1.4-dev.6).** During `startNotifications`,
+the band pushes **unsolicited notifications at 1 Hz on its vendor-service
+characteristics** (`6e400001-…` COROS/NUS, `75f50001-…`). Chrome has no
+characteristic wrappers for them (the page only requested `heart_rate`), so
+every notification throws `NullPointerException` in
+`BluetoothGattCallback.onCharacteristicChanged` (`...Wrapper.a` null) — the
+callback thread drowns and the `onDescriptorWrite` for our CCCD write is never
+processed → `startNotifications` hangs forever. The band streams this telemetry
+whether subscribed or not; BlueZ/Linux never tripped on it because it routes
+notifications by handle. Fix: `requestDevice` now declares the band's vendor
+services (+ device_information, battery) in `optionalServices`, so Chrome
+discovers them, creates wrappers, and silently drops the notifications. Same in
+hrmdiag. This also explains why the walkpad (no unsolicited traffic) always
+worked. Validation pending on the phone.

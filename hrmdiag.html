@@ -93,9 +93,16 @@ async function start() {
     log(`ua: ${navigator.userAgent}`);
 
     try {
+        // The COROS band pushes unsolicited notifications on its vendor
+        // services; without wrappers Chrome NPEs on each one and the callback
+        // thread drowns, hanging startNotifications. Declaring the services
+        // makes Chrome discover and silently drop them.
+        const vendor = ['6e400001-b5a3-f393-e0a9-77656c6f6f70',
+                        '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+                        '75f50001-e97c-43f9-9a1d-bd83438f6b99'];
         const opts = allDevices.checked
-            ? { acceptAllDevices: true, optionalServices: ['heart_rate'] }
-            : { filters: [{ services: ['heart_rate'] }] };
+            ? { acceptAllDevices: true, optionalServices: ['heart_rate', ...vendor] }
+            : { filters: [{ services: ['heart_rate'] }], optionalServices: ['heart_rate', ...vendor] };
         log(allDevices.checked ? 'requestDevice(acceptAllDevices) …' : 'requestDevice(heart_rate filter) …');
         device = await navigator.bluetooth.requestDevice(opts);
         log(`device: ${device.name || '(unnamed)'} id=${device.id || '?'}`, 'ok');
