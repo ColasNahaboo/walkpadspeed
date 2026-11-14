@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.4";}
+      #version:after {content: "v1.1.4-dev.5";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -2065,7 +2065,7 @@
                   // tab, and only a new page clears it (2026-11-13: three
                   // timeouts in one tab, instant success in a fresh one).
                   const hint = hrmPhantomLink
-                      ? ' — the phone kept a stale link to the band (the band itself is fine: it answers other phones/computers). This app has now dropped its record of the band: tap again and re-pick it in the chooser. If it still fails, toggle the phone Bluetooth off/on to clear the stale system link.'
+                      ? ' — another tab or app window of this browser already holds the band (the band itself is fine: it answers other phones/computers). Force-stop Chrome completely (Android Settings > Apps > Chrome > Force stop), then reopen and tap again.'
                       : /timed out/i.test(err.message)
                           ? ' — the strap is not answering: wear it to wake it, check no phone/watch holds it, and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
                           : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)

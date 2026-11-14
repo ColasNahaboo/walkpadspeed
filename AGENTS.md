@@ -708,3 +708,16 @@ stack/Chrome, the band serves nobody else. Next diagnostics for the phone:
 line) — tm.nahaboo.org may still serve the pre-fix file; (2) `chrome://
 bluetooth-internals` on the phone → disconnect/Forget the device there
 (browser-process-level cache no page reload clears).
+
+**Holder identified: another Chrome context (v1.1.4-dev.5).** On the phone,
+`chrome://bluetooth-internals` shows the COROS as **Connected**, and pressing
+disconnect/Forget there changes nothing — Chrome itself (or a background tab /
+restored session / installed-PWA window of walkpadspeed in the same browser
+process) owns the half-dead GATT connection and instantly re-establishes the
+state. This explains everything: our page's `connect()` resolves in 0.2 s
+(the ACL exists), `gatt.connected` on our object is false, and every ATT op
+hangs because the real owner never answers. Only killing the owner releases
+it: **Android Settings > Apps > Chrome > Force stop** (closing tabs is not
+enough — Android keeps them alive), close any installed walkpadspeed PWA, or
+toggle Bluetooth. Hints/README updated to that recipe. `forget()` cannot help
+while another context holds the connection.
