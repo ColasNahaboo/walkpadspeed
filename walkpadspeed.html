@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.2";}
+      #version:after {content: "v1.1.4-dev.3";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1836,10 +1836,14 @@
       const HRM_CONNECT_BUDGET_MS = 40000; // no new attempt is started after this
       const HRM_FIRST_BEAT_MS = 15000;    // "connected but silent" warning
       // A real fresh LE connection takes seconds (scan + connect). When
-      // gatt.connect() resolves in a few hundred ms, the ACL is held by the
-      // OS (bonded in Bluetooth settings / COROS app), not created by Chrome:
-      // Chrome's disconnect() cannot release it and GATT ops never complete.
+      // gatt.connect() resolves in a few hundred ms, the ACL already exists
+      // somewhere the page cannot control — a stale system link, another tab,
+      // or the band itself still believing an old session is alive: Chrome's
+      // disconnect() cannot release it and GATT ops never complete.
       const HRM_PHANTOM_CONNECT_MS = 1500;
+      // After forcing a phantom link down, how long to wait for the ACL to
+      // really drop before asking for a fresh one.
+      const HRM_PHANTOM_RELEASE_MS = 3000;
       let hrmConnecting = false;
       let hrmFirstBeatSeen = false;
       let hrmBeatTimer = null;
@@ -1882,14 +1886,14 @@
                   const server = await hrmOpTimeout(hrmDevice.gatt.connect(), 'gatt.connect()');
                   if (!server.connected) throw new Error('GATT link closed right after connect');
                   // A fresh LE connection takes seconds (scan + connect). If it
-                  // resolved in a few hundred ms the ACL is held by the OS
-                  // (strap bonded in Bluetooth settings, or the COROS/watch app
-                  // auto-reconnecting): Chrome sees the link but cannot drive
+                  // resolved in a few hundred ms the ACL already exists outside
+                  // this page (stale system link, another tab, or the band's
+                  // own stale session): Chrome sees the link but cannot drive
                   // it, so every GATT op hangs. 2026-11-14 log: link up in
                   // 0.2 s, startNotifications timed out on all 3 attempts.
                   if (!wasConnected && Date.now() - connectStartedAt < HRM_PHANTOM_CONNECT_MS) {
                       hrmPhantomLink = true;
-                      trace(`HRM link up (attempt ${attempt}) in ${Date.now() - connectStartedAt} ms — OS-held link, Chrome cannot drive it`);
+                      trace(`HRM link up (attempt ${attempt}) in ${Date.now() - connectStartedAt} ms — link already existed outside this page, Chrome cannot drive it`);
                   } else {
                       trace(`HRM link up (attempt ${attempt})`);
                   }
@@ -1916,15 +1920,25 @@
               } catch (err) {
                   lastErr = err;
                   trace(`HRM GATT attempt ${attempt}/${HRM_CONNECT_ATTEMPTS} failed: ${err.message}`);
-                  // An OS-held link never becomes drivable by reconnecting from
-                  // this page — retrying just burns 20 s before the same hint.
-                  if (hrmPhantomLink) break;
                   // Whatever went wrong, the link is now in an unknown state
                   // (half-dead, or a phantom the stack still believes in), so
                   // close it: a bare retry would reuse it and fail identically.
                   try {
                       if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
                   } catch (e) { /* already gone */ }
+                  if (hrmPhantomLink && attempt < HRM_CONNECT_ATTEMPTS) {
+                      // The link existed before this page asked for it (stale
+                      // system link, another tab, or the band's own stale
+                      // session). disconnect() may not be enough: wait for the
+                      // ACL to really drop, and if it comes back just as fast,
+                      // the band itself is the one holding the session —
+                      // wetting it or power-cycling it is the only fix left.
+                      const t = Date.now();
+                      while (hrmDevice.gatt.connected && Date.now() - t < HRM_PHANTOM_RELEASE_MS) {
+                          await new Promise(resolve => setTimeout(resolve, 250));
+                      }
+                      trace(`HRM phantom link ${hrmDevice.gatt.connected ? 'still up' : 'released'} after ${(Date.now() - t) / 1000}s — retrying`);
+                  }
                   if (attempt < HRM_CONNECT_ATTEMPTS) {
                       trace('HRM link closed — retrying on a fresh connection');
                       await new Promise(resolve => setTimeout(resolve, HRM_CONNECT_RETRY_MS * attempt));
@@ -2022,7 +2036,7 @@
                   // tab, and only a new page clears it (2026-11-13: three
                   // timeouts in one tab, instant success in a fresh one).
                   const hint = hrmPhantomLink
-                      ? ' — the link is held by the phone, not by this page: RELOAD or open a new tab; if that fails, the band is bonded in the Bluetooth settings (Forget it there) or taken by another app (COROS, a watch).'
+                      ? ' — the phone kept an old link to the band that this page cannot take over: close any other tab that used the band, toggle the phone Bluetooth off/on, and wet/wear the band to wake it, then tap again.'
                       : /timed out/i.test(err.message)
                           ? ' — the strap is not answering: wear it to wake it, check no phone/watch holds it, and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
                           : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)

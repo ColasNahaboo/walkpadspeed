@@ -660,13 +660,18 @@ disconnect-before-connect regression, but here it happens with the reverted
 - `HRM_PHANTOM_CONNECT_MS = 1500` — if `gatt.connect()` resolves in under that
   and the link was not already Chrome's (`wasConnected`), the link is flagged
   `hrmPhantomLink` and traced as `OS-held link, Chrome cannot drive it`.
-- On a phantom-link failure the retry loop breaks after attempt 1 (reconnecting
-  from the page cannot take the link from the OS — 3 attempts just burn 35 s
-  before the same hint).
-- The failure hint now names the real fix: reload/new tab first; if that fails,
-  **Forget the band in the Bluetooth settings** (Web Bluetooth needs no pairing)
-  and close the COROS/watch app.
-- README troubleshooting section gained the same recipe.
+- On a phantom-link failure the retry loop first waits up to
+  `HRM_PHANTOM_RELEASE_MS` (3 s) for the ACL to actually drop after
+  `disconnect()`, tracing whether it released or stayed up, then retries.
+
+**Correction (same day).** Colas: the COROS app is not installed and the band is
+not in Android's saved devices — so the OS-bond theory is wrong. The 0.2 s
+connect still means the link pre-existed the page, but the holder is more likely
+another Chrome tab with a half-dead link, or the band's own stale session. The
+hint was rewritten accordingly (close other tabs, toggle phone Bluetooth
+off/on, wet/wear the band) and the loop no longer breaks early — it waits for
+the ACL to drop and retries. Real-phone validation still pending; next step if
+it persists is `hrmdiag.html` in a fresh tab.
 
 `node --check` OK. Real-phone validation pending: the hint must actually get
 Colas to un-bond the COROS strap in Android settings.
