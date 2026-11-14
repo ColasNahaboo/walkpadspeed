@@ -721,3 +721,20 @@ it: **Android Settings > Apps > Chrome > Force stop** (closing tabs is not
 enough — Android keeps them alive), close any installed walkpadspeed PWA, or
 toggle Bluetooth. Hints/README updated to that recipe. `forget()` cannot help
 while another context holds the connection.
+
+**adb breakthrough (2026-11-14 evening).** Wireless-debug adb to the phone gave
+the real root causes:
+- `logcat` showed Chrome's `BluetoothGatt` calls failing with
+  `android.os.DeadObjectException` in `disconnectGatt` — Chrome's Bluetooth
+  client was bound to the *previous* Bluetooth-stack instance (stale binder
+  after the BT toggle). Settings' Force stop never took; `adb shell am
+  force-stop com.android.chrome` did, and right after it the band connected
+  for real (fresh ACL 22:50:39, MTU 517, `onSearchComplete status=0`).
+- `startNotifications` still never completed: Chrome never issued Android's
+  `setCharacteristicNotification` for the band (it does for the walkpad).
+- The band does not answer **CCCD reads** (BlueZ only ever *writes* the CCCD,
+  which works). The deployed hrmdiag read the CCCD first — that hang wedged
+  Chrome's per-device queue and produced `GATT operation already in progress`:
+  the diagnostic sabotaged itself. Reordered: subscribe first, probe after.
+- The phone was still running **v1.1.4-dev.1** — none of the day's fixes were
+  deployed to tm.nahaboo.org. Deploy first, retest second.
