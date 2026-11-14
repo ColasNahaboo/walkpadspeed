@@ -697,3 +697,14 @@ BLE dongle**, so the band is healthy: the stale link is in the *phone's* stack
 - hints/README rewritten (band is fine; tap again and re-pick; toggle phone BT
   if that fails).
 Validation pending on the phone.
+
+**Band verified healthy from Linux (2026-11-14, same day).** With the phone
+still failing, `bluetoothctl` on colas: band advertising, `connect` instant,
+full discovery, `read 0x2A37` → `00 46` (70 BPM), `notify on` → 1 Hz stream,
+`Connected: no` afterwards. It accepted the Linux connection while the phone
+believed it had a link → the phone's link is a phantom record in the phone's
+stack/Chrome, the band serves nobody else. Next diagnostics for the phone:
+(1) confirm the deployed build is actually v1.1.4-dev.4 (the `build=` trace
+line) — tm.nahaboo.org may still serve the pre-fix file; (2) `chrome://
+bluetooth-internals` on the phone → disconnect/Forget the device there
+(browser-process-level cache no page reload clears).

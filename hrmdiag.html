@@ -119,30 +119,12 @@ async function start() {
         const props = characteristic.properties;
         log(`characteristic OK (notify=${!!props.notify} indicate=${!!props.indicate} read=${!!props.read})`, 'ok');
 
-        // Liveness probe: reading the CCCD descriptor is an ordinary ATT read.
-        try {
-            const descriptors = await withTimeout(characteristic.getDescriptors(), 5000, 'getDescriptors');
-            log(`descriptors: ${descriptors.map(d => d.uuid).join(', ') || '(none)'}`);
-            const cccd = descriptors.find(d => d.uuid === '00002902-0000-1000-8000-00805f9b34fb');
-            if (cccd) {
-                log('CCCD readValue …');
-                const v = await withTimeout(cccd.readValue(), 5000, 'CCCD readValue');
-                log(`CCCD = [${Array.from(new Uint8Array(v.buffer)).join(' ')}]`, 'ok');
-            }
-        } catch (e) {
-            log(`descriptor probe: ${e.name}: ${e.message}`, 'err');
-        }
-
-        // The HR characteristic is usually notify-only; this only tells us
-        // whether the server answers reads at all.
-        try {
-            log('readValue on heart_rate_measurement …');
-            await withTimeout(characteristic.readValue(), 5000, 'readValue');
-            log('readValue OK', 'ok');
-        } catch (e) {
-            log(`readValue: ${e.name}: ${e.message}`);
-        }
-
+        // getDescriptors is served from Android's GATT cache, so it says
+        // nothing about link liveness; the CCCD readValue probe used to run
+        // here and HUNG, which wedged Chrome's per-device queue so
+        // startNotifications then failed with "GATT operation already in
+        // progress" — the probe sabotaged the step being measured. The
+        // subscription must therefore go first, probes only after it works.
         characteristic.addEventListener('characteristicvaluechanged', ev => {
             const dv = ev.target.value;
             const flags = dv.getUint8(0);
@@ -158,6 +140,19 @@ async function start() {
         await withTimeout(characteristic.startNotifications(), 10000, 'startNotifications');
         log('startNotifications OK', 'ok');
         disconnectBtn.disabled = false;
+
+        try {
+            const descriptors = await withTimeout(characteristic.getDescriptors(), 5000, 'getDescriptors');
+            log(`descriptors: ${descriptors.map(d => d.uuid).join(', ') || '(none)'}`);
+            const cccd = descriptors.find(d => d.uuid === '00002902-0000-1000-8000-00805f9b34fb');
+            if (cccd) {
+                log('CCCD readValue …');
+                const v = await withTimeout(cccd.readValue(), 5000, 'CCCD readValue');
+                log(`CCCD = [${Array.from(new Uint8Array(v.buffer)).join(' ')}]`, 'ok');
+            }
+        } catch (e) {
+            log(`descriptor probe: ${e.name}: ${e.message}`);
+        }
     } catch (e) {
         log(`FAILED: ${e.name}: ${e.message}`, 'err');
         // A stale link the page cannot break (connect resolves instantly, then
