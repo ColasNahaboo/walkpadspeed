@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.1";}
+      #version:after {content: "v1.1.4-dev.2";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1835,9 +1835,15 @@
       const HRM_CCCD_RETRY_MS = 5000;     // same-link retry of the subscription
       const HRM_CONNECT_BUDGET_MS = 40000; // no new attempt is started after this
       const HRM_FIRST_BEAT_MS = 15000;    // "connected but silent" warning
+      // A real fresh LE connection takes seconds (scan + connect). When
+      // gatt.connect() resolves in a few hundred ms, the ACL is held by the
+      // OS (bonded in Bluetooth settings / COROS app), not created by Chrome:
+      // Chrome's disconnect() cannot release it and GATT ops never complete.
+      const HRM_PHANTOM_CONNECT_MS = 1500;
       let hrmConnecting = false;
       let hrmFirstBeatSeen = false;
       let hrmBeatTimer = null;
+      let hrmPhantomLink = false;
 
       function hrmOpTimeout(promise, label, ms = HRM_OP_TIMEOUT_MS) {
           return Promise.race([
@@ -1855,6 +1861,7 @@
       async function openHrmGatt() {
           let lastErr = null;
           const startedAt = Date.now();
+          hrmPhantomLink = false;
           for (let attempt = 1; attempt <= HRM_CONNECT_ATTEMPTS; attempt++) {
               // Never start an attempt that cannot fit in the budget.
               if (lastErr && Date.now() - startedAt > HRM_CONNECT_BUDGET_MS) break;
@@ -1870,9 +1877,22 @@
                   if (hrmDevice.gatt.connected) {
                       trace(`HRM link already up (attempt ${attempt}) — using it as is`);
                   }
+                  const wasConnected = hrmDevice.gatt.connected;
+                  const connectStartedAt = Date.now();
                   const server = await hrmOpTimeout(hrmDevice.gatt.connect(), 'gatt.connect()');
                   if (!server.connected) throw new Error('GATT link closed right after connect');
-                  trace(`HRM link up (attempt ${attempt})`);
+                  // A fresh LE connection takes seconds (scan + connect). If it
+                  // resolved in a few hundred ms the ACL is held by the OS
+                  // (strap bonded in Bluetooth settings, or the COROS/watch app
+                  // auto-reconnecting): Chrome sees the link but cannot drive
+                  // it, so every GATT op hangs. 2026-11-14 log: link up in
+                  // 0.2 s, startNotifications timed out on all 3 attempts.
+                  if (!wasConnected && Date.now() - connectStartedAt < HRM_PHANTOM_CONNECT_MS) {
+                      hrmPhantomLink = true;
+                      trace(`HRM link up (attempt ${attempt}) in ${Date.now() - connectStartedAt} ms — OS-held link, Chrome cannot drive it`);
+                  } else {
+                      trace(`HRM link up (attempt ${attempt})`);
+                  }
                   const service = await hrmOpTimeout(server.getPrimaryService('heart_rate'), 'getPrimaryService');
                   let characteristic = await hrmOpTimeout(
                       service.getCharacteristic('heart_rate_measurement'), 'getCharacteristic');
@@ -1896,6 +1916,9 @@
               } catch (err) {
                   lastErr = err;
                   trace(`HRM GATT attempt ${attempt}/${HRM_CONNECT_ATTEMPTS} failed: ${err.message}`);
+                  // An OS-held link never becomes drivable by reconnecting from
+                  // this page — retrying just burns 20 s before the same hint.
+                  if (hrmPhantomLink) break;
                   // Whatever went wrong, the link is now in an unknown state
                   // (half-dead, or a phantom the stack still believes in), so
                   // close it: a bare retry would reuse it and fail identically.
@@ -1998,11 +2021,13 @@
                   // that never completes blocks every later attempt in the same
                   // tab, and only a new page clears it (2026-11-13: three
                   // timeouts in one tab, instant success in a fresh one).
-                  const hint = /timed out/i.test(err.message)
-                      ? ' — the strap is not answering: wear it to wake it, check no phone/watch holds it, and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
-                      : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)
-                          ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
-                          : '';
+                  const hint = hrmPhantomLink
+                      ? ' — the link is held by the phone, not by this page: RELOAD or open a new tab; if that fails, the band is bonded in the Bluetooth settings (Forget it there) or taken by another app (COROS, a watch).'
+                      : /timed out/i.test(err.message)
+                          ? ' — the strap is not answering: wear it to wake it, check no phone/watch holds it, and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
+                          : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)
+                              ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
+                              : '';
                   updateStatus('HRM connection failed: ' + (err.message || err.name) + hint);
               }
           } finally {

@@ -641,3 +641,32 @@ verified in a Playwright test-mode run:
 - AGENTS.md: `metaStepLength` default corrected 0.7 → 0.62; `metaAge` documented
   (it exists and feeds the `220 − age` max-HR default, despite the 2026-07-14
   "removed" note).
+
+---
+
+### Session 2026-11-14 (2): OS-held HRM link detection (v1.1.4-dev.2)
+
+Colas's log (`build=v1.1.4-dev.1`): `HRM link up (attempt 1)` **0.2 s** after
+`CONNECT`, then `startNotifications` timed out on all 3 attempts (10 s + 5 s
+same-link retry each). A fresh LE connection takes seconds (scan + connect); a
+connect resolving in a few hundred ms means the ACL is held by the OS — the band
+is bonded in the phone's Bluetooth settings (the OS auto-connects it) or taken by
+another app — so Chrome sees a link it cannot drive and every GATT op hangs.
+This is the same 0.2 s signature the 2026-11-13 session blamed on the
+disconnect-before-connect regression, but here it happens with the reverted
+(v1.0.0-style) code, so the OS-held bond is the remaining explanation.
+
+**Changes (`openHrmGatt` / `connectHRM`):**
+- `HRM_PHANTOM_CONNECT_MS = 1500` — if `gatt.connect()` resolves in under that
+  and the link was not already Chrome's (`wasConnected`), the link is flagged
+  `hrmPhantomLink` and traced as `OS-held link, Chrome cannot drive it`.
+- On a phantom-link failure the retry loop breaks after attempt 1 (reconnecting
+  from the page cannot take the link from the OS — 3 attempts just burn 35 s
+  before the same hint).
+- The failure hint now names the real fix: reload/new tab first; if that fails,
+  **Forget the band in the Bluetooth settings** (Web Bluetooth needs no pairing)
+  and close the COROS/watch app.
+- README troubleshooting section gained the same recipe.
+
+`node --check` OK. Real-phone validation pending: the hint must actually get
+Colas to un-bond the COROS strap in Android settings.

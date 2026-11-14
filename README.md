@@ -382,6 +382,8 @@ Double check each routine has a name line followed by at least one step line, an
 First wear the strap for a few seconds: a heart-rate band only wakes up and advertises when it detects contact, and it must not be held by something else (the phone's own app, a watch). If the app gives up after three attempts with a `timed out` message, **reload the page, or better, reopen the app in a new tab**. Chrome's Bluetooth session belongs to the page: a write that never completed keeps every later attempt queued behind it, so retrying inside that tab can never succeed, while a new page starts from scratch. An older walkpadspeed would simply hang there forever instead of telling you.
 Note that reloading the player while a routine is running drops the app's control of the pad (the belt keeps its last speed), so stop or finish the routine first — the heart rate is optional and the routine runs fine without it.
 
+If the debug log shows `HRM link up ... — OS-held link` (the connection completes in a fraction of a second, then nothing answers): the phone's own Bluetooth has grabbed the band — it is bonded in the Bluetooth settings, so the OS auto-connects it and Chrome gets a link it cannot drive. *Forget* the band in the Bluetooth settings (Web Bluetooth does not need pairing), close any app that uses it (COROS, a watch companion), then tap again.
+
 Note: to access the browser console to see internal log messages, use the "Console" toggle switch at the bottom of the manager view.
 
 ## Privacy
