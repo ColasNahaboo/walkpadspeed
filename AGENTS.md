@@ -675,3 +675,25 @@ it persists is `hrmdiag.html` in a fresh tab.
 
 `node --check` OK. Real-phone validation pending: the hint must actually get
 Colas to un-bond the COROS strap in Android settings.
+
+**Final diagnosis (v1.1.4-dev.4, same day).** Colas: no COROS app, band not in
+Android's saved devices — OS-bond theory dead. `hrmdiag.html` on the phone then
+pinned it: `gatt.connect` OK in 0.3 s, `getPrimaryService`/`getCharacteristic`/
+`getDescriptors` all instant (answered from Android's **GATT cache**), then the
+first real ATT round-trip (`CCCD readValue`) **hangs 5 s**, `readValue` fails
+`unknown reason`, and `startNotifications` returns `NetworkError: GATT operation
+already in progress` — Chrome's per-device queue wedged behind the hung read.
+Meanwhile the **same band connects and streams fine from the `colas` Linux host's
+BLE dongle**, so the band is healthy: the stale link is in the *phone's* stack
+(a stale system ACL Chrome adopts but cannot drive). Fixes in `openHrmGatt` /
+`connectHRM`:
+- phantom attempt with a link that will not drop → `HRM_PHANTOM_COOLDOWN_MS`
+  (12 s) cooldown with the link closed, so the phone's stale link can expire;
+- on final failure of a phantom link, `hrmDevice.forget()` (promise-traced, not
+  awaited) drops Chrome's device record + GATT cache — the next tap re-picks the
+  band with a genuinely new link;
+- `hrmdiag.html` calls `forget()` on failure too, with a "Connect again and
+  re-pick" log line;
+- hints/README rewritten (band is fine; tap again and re-pick; toggle phone BT
+  if that fails).
+Validation pending on the phone.

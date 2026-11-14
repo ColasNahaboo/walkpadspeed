@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.3";}
+      #version:after {content: "v1.1.4-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1844,6 +1844,12 @@
       // After forcing a phantom link down, how long to wait for the ACL to
       // really drop before asking for a fresh one.
       const HRM_PHANTOM_RELEASE_MS = 3000;
+      // The 2026-11-14 hrmdiag run proved the band itself stops answering ATT
+      // (a CCCD read hangs) while the phone keeps the ACL up: service
+      // discovery succeeds from Android's cache, real reads never complete.
+      // Only the band's own session expiring fixes it, so a phantom attempt
+      // waits this long with the link closed before reconnecting.
+      const HRM_PHANTOM_COOLDOWN_MS = 12000;
       let hrmConnecting = false;
       let hrmFirstBeatSeen = false;
       let hrmBeatTimer = null;
@@ -1928,16 +1934,23 @@
                   } catch (e) { /* already gone */ }
                   if (hrmPhantomLink && attempt < HRM_CONNECT_ATTEMPTS) {
                       // The link existed before this page asked for it (stale
-                      // system link, another tab, or the band's own stale
-                      // session). disconnect() may not be enough: wait for the
-                      // ACL to really drop, and if it comes back just as fast,
-                      // the band itself is the one holding the session —
-                      // wetting it or power-cycling it is the only fix left.
+                      // system link on the phone, or another tab's half-dead
+                      // link — the band itself is fine, it answers other
+                      // hosts). disconnect() may not be enough: wait for the
+                      // ACL to really drop, and if it stays up, give the
+                      // phone's stack a cooldown to expire the stale link.
                       const t = Date.now();
                       while (hrmDevice.gatt.connected && Date.now() - t < HRM_PHANTOM_RELEASE_MS) {
                           await new Promise(resolve => setTimeout(resolve, 250));
                       }
                       trace(`HRM phantom link ${hrmDevice.gatt.connected ? 'still up' : 'released'} after ${(Date.now() - t) / 1000}s — retrying`);
+                      if (hrmDevice.gatt.connected) {
+                          // The ACL is not ours to break: give the band a long
+                          // cooldown with the link closed so its own session
+                          // can time out before we ask for a new one.
+                          trace(`HRM waiting ${HRM_PHANTOM_COOLDOWN_MS / 1000}s for the band's session to expire`);
+                          await new Promise(resolve => setTimeout(resolve, HRM_PHANTOM_COOLDOWN_MS));
+                      }
                   }
                   if (attempt < HRM_CONNECT_ATTEMPTS) {
                       trace('HRM link closed — retrying on a fresh connection');
@@ -2021,6 +2034,22 @@
               if (hrmDevice && hrmDevice.gatt.connected) {
                   try { hrmDevice.gatt.disconnect(); } catch (e) { /* already gone */ }
               }
+              // A phantom link (2026-11-14: hrmdiag showed the band answering
+              // nothing but a CCCD read, which then wedges Chrome's per-device
+              // queue with "GATT operation already in progress") survives
+              // disconnect(), reloads and new tabs, because the stale link and
+              // GATT cache live in the browser process, not the page. forget()
+              // drops Chrome's record of the device entirely: the next tap
+              // re-picks it and gets a genuinely new connection.
+              if (hrmPhantomLink && hrmDevice && typeof hrmDevice.forget === 'function') {
+                  try {
+                      Promise.resolve(hrmDevice.forget()).then(
+                          () => trace('HRM device forgotten — next tap will re-pick it with a fresh link'),
+                          e => trace(`HRM device forget() failed: ${e.message}`));
+                  } catch (e) {
+                      trace(`HRM device forget() threw: ${e.message}`);
+                  }
+              }
               hrmDevice = null;
               hrmCharacteristic = null;
               currentHeartRate = 0;
@@ -2036,7 +2065,7 @@
                   // tab, and only a new page clears it (2026-11-13: three
                   // timeouts in one tab, instant success in a fresh one).
                   const hint = hrmPhantomLink
-                      ? ' — the phone kept an old link to the band that this page cannot take over: close any other tab that used the band, toggle the phone Bluetooth off/on, and wet/wear the band to wake it, then tap again.'
+                      ? ' — the phone kept a stale link to the band (the band itself is fine: it answers other phones/computers). This app has now dropped its record of the band: tap again and re-pick it in the chooser. If it still fails, toggle the phone Bluetooth off/on to clear the stale system link.'
                       : /timed out/i.test(err.message)
                           ? ' — the strap is not answering: wear it to wake it, check no phone/watch holds it, and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
                           : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)

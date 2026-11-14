@@ -160,6 +160,18 @@ async function start() {
         disconnectBtn.disabled = false;
     } catch (e) {
         log(`FAILED: ${e.name}: ${e.message}`, 'err');
+        // A stale link the page cannot break (connect resolves instantly, then
+        // ATT ops hang or queue behind each other): forget() drops Chrome's
+        // record of the device so the next Connect re-picks it with a new link.
+        if (device && typeof device.forget === 'function') {
+            try {
+                Promise.resolve(device.forget()).then(
+                    () => log('device.forget() OK — Connect again and re-pick the device for a fresh link', 'ok'),
+                    f => log(`device.forget() failed: ${f.message}`, 'err'));
+            } catch (f) {
+                log(`device.forget() threw: ${f.message}`, 'err');
+            }
+        }
         connectBtn.disabled = false;
     }
 }
