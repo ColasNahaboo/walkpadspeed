@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.3";}
+      #version:after {content: "v1.1.4-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1137,6 +1137,8 @@
       let stepOverhead = 1;
 
       let routineInterval = null;
+      let stepTransitioning = false; // a step change is awaiting BLE commands — clock ticks skip
+      let ignoreSpeedTimer = 0;      // timer that re-enables remote-state detection
       let currentRoutineSteps = [];
       let currentStepIndex = 0;
       let secondsLeftInStep = 0;
@@ -1553,6 +1555,41 @@
           return next;
       }
 
+      // Re-enable remote state detection after the belt settles on our command.
+      // One tracked timer: an untracked setTimeout from an earlier command would
+      // otherwise clear the flag while a later command is still in flight.
+      function scheduleIgnoreSpeedRelease(ms) {
+          clearTimeout(ignoreSpeedTimer);
+          ignoreSpeedTimer = setTimeout(() => { ignoreSpeedChanges = false; }, ms);
+      }
+
+      /* Chrome fires gattserverdisconnected on link loss / pad power-off.
+         Attached once per device object (requestDevice hands back the same
+         BluetoothDevice on every call, so an unguarded listener accumulates —
+         same pattern as attachHrmDisconnectHandler). A disconnect mid-routine
+         freezes the routine like a pause: the clock stops and the session log
+         stops accumulating at the last commanded speed. RESUME after a
+         reconnect re-sends the step speed. */
+      function attachPadDisconnectHandler(device) {
+          if (!device || device.padDisconnectHooked) return;
+          device.padDisconnectHooked = true;
+          device.addEventListener('gattserverdisconnected', () => {
+              ftmsControlCharacteristic = null;
+              ftmsHasControl = false;
+              ftmsCpWaiter = null;
+              if (isRoutineActive && !isPaused) {
+                  isPaused = true;
+                  clearAllIntervals();
+                  const btn = document.getElementById('pauseToggleBtn');
+                  btn.innerText = "RESUME";
+                  btn.className = "resume-btn";
+                  updateStatus('Walkpad disconnected — routine paused. Reconnect to continue.');
+              } else {
+                  updateStatus('Walkpad disconnected — reconnect to continue.');
+              }
+          });
+      }
+
       async function startTreadmill() {
           if (!ftmsControlCharacteristic) return false;
           // Between Start and the first speed command the pad reports ~0 km/h.
@@ -1622,11 +1659,11 @@
                   updateStatus(`Speed ${requestedSpeed.toFixed(1)} km/h limited to ` +
                                `${effectiveSpeed.toFixed(1)} km/h (pad maximum)`);
               } else {
-                  updateStatus(`Speed set to ${speedKmh.toFixed(1)} km/h`);
+                  updateStatus(`Speed set to ${effectiveSpeed.toFixed(1)} km/h`);
               }
 
               // Re-enable remote state detection after speed stabilizes
-              setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
+              scheduleIgnoreSpeedRelease(spinUpTime + 2000);
           } catch (error) {
               updateStatus("Failed to set speed: " + error.message);
               ignoreSpeedChanges = false;
@@ -1883,6 +1920,7 @@
           device.addEventListener('gattserverdisconnected', () => {
               trace('HRM disconnected');
               stopHrmBeatWatchdog();
+              resetHrTrend();
               hrmCharacteristic = null;
               currentHeartRate = 0;
               hrmFirstBeatSeen = false;
@@ -1951,6 +1989,7 @@
               currentHeartRate = 0;
               hrmFirstBeatSeen = false;
               stopHrmBeatWatchdog();
+              resetHrTrend();
               updateHrmUI('idle');
               if (err.name !== 'NotFoundError') {
                   // A timeout here usually means the strap was asleep — but it
@@ -1993,6 +2032,7 @@
           currentHeartRate = 0;
           hrmFirstBeatSeen = false;
           stopHrmBeatWatchdog();
+          resetHrTrend();
           updateHrmUI('idle');
       }
 
@@ -2190,6 +2230,7 @@
               return;
           }
           hrmStepTargetZone = zoneNum;
+          resetHrTrend(); // a new zone step starts with a fresh trend
           updateStatus(`Zone ${zoneStr} control active (target ${bounds.low}–${bounds.high} BPM).`);
           applyHrmZoneAdjust(); // execute now, then every HRM_ZONE_INTERVAL_MS
           hrmZoneAdjustTimer = setInterval(applyHrmZoneAdjust, HRM_ZONE_INTERVAL_MS);
@@ -2202,6 +2243,15 @@
           }
           hrmStepTargetZone = null;
           lastAdjust = null; // a new zone step must not inherit a stale lockout
+      }
+
+      // The trend EMA must not carry over across routines or HRM sessions: a
+      // stale lastHr/lastTimestamp makes the first projection of a new session
+      // extrapolate from hours-old data.
+      function resetHrTrend() {
+          lastHr = null;
+          lastSmoothedTrend = 0;
+          lastTimestamp = null;
       }
 
       function applyHrmZoneAdjust() {
@@ -2456,6 +2506,7 @@
 
       function resetRoutineState() {
           clearAllIntervals();
+          resetHrTrend();
           currentRoutineSteps = [];
           currentStepIndex = 0;
           secondsLeftInStep = 0;
@@ -2530,7 +2581,7 @@
                   updateStatus("Paused (Timer frozen).");
 
                   // Re-enable after the pause is fully processed and speed is stable at 0
-                  setTimeout(() => { ignoreSpeedChanges = false; }, 2000);
+                  scheduleIgnoreSpeedRelease(2000);
               } catch (error) {
                   updateStatus("Failed to pause: " + error.message);
                   ignoreSpeedChanges = false;
@@ -2593,7 +2644,7 @@
                   }
 
                   // Re-enable after speed stabilizes post-resume
-                  setTimeout(() => { ignoreSpeedChanges = false; }, spinUpTime + 2000);
+                  scheduleIgnoreSpeedRelease(spinUpTime + 2000);
               } catch (error) {
                   updateStatus("Failed to resume: " + error.message);
                   ignoreSpeedChanges = false;
@@ -2644,6 +2695,12 @@
 
        function startClockLoop() {
           routineInterval = setInterval(async () => {
+              // A step transition awaits BLE commands (incline digest, settle
+              // waits) for seconds; ticks during that window would decrement the
+              // new step's timer and could fire a second transition while the
+              // first is still in flight. Skip ticks until it completes.
+              if (stepTransitioning) return;
+
               if (secondsLeftInStep === 1) {
                   playBeep();
               }
@@ -2663,7 +2720,6 @@
                       hrmCharacteristic && currentHeartRate > 0) {
                       const currentZone = getHRZone(currentHeartRate);
                       if (currentZone !== null && currentZone >= step.targetZone) {
-                        step.actualDuration = step.duration - secondsLeftInStep;
                         routineTotalDuration -= secondsLeftInStep;
                         secondsLeftInStep = -1; // force step end
                       }
@@ -2683,10 +2739,15 @@
                   totalStepDuration = secondsLeftInStep;
                   const step = currentRoutineSteps[currentStepIndex];
                   currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
-                  await enterStepSpeed(step, false);
-                  stopHrmZoneControl();
-                  if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic) {
-                      startHrmZoneControl(step.targetZone);
+                  stepTransitioning = true;
+                  try {
+                      await enterStepSpeed(step, false);
+                      stopHrmZoneControl();
+                      if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic) {
+                          startHrmZoneControl(step.targetZone);
+                      }
+                  } finally {
+                      stepTransitioning = false;
                   }
               }
 
@@ -3185,10 +3246,18 @@
           secondsLeftInStep = step.duration - stepOverhead;
           totalStepDuration = secondsLeftInStep;
           currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
-          await enterStepSpeed(step, false);
-          stopHrmZoneControl();
-          if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
-              startHrmZoneControl(step.targetZone);
+          // While paused, do not touch the belt: RESUME re-sends currentTargetSpeed.
+          if (!isPaused) {
+              stepTransitioning = true;
+              try {
+                  await enterStepSpeed(step, false);
+              } finally {
+                  stepTransitioning = false;
+              }
+              stopHrmZoneControl();
+              if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
+                  startHrmZoneControl(step.targetZone);
+          }
           updateLiveTimeDisplay(actualElapsedSeconds);
           updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
           updateGlobalProgress(totalElapsedSeconds);
@@ -3210,10 +3279,18 @@
           secondsLeftInStep = step.duration - stepOverhead;
           totalStepDuration = secondsLeftInStep;
           currentTargetSpeed = step.speed; // zone-control base, even if enterStepSpeed skips sendSpeed
-          await enterStepSpeed(step, false);
-          stopHrmZoneControl();
-          if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
-              startHrmZoneControl(step.targetZone);
+          // While paused, do not touch the belt: RESUME re-sends currentTargetSpeed.
+          if (!isPaused) {
+              stepTransitioning = true;
+              try {
+                  await enterStepSpeed(step, false);
+              } finally {
+                  stepTransitioning = false;
+              }
+              stopHrmZoneControl();
+              if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
+                  startHrmZoneControl(step.targetZone);
+          }
           updateLiveTimeDisplay(actualElapsedSeconds);
           updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
           updateGlobalProgress(totalElapsedSeconds);
@@ -3780,7 +3857,7 @@
           } else {
               document.getElementById('managerView').style.display = 'block';
               document.getElementById('driverView').style.display = 'none';
-              document.title = 'walkpadspeeds - Routine Manager';
+              document.title = 'walkpadspeed - Routine Manager';
               initManagerMode(urlParams);
           }
       });
@@ -4434,6 +4511,11 @@ Climb with Inclines // For walkpads with automatic incline settings
 
           renderStepsList();
 
+          // #hrm: 0 hides the HR metric regardless of test mode or a real pad
+          if (!metaHRM) {
+              document.getElementById('hrmCell').classList.add('metric-off');
+          }
+
           const neutralBtn = document.getElementById('mod-neutral');
           if (neutralBtn) {
               neutralBtn.classList.add('active');
@@ -4449,8 +4531,11 @@ Climb with Inclines // For walkpads with automatic incline settings
                       ftmsControlCharacteristic = {
                           writeValue: async (buffer) => {
                               console.log("Mock BLE Control Write:", buffer);
-                              if (buffer.byteLength === 3 && new DataView(buffer).getUint8(0) === 0x02) {
-                                  const rawSpeed = new DataView(buffer).getUint16(1, true);
+                              // Control-point commands arrive as Uint8Array; real
+                              // writeValue accepts any BufferSource, so accept both.
+                              const ab = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
+                              if (buffer.byteLength === 3 && new DataView(ab).getUint8(0) === 0x02) {
+                                  const rawSpeed = new DataView(ab).getUint16(1, true);
                                   // Keep mock live speed updated
                                   currentLiveSpeed = rawSpeed / 100; 
                                   document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)}`;
@@ -4463,10 +4548,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                       if (routineHasIncline) {
                           document.getElementById('inclineMetric').classList.remove('metric-off');
                       }
-                      if (!metaHRM) {
-                          document.getElementById('hrmCell').classList.add('metric-off');
-                      }
- 
+
                       document.getElementById('connectBtn').style.display = 'none';
                       await requestWakeLock();
                       return;
@@ -4482,13 +4564,10 @@ Climb with Inclines // For walkpads with automatic incline settings
                   const server = await bluetoothDevice.gatt.connect();
 
                   // Chrome fires this on link loss / pad power-off. Without a
-                  // listener the app kept believing it was connected.
-                  bluetoothDevice.addEventListener('gattserverdisconnected', () => {
-                      ftmsControlCharacteristic = null;
-                      ftmsHasControl = false;
-                      ftmsCpWaiter = null;
-                      updateStatus('Walkpad disconnected — reconnect to continue.');
-                  });
+                  // listener the app kept believing it was connected. Attached
+                  // once per device (requestDevice returns the same
+                  // BluetoothDevice instance, like the HRM handler).
+                  attachPadDisconnectHandler(bluetoothDevice);
 
                   // Fresh connection: forget what a previous pad reported.
                   currentLiveIncline = null;
@@ -4692,6 +4771,7 @@ updateStatus("Subscribing to Walkpad Data stream...");
           document.getElementById('defLoad').style.display = 'block';
           document.getElementById('routinesClearConfirm').style.display = 'none';
           document.getElementById('routinesClear').style.display = 'none';
+          try { localStorage.removeItem('wpss_cached_routines'); } catch (e) { /* quota */ }
       }
 
       function viewSessionLog() {

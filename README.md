@@ -525,6 +525,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v1.1.4 fix: the routine clock no longer double-steps when a step change is slow (incline waits); a pad disconnect mid-routine now pauses the routine instead of silently logging fake distance; `#hrm: 0` now also hides the heart-rate box with a real pad; ⏮/⏭ while paused no longer start the belt; "Delete all routines" really clears the cached file; pause/stop work again in Test Mode; the HR trend no longer carries stale state across sessions.
 - v1.1.3 2026-11-14 docs: troubleshooting connection problems with the heart monitor.
 - v1.1.2 2026-11-12 fix: Handling crashes of the bluetooth server of the phone.
 - v1.1.1 2026-10-30 fix: Implementing the proper FTMS handling of the W60 broke some code handling the Fousae's flaky implementation (as I guess most cheap pads). The code now works for both by implementing workaround in case of the common bogus communicatyions with the pad.

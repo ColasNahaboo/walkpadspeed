@@ -61,7 +61,7 @@ HIIT
 
 ### Metadata globals (set by `parseMetadata(text)`)
 
-`metaName`, `metaBirthYear`, `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when neither BLE speed-range characteristic is readable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.7)
+`metaName`, `metaBirthYear`, `metaAge` (derived from `#birth:`; feeds the `220 - age` max-HR default), `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when neither BLE speed-range characteristic is readable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.62)
 
 `parseMetadata` is called both in the manager (on file load) and in `initDriverMode` (re-parses from `localStorage` cache since page navigation resets JS globals).
 
