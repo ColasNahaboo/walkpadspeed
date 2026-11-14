@@ -762,3 +762,16 @@ service right after connect, before subscribing, so Chrome knows every handle
 and drops the band's unsolicited notifications silently. hrmdiag is now
 version-stamped (`diag v1.1.4-dev.7` in its log) — always check that line
 before trusting a diag run.
+
+**v1.1.4-dev.8: THE root cause, from a clean logcat trace.** After an adb
+force-stop + fresh hrmdiag run: `connectGatt` → connected in 0.08 s → MTU 517
+OK → `onSearchComplete status=0` → Chrome **does** call
+`setCharacteristicNotification(0x2A37, enable)` → HR notifications arrive at
+1 Hz immediately → **`onDescriptorWrite` never arrives**. The COROS band
+streams heart-rate notifications without ever acknowledging the CCCD write, so
+`startNotifications()`'s promise never resolves even though data is flowing.
+Every earlier "phantom link / dead binder / NPE flood" theory was a symptom or
+a red herring; the NPEs were from the walkpad's own orphan notifications,
+unrelated. Fix: race `startNotifications()` against the first
+`characteristicvaluechanged` event — a beat proves the subscription works, so
+treat it as success (both app and hrmdiag, diag v1.1.4-dev.8).

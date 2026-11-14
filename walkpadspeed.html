@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.7";}
+      #version:after {content: "v1.1.4-dev.8";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1918,8 +1918,21 @@
                   const service = await hrmOpTimeout(server.getPrimaryService('heart_rate'), 'getPrimaryService');
                   let characteristic = await hrmOpTimeout(
                       service.getCharacteristic('heart_rate_measurement'), 'getCharacteristic');
+                  // The COROS band streams HR notifications without ever
+                  // acknowledging the CCCD write (2026-11-14 logcat:
+                  // setCharacteristicNotification issued, notifications arrive
+                  // at 1 Hz, onDescriptorWrite never comes) — so
+                  // startNotifications() never resolves even though data is
+                  // flowing. Treat the first notification as proof of
+                  // subscription and race it against the promise.
+                  const firstBeat = new Promise(resolve =>
+                      characteristic.addEventListener('characteristicvaluechanged',
+                          () => resolve('beat'), { once: true }));
                   try {
-                      await hrmOpTimeout(characteristic.startNotifications(), 'startNotifications');
+                      await Promise.race([
+                          hrmOpTimeout(characteristic.startNotifications(), 'startNotifications'),
+                          firstBeat,
+                      ]);
                   } catch (err) {
                       if (!/timed out/.test(err.message)) throw err;
                       // Some Android stacks drop the first descriptor write after

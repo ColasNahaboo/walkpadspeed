@@ -78,7 +78,7 @@ function withTimeout(promise, ms, label) {
     ]);
 }
 
-const DIAG_VERSION = 'v1.1.4-dev.7';
+const DIAG_VERSION = 'v1.1.4-dev.8';
 
 async function start() {
     logEl.textContent = `start ${DIAG_VERSION}`;
@@ -159,9 +159,15 @@ async function start() {
             }
         });
 
-        log('startNotifications() …');
-        await withTimeout(characteristic.startNotifications(), 10000, 'startNotifications');
-        log('startNotifications OK', 'ok');
+        log('startNotifications() … (racing first notification: the COROS band streams HR without ever acking the CCCD write, so the promise can hang while data flows)');
+        const firstBeat = new Promise(resolve =>
+            characteristic.addEventListener('characteristicvaluechanged',
+                () => resolve('beat'), { once: true }));
+        const winner = await Promise.race([
+            withTimeout(characteristic.startNotifications(), 10000, 'startNotifications'),
+            firstBeat,
+        ]);
+        log(winner === 'beat' ? 'startNotifications: first notification received (CCCD ack never came — treated as OK)' : 'startNotifications OK', 'ok');
         disconnectBtn.disabled = false;
 
         try {
