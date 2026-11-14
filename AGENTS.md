@@ -601,3 +601,43 @@ no pairing). `nRF Connect` and `hrmdiag.html` (repo root, deploy it next to
 `walkpadspeed.html`) both decide strap-vs-phone without the app: `hrmdiag.html` logs
 requestDevice, connect, service, characteristic, a CCCD read, `readValue` and
 `startNotifications` separately, each with a timeout, and shares no code with the app.
+
+---
+
+### Session 2026-11-14: Full-code review fixes (v1.1.4-dev.1)
+
+Whole-file review of `walkpadspeed.html` (security excluded per Colas: protected
+LANs). dev/bug1.md's three bugs confirmed already fixed. Ten findings fixed, all
+verified in a Playwright test-mode run:
+
+- **Clock re-entrancy** (`startClockLoop`): the 1 s async tick awaits
+  `enterStepSpeed()` (which can take seconds on incline waits); ticks during that
+  window decremented the new step and could double-skip. New `stepTransitioning`
+  flag makes ticks skip while a transition is in flight (also set in
+  `prevStep`/`nextStep`).
+- **`#hrm: 0` on the real path**: the `metric-off` guard existed only in the
+  test-mode connect branch; now applied once in `initDriverMode`, covering both.
+- **Pad disconnect mid-routine**: `gattserverdisconnected` now pauses the routine
+  (clock frozen, intervals cleared, RESUME shown) instead of letting the clock
+  log fake distance at the last commanded speed. Extracted as
+  `attachPadDisconnectHandler()`, attached once per device (same
+  `*DisconnectHooked` pattern as the HRM handler).
+- **⏮/⏭ while paused** no longer send speed; RESUME re-sends `currentTargetSpeed`
+  as before.
+- **"Delete all routines"** now removes `wpss_cached_routines` (it only cleared
+  the DOM; routines returned on reload).
+- **`ignoreSpeedChanges` timer race**: each release timer is now tracked
+  (`scheduleIgnoreSpeedRelease()`); an earlier command's timer can no longer
+  clear the flag while a later command is in flight.
+- **HR trend EMA state** (`lastHr`/`lastSmoothedTrend`/`lastTimestamp`) reset by
+  `resetHrTrend()` on routine reset, HRM disconnect and zone-control start — a
+  stale trend used to skew the first projection of a new session.
+- **Test-mode pause/stop was broken** since the control-point handshake (latent
+  since v1.0.x): the mock `writeValue` did `new DataView(buffer)` on a
+  `Uint8Array`. Accepts any `BufferSource` now. Found by the browser test, not
+  by the review.
+- Dead `step.actualDuration` removed; `sendSpeed` status shows the effective
+  (modifier-applied) speed; manager page title typo `walkpadspeeds` fixed.
+- AGENTS.md: `metaStepLength` default corrected 0.7 → 0.62; `metaAge` documented
+  (it exists and feeds the `220 − age` max-HR default, despite the 2026-07-14
+  "removed" note).
