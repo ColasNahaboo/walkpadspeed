@@ -78,8 +78,10 @@ function withTimeout(promise, ms, label) {
     ]);
 }
 
+const DIAG_VERSION = 'v1.1.4-dev.7';
+
 async function start() {
-    logEl.textContent = 'start';
+    logEl.textContent = `start ${DIAG_VERSION}`;
     t0 = performance.now();
     firstBeat = false;
     bpmEl.textContent = '--';
@@ -115,6 +117,20 @@ async function start() {
         log('gatt.connect() …');
         const server = await withTimeout(device.gatt.connect(), 15000, 'gatt.connect');
         log(`gatt.connect OK (connected=${server.connected})`, 'ok');
+
+        // Force Chrome to create Java wrappers for EVERY characteristic of
+        // every service before subscribing. The band pushes unsolicited
+        // notifications at 1 Hz; any characteristic Chrome does not know yet
+        // throws a NullPointerException in onCharacteristicChanged, and the
+        // callback thread drowns before the CCCD write completes. optionalServices
+        // alone is not enough — wrappers exist only once the page accesses them.
+        log('enumerating all services/characteristics (wrapper warm-up) …');
+        const services = await withTimeout(server.getPrimaryServices(), 10000, 'getPrimaryServices');
+        for (const s of services) {
+            const chars = await withTimeout(s.getCharacteristics(), 5000, `getCharacteristics(${s.uuid})`);
+            log(`  ${s.uuid}: ${chars.length} chars`);
+        }
+        log('wrapper warm-up OK', 'ok');
 
         log('getPrimaryService(heart_rate) …');
         const service = await withTimeout(server.getPrimaryService('heart_rate'), 10000, 'getPrimaryService');

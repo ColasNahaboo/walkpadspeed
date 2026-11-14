@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.6";}
+      #version:after {content: "v1.1.4-dev.7";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1903,6 +1903,18 @@
                   } else {
                       trace(`HRM link up (attempt ${attempt})`);
                   }
+                  // Wrapper warm-up: the band pushes unsolicited notifications
+                  // at 1 Hz on characteristics Chrome has no Java wrapper for,
+                  // which throws a NullPointerException per notification and
+                  // drowns the callback thread before the CCCD write completes
+                  // (startNotifications hangs — 2026-11-14 logcat). Enumerating
+                  // every service/characteristic first makes Chrome register
+                  // them all so the stray notifications are dropped silently.
+                  const services = await hrmOpTimeout(server.getPrimaryServices(), 'getPrimaryServices');
+                  for (const s of services) {
+                      await hrmOpTimeout(s.getCharacteristics(), `getCharacteristics(${s.uuid})`);
+                  }
+                  trace(`HRM wrapper warm-up: ${services.length} services`);
                   const service = await hrmOpTimeout(server.getPrimaryService('heart_rate'), 'getPrimaryService');
                   let characteristic = await hrmOpTimeout(
                       service.getCharacteristic('heart_rate_measurement'), 'getCharacteristic');

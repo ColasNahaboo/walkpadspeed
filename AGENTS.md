@@ -753,3 +753,12 @@ services (+ device_information, battery) in `optionalServices`, so Chrome
 discovers them, creates wrappers, and silently drops the notifications. Same in
 hrmdiag. This also explains why the walkpad (no unsolicited traffic) always
 worked. Validation pending on the phone.
+
+**v1.1.4-dev.7: wrapper warm-up.** optionalServices alone did NOT stop the NPE
+flood (still 1/s at 23:30 with dev.6 deployed) — Chrome creates Java
+characteristic wrappers only when the page *accesses* them. Both app and
+hrmdiag now enumerate `getPrimaryServices()` + `getCharacteristics()` on every
+service right after connect, before subscribing, so Chrome knows every handle
+and drops the band's unsolicited notifications silently. hrmdiag is now
+version-stamped (`diag v1.1.4-dev.7` in its log) — always check that line
+before trusting a diag run.
