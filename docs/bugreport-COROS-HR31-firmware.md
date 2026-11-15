@@ -82,7 +82,7 @@ that is not in the table, the client cannot map it to any characteristic.
 
 ### 4.1 Unsolicited vendor notifications → Android GATT callback crash (1 Hz)
 
-From `logcat` on a Pixel (Android 15, Chrome 157) while the strap is connected
+From `logcat` on a Pixel 8 Pro (Android 17, Chrome 157) while the strap is connected
 and the app is trying to subscribe to Heart Rate Measurement (`0x2A37`). One
 exception per second, matching the strap's notification cadence:
 
@@ -174,9 +174,9 @@ the extra, unsubscribed vendor traffic.
 
 3. **Populate the Device Information service correctly.** The Model Number
    returns raw bytes `01 02 03 04 05 5f 00 00` instead of a printable string,
-   and the PnP ID is all zeros. These should be valid UTF-8 strings / a valid
-   PnP ID per the Assigned Numbers spec. (Minor, but it makes the device hard
-   to identify in support logs.)
+   and the Certificate field is empty. These should be valid UTF-8 strings per
+   the GATT spec. (Minor, but it makes the device hard to identify in support
+   logs.)
 
 ## 5b. Why this is a COROS bug and not a browser bug
 
