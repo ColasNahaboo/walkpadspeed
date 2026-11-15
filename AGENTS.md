@@ -798,3 +798,14 @@ band is busy streaming there and ignores the phone's CCCD write — matching
    whether the band answers the CCCD write at all.
 adb to the phone works (wireless debugging, pair 10.0.0.217 — re-pair needed
 after reboot; `am force-stop com.android.chrome` is the reliable Chrome kill).
+
+**RESOLVED (2026-11-15): Chrome 157 regression; Vivaldi works.** Play Store
+confirms Chrome updated 2026-11-11, first failure 2026-11-13. Edge and Vivaldi
+show the same hang initially, but **Vivaldi connects after a few retries** —
+the NPE wedge is a race (whether the band's first unsolicited notification
+beats the wrapper registration), and Vivaldi's older bundled Chromium tolerates
+it more often. Workaround: use Vivaldi, re-tap on failure. The hr-relay
+(/m-home/colas/git/hr-relay, BLE→BLE re-advertising relay) was built as a
+fallback but is NOT needed and NOT running; do not start it. The dev.2–dev.8
+HRM changes (phantom-link detection, warm-up, first-beat race, forget()) are
+harmless and stay.
