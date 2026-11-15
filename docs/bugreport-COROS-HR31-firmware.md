@@ -2,7 +2,7 @@
 
 **Reported by:** Colas Nahaboo — <https://github.com/ColasNahaboo>
 **Date:** 2026-11-15
-**Device:** COROS HEART RATE chest strap (COROS HR31)
+**Device:** COROS HEART RATE MONITOR band (COROS HR31)
 **Severity:** High — the device is unusable with any web app (Web Bluetooth) and
 with Android BLE clients that follow the standard subscription flow, while it
 works with others. This is a device firmware defect, not a client bug.
@@ -43,12 +43,12 @@ Primary services discovered on connect:
 | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | **Nordic UART Service (NUS)** | `0x6e400003-…` = `notify`, write char present                   |
 | `75f50001-e97c-43f9-9a1d-bd83438f6b99` | **vendor**                    | proprietary telemetry                                           |
 
-The strap exposes **three non-standard services with `notify` characteristics**
+The band exposes **three non-standard services with `notify` characteristics**
 in addition to the standard Heart Rate service.
 
 ## 3. The defect
 
-**The strap transmits BLE notifications on its vendor-service characteristics
+**The band transmits BLE notifications on its vendor-service characteristics
 unsolicited, at ~1 Hz, continuously, from the moment a central connects —
 without the central ever having written to those characteristics' CCCD
 descriptors.**
@@ -75,16 +75,16 @@ that is not in the table, the client cannot map it to any characteristic.
   never processed. The client's `startNotifications()` promise therefore never
   resolves, and the heart-rate stream can never be subscribed.
 - **BlueZ on Linux** routes notifications by handle and silently ignores the
-  unknown ones, so the same strap works perfectly there — which is what makes
+  unknown ones, so the same band works perfectly there — which is what makes
   this look like a "browser bug" from the outside, when it is not.
 
 ## 4. Evidence
 
 ### 4.1 Unsolicited vendor notifications → Android GATT callback crash (1 Hz)
 
-From `logcat` on a Pixel 8 Pro (Android 17, Chrome 157) while the strap is connected
+From `logcat` on a Pixel 8 Pro (Android 17, Chrome 157) while the band is connected
 and the app is trying to subscribe to Heart Rate Measurement (`0x2A37`). One
-exception per second, matching the strap's notification cadence:
+exception per second, matching the band's notification cadence:
 
 ```
 W/Binder: java.lang.NullPointerException: Attempt to read from field
@@ -131,14 +131,14 @@ The three vendor services are visible in the enumeration; the standard Heart
 Rate characteristic is found and reports `notify=true`; then the subscription
 hangs.
 
-### 4.3 The same strap works perfectly over a stack that ignores the bad packets
+### 4.3 The same band works perfectly over a stack that ignores the bad packets
 
-A raw HCI capture (`btmon-bluez-hrm-subscribe-ok.pcap`) of the **same strap**
+A raw HCI capture (`btmon-bluez-hrm-subscribe-ok.pcap`) of the **same band**
 on Linux/BlueZ shows a textbook-clean subscription: the client writes
-`0100` to the Heart Rate CCCD (handle `0x0023`), the strap responds, and then
+`0100` to the Heart Rate CCCD (handle `0x0023`), the band responds, and then
 streams Heart Rate Measurements on handle `0x0022` at 1 Hz. BlueZ discards the
 unsolicited vendor notifications by handle, so nothing wedges. This proves the
-strap's *heart-rate* path is correct and that the failure is caused purely by
+band's *heart-rate* path is correct and that the failure is caused purely by
 the extra, unsubscribed vendor traffic.
 
 ### 4.4 The failure is device-specific, not browser-specific
@@ -148,10 +148,10 @@ the extra, unsubscribed vendor traffic.
 - The same phone's nRF Connect app: works (it tolerates the noise).
 - BlueZ on Linux: works.
 - **A clean heart-rate peripheral that exposes only `0x2A37`: works in Chrome
-  157 on the same phone, first try.** When the strap is bridged through a relay
+  157 on the same phone, first try.** When the band is bridged through a relay
   that re-exposes only the standard `0x2A37` characteristic, the very same
   Chrome build subscribes instantly (`onDescriptorWrite status:0`) and streams
-  live heart rate. This isolates the cause to the strap's extra unsolicited
+  live heart rate. This isolates the cause to the band's extra unsolicited
   notifications, not to any browser.
 
 ## 5. What COROS must fix (firmware)
@@ -187,7 +187,7 @@ runs, and the stack has no handle mapping for it. The only party that can stop
 the traffic is the device firmware. Every other heart-rate product we tested
 exposes only the standard characteristic (or properly CCCD-gated vendor ones)
 and works flawlessly in the same browser. Chrome is simply the strictest
-consumer of a contract the strap violates.
+consumer of a contract the band violates.
 
 ## 7. Reproduction (short)
 
@@ -200,7 +200,7 @@ consumer of a contract the strap violates.
    completes; `startNotifications()` hangs / times out.
 5. In parallel, `adb logcat` shows the 1 Hz `NullPointerException` in
    `BluetoothGattCallback.onCharacteristicChanged` from the moment of connect.
-6. The same strap works with BlueZ on Linux and with nRF Connect on the same
+6. The same band works with BlueZ on Linux and with nRF Connect on the same
    phone, confirming the device is the common factor.
 
 ## 8. Impact
@@ -215,8 +215,8 @@ consumer of a contract the strap violates.
 
 ## 9. Workaround we had to build (for context)
 
-To use the strap at all with our web app we wrote a BLE relay
-(https://github.com/ColasNahaboo/hr-relay) that connects to the strap over
+To use the band at all with our web app we wrote a BLE relay
+(https://github.com/ColasNahaboo/hr-relay) that connects to the band over
 BlueZ, discards the vendor traffic, and re-advertises a single clean `0x2A37`
 characteristic for the phone to connect to. This is a workaround for a device
 defect, not a substitute for a firmware fix.
@@ -228,7 +228,7 @@ defect, not a substitute for a firmware fix.
 - `hrmdiag-chrome157-fail.log` — Web Bluetooth diagnostic trace: connect OK,
   vendor services enumerated, `startNotifications()` times out.
 - `btmon-bluez-hrm-subscribe-ok.pcap` / `.txt` — raw HCI capture of the same
-  strap subscribing cleanly under BlueZ (heart-rate path is correct).
+  band subscribing cleanly under BlueZ (heart-rate path is correct).
 
 ## 11. Contact
 
