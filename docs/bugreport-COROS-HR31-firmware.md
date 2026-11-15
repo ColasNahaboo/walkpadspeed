@@ -11,18 +11,18 @@ works with others. This is a device firmware defect, not a client bug.
 
 ## 1. Device identification (read live over BLE, Device Information service 0x180A)
 
-| Characteristic | Value |
-|---|---|
-| Manufacturer Name (0x2A29) | `gysys` |
-| Model Number (0x2A23) | `01 02 03 04 05 5f 00 00` (raw, not a printable string) |
-| Serial Number (0x2A24) | `COROS HR31` |
-| Hardware Revision (0x2A25) | `2991F1404180` |
-| Firmware Revision (0x2A26) | `VXYZaj` (placeholder — not a real version string) |
-| Firmware String (0x2A27) | `V42` |
-| Hardware String (0x2A28) | `V 1.26.0` |
-| Certificate (0x2A2A) | `00 00 00 00 00 00` (empty) |
-| Advertised name | `COROS HEART RATE 7BD111` |
-| Public static address | `D1:F9:A6:A2:FC:6D` |
+| Characteristic             | Value                                                   |
+| -------------------------- | ------------------------------------------------------- |
+| Manufacturer Name (0x2A29) | `gysys`                                                 |
+| Model Number (0x2A23)      | `01 02 03 04 05 5f 00 00` (raw, not a printable string) |
+| Serial Number (0x2A24)     | `COROS HR31`                                            |
+| Hardware Revision (0x2A25) | `2991F1404180`                                          |
+| Firmware Revision (0x2A26) | `VXYZaj` (placeholder — not a real version string)      |
+| Firmware String (0x2A27)   | `V42`                                                   |
+| Hardware String (0x2A28)   | `V 1.26.0`                                              |
+| Certificate (0x2A2A)       | `00 00 00 00 00 00` (empty)                             |
+| Advertised name            | `COROS HEART RATE 7BD111`                               |
+| Public static address      | `D1:F9:A6:A2:FC:6D`                                     |
 
 The `gysys` manufacturer string and the placeholder values (`VXYZaj`, raw-byte
 Model Number) indicate a generic OEM heart-rate module. The firmware defect described
@@ -32,16 +32,16 @@ below is exactly the kind of defect such modules ship with.
 
 Primary services discovered on connect:
 
-| Service | UUID | Notes |
-|---|---|---|
-| 0x1800 Generic Access | standard | |
-| 0x1801 Generic Attribute | standard | |
-| 0x180A Device Information | standard | |
-| 0x180D Heart Rate | standard | `0x2A37` Heart Rate Measurement, flags = `notify` |
-| 0x180F Battery Service | standard | |
-| `6e400001-b5a3-f393-e0a9-77656c6f6f70` | **vendor** | Nordic UART–style; `0x…0003` char = `notify`, `0x…0002` = write |
-| `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | **Nordic UART Service (NUS)** | `0x6e400003-…` = `notify`, write char present |
-| `75f50001-e97c-43f9-9a1d-bd83438f6b99` | **vendor** | proprietary telemetry |
+| Service                                | UUID                          | Notes                                                           |
+| -------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| 0x1800 Generic Access                  | standard                      |                                                                 |
+| 0x1801 Generic Attribute               | standard                      |                                                                 |
+| 0x180A Device Information              | standard                      |                                                                 |
+| 0x180D Heart Rate                      | standard                      | `0x2A37` Heart Rate Measurement, flags = `notify`               |
+| 0x180F Battery Service                 | standard                      |                                                                 |
+| `6e400001-b5a3-f393-e0a9-77656c6f6f70` | **vendor**                    | Nordic UART–style; `0x…0003` char = `notify`, `0x…0002` = write |
+| `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | **Nordic UART Service (NUS)** | `0x6e400003-…` = `notify`, write char present                   |
+| `75f50001-e97c-43f9-9a1d-bd83438f6b99` | **vendor**                    | proprietary telemetry                                           |
 
 The strap exposes **three non-standard services with `notify` characteristics**
 in addition to the standard Heart Rate service.
@@ -165,9 +165,10 @@ the extra, unsubscribed vendor traffic.
 2. **Gate the vendor telemetry services behind explicit subscription.** If the
    COROS app relies on the vendor services (`6e400001-…`, `75f50001-…`) for
    its own telemetry, those characteristics must:
+   
    - advertise a proper CCCD descriptor, and
    - only notify after the central writes the CCCD to enable notifications.
-
+   
    A central that only wants heart rate (a web app, a standard fitness client)
    must be able to subscribe to `0x2A37` and receive *only* heart-rate
    notifications, with no background traffic on other handles.

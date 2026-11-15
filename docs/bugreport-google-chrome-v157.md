@@ -64,8 +64,8 @@ Edge (Chromium 157-era) reproduces the hang.
 - Device under test: **COROS HEART RATE 7BD111** chest strap,
   public static address `D1:F9:A6:A2:FC:6D`
 - Web page: self-hosted single-file app (walkpadspeed,
-  https://tm.nahaboo.org/walkpadspeed.html) + a standalone diagnostic
-  (https://tm.nahaboo.org/hrmdiag.html) that shares no code with the app
+  https://walkpad.fr) + a standalone diagnostic
+  (https://walkpad.fr/hrmdiag.html) that shares no code with the app
 - No bond/pairing: the device is not in Android's saved devices; no companion
   app installed; verified no other central holds the link (BlueZ on a Linux
   host in the same room connects it fine while the phone fails).
@@ -89,7 +89,7 @@ handle and ignore unknown ones.
 
 ## Steps to reproduce
 
-1. Open https://tm.nahaboo.org/hrmdiag.html in Chrome 157 on Android
+1. Open https://walkpad.fr/hrmdiag.html in Chrome 157 on Android
    (or use the minimal snippet below).
 2. Tap **Connect**, pick `COROS HEART RATE 7BD111`.
 3. Observe the diagnostic log.
@@ -231,5 +231,5 @@ undiscovered/unaccessed characteristics) and unblocks the CCCD callback.
   clean disable (`0000`) on disconnect. Proves the device and link are fine.
 - `hrmdiag-chrome157-fail.log` — the standalone diagnostic's own output for
   the failing attempt (warm-up OK, subscription hangs).
-- Reproduction page: https://tm.nahaboo.org/hrmdiag.html (open-source,
+- Reproduction page: https://walkpad.fr/hrmdiag.html (open-source,
   https://github.com/ColasNahaboo/walkpadspeed/blob/main/hrmdiag.html)
