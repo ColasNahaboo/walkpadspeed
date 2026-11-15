@@ -178,7 +178,7 @@ the extra, unsubscribed vendor traffic.
    the GATT spec. (Minor, but it makes the device hard to identify in support
    logs.)
 
-## 5b. Why this is a COROS bug and not a browser bug
+## 6. Why this is a COROS bug and not a browser bug
 
 A web app or Android app cannot opt out of notifications it never subscribed
 to: the notification arrives at the OS BLE stack before any application code
@@ -188,7 +188,7 @@ exposes only the standard characteristic (or properly CCCD-gated vendor ones)
 and works flawlessly in the same browser. Chrome is simply the strictest
 consumer of a contract the strap violates.
 
-## 6. Reproduction (short)
+## 7. Reproduction (short)
 
 1. Wear the COROS HR31 so it advertises and is not held by another device.
 2. On an Android phone, open any Web Bluetooth heart-rate page (e.g.
@@ -202,7 +202,7 @@ consumer of a contract the strap violates.
 6. The same strap works with BlueZ on Linux and with nRF Connect on the same
    phone, confirming the device is the common factor.
 
-## 7. Impact
+## 8. Impact
 
 - The product cannot be used with **any** web-based fitness application
   (Web Bluetooth), which is a large and growing class of apps.
@@ -212,7 +212,7 @@ consumer of a contract the strap violates.
 - Users are told (wrongly) that their browser is broken, driving support load
   and negative reviews, when the device firmware is at fault.
 
-## 7b. Workaround we had to build (for context)
+## 9. Workaround we had to build (for context)
 
 To use the strap at all with our web app we wrote a BLE relay
 (https://github.com/ColasNahaboo/hr-relay) that connects to the strap over
@@ -220,7 +220,7 @@ BlueZ, discards the vendor traffic, and re-advertises a single clean `0x2A37`
 characteristic for the phone to connect to. This is a workaround for a device
 defect, not a substitute for a firmware fix.
 
-## 8. Attachments (in this repo's `docs/`)
+## 10. Attachments (in this repo's `docs/`)
 
 - `logcat-chrome157-hrm-fail-full.txt` / `-filtered.txt` — Android logcat
   showing the 1 Hz NPE flood and the unacknowledged CCCD write.
@@ -229,7 +229,7 @@ defect, not a substitute for a firmware fix.
 - `btmon-bluez-hrm-subscribe-ok.pcap` / `.txt` — raw HCI capture of the same
   strap subscribing cleanly under BlueZ (heart-rate path is correct).
 
-## 9. Contact
+## 11. Contact
 
 Colas Nahaboo — <https://github.com/ColasNahaboo>
 Happy to provide additional captures, the raw HCI traces, or to test a firmware
