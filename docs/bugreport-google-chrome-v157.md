@@ -17,9 +17,14 @@ reports `setCharacteristicNotification()` was called, and HR notifications
 arrive at the Java layer at 1 Hz — but the `onDescriptorWrite` callback is
 never delivered to Chrome, so the JS promise hangs forever.
 
-Concurrently, `logcat` shows a `NullPointerException` **once per second** (the
-device's notification rate) inside Chrome's obfuscated
-`org.chromium.device.bluetooth` wrapper code:
+Concurrently, `logcat` shows a `NullPointerException` **on every notification**
+(1 Hz, the device's notification rate) inside Chrome's obfuscated
+`org.chromium.device.bluetooth` wrapper code. The NPE kills the dispatch of
+that notification: the page's `characteristicvaluechanged` JS event never
+fires for the subscribed `heart_rate_measurement` characteristic either, and
+the `onDescriptorWrite` completion for the CCCD write is never delivered — so
+`startNotifications()` hangs forever even though the notifications are
+arriving at the Android callback layer.
 
 ```
 W/Binder: java.lang.NullPointerException: Attempt to read from field
@@ -105,6 +110,22 @@ console.log('unreachable');
 
 ### Observed (Chrome 157)
 
+Clean reproduction captured 2026-11-15 08:32 (logcat buffer cleared beforehand,
+band freshly released from the Linux host, single tab, no other BLE device
+connecting at that moment) — see `logcat-chrome157-hrm-fail-filtered.txt`:
+
+```
+08:32:08.958  cr_Bluetooth: connectGatt
+08:32:08.974  BluetoothGatt: onConnectionState() - status=0 connected=true device=XX:XX:XX:XX:FC:6D
+08:32:08.975  BluetoothGatt: onConfigureMTU(XX:XX:XX:XX:FC:6D, 517, 0)
+08:32:08.999  BluetoothGatt: onSearchComplete(XX:XX:XX:XX:FC:6D, _, 0)
+08:32:09.021  BluetoothGatt: setCharacteristicNotification() - uuid: 00002a37-... enable: true
+08:32:09.320  cr_Bluetooth: wrapper onCharacteristicChanged.   (first notification)
+08:32:09.322  W/Binder: NullPointerException ... BluetoothGattCharacteristicWrapper.a  (2 ms later)
+              ... notifications continue at 1 Hz, NPE repeats, ×63 changed / ×21 NPE over ~20 s ...
+              onDescriptorWrite: 0 occurrences — never delivered
+```
+
 Diagnostic output (all steps before the subscription are healthy):
 
 ```
@@ -117,7 +138,8 @@ Diagnostic output (all steps before the subscription are healthy):
 + 14.17s FAILED: startNotifications timed out after 10s
 ```
 
-`logcat` during the hang (same session, band only — no other BLE device):
+Same signature in an earlier Chrome session (2026-11-15 00:04, buffer not
+cleared — kept for reference):
 
 ```
 00:04:05.539 onConnectionState() - status=0 connected=true device=XX:XX:XX:XX:FC:6D
@@ -163,10 +185,12 @@ dropped silently, not thrown into the callback queue as an uncaught NPE.
 3. **Not a page-side bug:** we tried (a) declaring the vendor services in
    `optionalServices`, (b) eagerly enumerating every service and
    characteristic (`getPrimaryServices()` → `getCharacteristics()`) before
-   subscribing, so wrappers exist for all 17 characteristics — the NPE and the
+   subscribing, so wrappers exist for all characteristics — the NPE and the
    hang persist unchanged. (c) Racing `startNotifications()` against the first
    `characteristicvaluechanged` event also never resolves, because the JS-level
-   event never fires either.
+   event never fires either (the notification dies in the Java layer before
+   reaching the page). The diagnostic's own log (`hrmdiag-chrome157-fail.log`)
+   shows the warm-up succeeding and the subscription still hanging.
 
 4. **Secondary finding (possibly separate bug):** after toggling the phone's
    Bluetooth off/on from Quick Settings, every subsequent Chrome GATT
@@ -194,10 +218,18 @@ the notification instead of dereferencing `null`. This restores the pre-157
 behaviour for quirky-but-common devices (vendor notifications on
 undiscovered/unaccessed characteristics) and unblocks the CCCD callback.
 
-## Attachments / artifacts available
+## Attachments
 
-- Full `logcat` captures (clean single-device session, timestamps above)
-- `btmon` ATT capture of the same device from a BlueZ central (shows the CCCD
-  write completing and the device's quirks) — happy to upload.
+- `logcat-chrome157-hrm-fail-filtered.txt` — clean reproduction (buffer
+  cleared, single device): connect → discovery → `setCharacteristicNotification`
+  → notifications at 1 Hz → NPE 2 ms after the first one → `onDescriptorWrite`
+  never delivered.
+- `logcat-chrome157-hrm-fail-full.txt` — the same session, unfiltered.
+- `btmon-bluez-hrm-subscribe-ok.pcap` (+ `.txt` rendering) — the same band
+  subscribed successfully from a BlueZ central on the same network: CCCD write
+  to handle `0x0023` (`0100`) accepted, `Handle Value Notification` at 1 Hz,
+  clean disable (`0000`) on disconnect. Proves the device and link are fine.
+- `hrmdiag-chrome157-fail.log` — the standalone diagnostic's own output for
+  the failing attempt (warm-up OK, subscription hangs).
 - Reproduction page: https://tm.nahaboo.org/hrmdiag.html (open-source,
   https://github.com/ColasNahaboo/walkpadspeed/blob/main/hrmdiag.html)

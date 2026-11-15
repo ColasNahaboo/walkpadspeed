@@ -1,0 +1,167 @@
+Bluetooth monitor ver 5.85
+= Note: Linux version 7.0.0-43-generic (x86_64)                        0.832861
+= Note: Bluetooth subsystem version 2.22                               0.832863
+= New Index: AC:A7:F1:3E:2C:0C (Primary,USB,hci0)               [hci0] 0.832863
+= Open Index: AC:A7:F1:3E:2C:0C                                 [hci0] 0.832864
+= Index Info: AC:A7:F1:3.. (Realtek Semiconductor Corporation)  [hci0] 0.832864
+@ MGMT Open: bluetoothd (privileged) version 1.23             {0x0001} 0.832865
+@ MGMT Open: bluetoothctl version 1.23                       {0x0002} 10.152935
+< ACL Data TX: Handle 16 flags 0x00 dlen 9                  #1 [hci0] 16.151687
+      ATT: Write Request (0x12) len 4
+        Handle: 0x0023
+          Data[2]: 0100
+> HCI Event: Number of Completed Packets (0x13) plen 5      #2 [hci0] 16.164550
+        Num handles: 1
+        Handle: 16
+        Count: 1
+> ACL Data RX: Handle 16 flags 0x02 dlen 5                  #3 [hci0] 16.180460
+      ATT: Write Response (0x13) len 0
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                  #4 [hci0] 16.195456
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                  #5 [hci0] 17.230468
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                  #6 [hci0] 18.191457
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                  #7 [hci0] 19.196819
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                  #8 [hci0] 20.200456
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                  #9 [hci0] 21.221541
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #10 [hci0] 22.196457
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #11 [hci0] 23.185461
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004d
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #12 [hci0] 24.190457
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004d
+@ MGMT Close: bluetoothctl                                   {0x0002} 25.153131
+< ACL Data TX: Handle 16 flags 0x00 dlen 9                 #13 [hci0] 25.156644
+      ATT: Write Request (0x12) len 4
+        Handle: 0x0023
+          Data[2]: 0000
+> HCI Event: Number of Completed Packets (0x13) plen 5     #14 [hci0] 25.164828
+        Num handles: 1
+        Handle: 16
+        Count: 1
+> ACL Data RX: Handle 16 flags 0x02 dlen 5                 #15 [hci0] 25.181460
+      ATT: Write Response (0x13) len 0
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #16 [hci0] 25.225457
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004d
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #17 [hci0] 26.185455
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #18 [hci0] 27.191453
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #19 [hci0] 28.195501
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #20 [hci0] 29.215463
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #21 [hci0] 30.190458
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #22 [hci0] 31.180461
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #23 [hci0] 32.201500
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #24 [hci0] 33.222460
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #25 [hci0] 34.196501
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004e
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #26 [hci0] 35.187454
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004d
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #27 [hci0] 36.191465
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004d
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #28 [hci0] 37.211507
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004c
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #29 [hci0] 38.186456
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004b
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #30 [hci0] 39.176462
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004b
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #31 [hci0] 40.181465
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004a
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #32 [hci0] 41.216460
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004a
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #33 [hci0] 42.176458
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 004a
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #34 [hci0] 43.181460
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0049
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #35 [hci0] 44.186460
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0049
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #36 [hci0] 45.206456
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0048
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #37 [hci0] 46.182477
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0048
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #38 [hci0] 47.171457
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0048
+@ MGMT Open: bluetoothctl version 1.23                       {0x0002} 47.449200
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #39 [hci0] 48.177457
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0047
+@ MGMT Close: bluetoothctl                                   {0x0002} 48.447577
+> ACL Data RX: Handle 16 flags 0x02 dlen 9                 #40 [hci0] 49.211456
+      ATT: Handle Value Notification (0x1b) len 4
+        Handle: 0x0022
+          Data[2]: 0047
