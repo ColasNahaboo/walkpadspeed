@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4-dev.8";}
+      #version:after {content: "v1.1.4-dev.9";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -360,6 +360,10 @@
           font-family: monospace;
           color: #00fa9a;
           margin-top: 5px;
+      }
+      .metric-value.alert {
+          color: #ff9500;
+          font-size: 6cqw;
       }
       .metric-title {
           font-size: 0.85rem;
@@ -1745,6 +1749,14 @@
 
       function handleHrmBoxClick() {
           if (hrmConnecting) return;   // a connect attempt is already running
+          // After repeated failures this tab's Bluetooth queue is wedged and
+          // tapping again only stacks doomed operations: the box becomes a
+          // reload button (2026-11-15: 4 doomed taps, instant success in a
+          // fresh page).
+          if (hrmFailCount >= 2 && !hrmCharacteristic) {
+              location.reload();
+              return;
+          }
           // Only a link with a live characteristic counts as connected: after a
           // strap sleep or a laptop suspend the GATT server can still report
           // connected === true while every operation fails with "GATT Server is
@@ -1851,6 +1863,12 @@
       // waits this long with the link closed before reconnecting.
       const HRM_PHANTOM_COOLDOWN_MS = 12000;
       let hrmConnecting = false;
+      // Failed connect attempts in this page load. Chrome queues GATT
+      // operations per device, so after a couple of timeouts the tab's queue
+      // is wedged and further taps just stack doomed operations (2026-11-15:
+      // 4 failed relay attempts in one tab, success only after the queue
+      // drained). From the 2nd failure on, the UI pushes a page reload.
+      let hrmFailCount = 0;
       let hrmFirstBeatSeen = false;
       let hrmBeatTimer = null;
       let hrmPhantomLink = false;
@@ -2053,6 +2071,7 @@
 
               updateHrmUI('connected', '--');
               updateStatus(`HRM connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`);
+              hrmFailCount = 0;
 
               // A strap that is connected but not worn notifies nothing at all,
               // which looks exactly like a broken connection. Say so.
@@ -2093,17 +2112,31 @@
               stopHrmBeatWatchdog();
               resetHrTrend();
               updateHrmUI('idle');
-              if (err.name !== 'NotFoundError') {
-                  // A timeout here usually means the strap was asleep — but it
-                  // can also mean this page's Bluetooth session is stuck: Chrome
-                  // queues GATT operations per device, so one descriptor write
-                  // that never completes blocks every later attempt in the same
-                  // tab, and only a new page clears it (2026-11-13: three
-                  // timeouts in one tab, instant success in a fresh one).
+              if (err.name === 'NotFoundError') return;
+              hrmFailCount++;
+              // A timeout here usually means the strap was asleep — but it can
+              // also mean this page's Bluetooth session is stuck: Chrome queues
+              // GATT operations per device, so one descriptor write that never
+              // completes blocks every later attempt in the same tab, and only
+              // a new page clears it (2026-11-13: three timeouts in one tab,
+              // instant success in a fresh one; 2026-11-15: four doomed taps on
+              // the relay, success once the queue unwound). From the 2nd
+              // failure on, the ❤ box itself becomes RELOAD.
+              if (hrmFailCount >= 2) {
+                  const box = document.getElementById('hrmMetric');
+                  if (box) {
+                      const t = document.getElementById('hrmTitle');
+                      const v = document.getElementById('hrmValue');
+                      if (t) t.textContent = '⟳ HR';
+                      if (v) { v.textContent = 'RELOAD'; v.className = 'metric-value alert'; }
+                      box.title = "Tap to reload the page — this tab's Bluetooth queue is stuck";
+                  }
+                  updateStatus('HRM failed ' + hrmFailCount + ' times: this tab\'s Bluetooth queue is stuck. Tap the ❤ box (it now reloads the page) and try once more.');
+              } else {
                   const hint = hrmPhantomLink
                       ? ' — another tab or app window of this browser already holds the band (the band itself is fine: it answers other phones/computers). Force-stop Chrome completely (Android Settings > Apps > Chrome > Force stop), then reopen and tap again.'
                       : /timed out/i.test(err.message)
-                          ? ' — the strap is not answering: wear it to wake it, check no phone/watch holds it, and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
+                          ? ' — the device is not answering: wear the strap to wake it (or check the relay is running), and if it keeps failing RELOAD the page (this tab\'s Bluetooth session can get stuck).'
                           : /disconnect|connection failed|not in range|unknown reason/i.test(err.message)
                               ? ' — the strap is unreachable (flat battery, out of range, or already connected to a phone/watch).'
                               : '';
