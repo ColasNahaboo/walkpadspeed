@@ -863,3 +863,25 @@ silent.
 **Test:** `test/nav.test.cjs` case [9] mocks `navigator.bluetooth.requestDevice` to throw
 and asserts `#connStatus` shows a "fail" message on the Connections view (verified to
 fail without the mirror). `node --check` + `tsc --checkJs` baseline unchanged (36).
+
+**Outcome: the HRM connects through the relay and streams at 1 Hz.** Two separate things
+were going on, and only one was a code bug:
+
+- *No visible message* — the app bug above. Fixed in `c052000`.
+- *The connection itself* — the relay (`/m-home/colas/git/hr-relay`, systemd user unit
+  `hr-relay.service`, `ExecStart` points at the repo binary so `go build -o hr-relay .`
+  + `systemctl --user restart` is the whole deploy) was **blind to the phone side**: it
+  never registered a connection-state handler, and the tinygo BlueZ backend only starts
+  its D-Bus signal loop if a handler exists *before* `adv.Start()`. Added it
+  (`hr-relay` `1c33de1`), then filtered the phantom `client dropped:` lines BlueZ emits
+  for devices merely discovered while scanning — only a drop of an address that had
+  connected is real (`c43d358`). The relay restart is the likely reason the connect
+  started working (fresh advertisement; the resume-watch exists because the
+  advertisement dies silently across suspend/resume), but that is inference, not proven.
+
+**Correction to the 2026-11-15 note above:** the relay is now **running and is the
+working path** for the COROS strap from Chrome on the phone — it is not "not needed".
+`hr-relay-resume-watch` restarts it on resume. Diagnostic one-liner:
+`journalctl --user -u hr-relay.service -n 20 -o cat` — `client connected:` means the
+phone reached the relay (so a failure is in the app's GATT/subscribe path); silence
+means the phone never got there (scan/advertisement side).
