@@ -833,3 +833,33 @@ it more often. Workaround: use Vivaldi, re-tap on failure. The hr-relay
 fallback but is NOT needed and NOT running; do not start it. The dev.2–dev.8
 HRM changes (phantom-link detection, warm-up, first-beat race, forget()) are
 harmless and stay.
+
+---
+
+### Session 2026-11-16: Connections view — visible connect status + trace panel (v1.2.0-dev.5)
+
+Report: on the Connections view, tapping Connect (e.g. to the HR RELAY) failed with
+**no visible message** — the failure text went only to `#driverStatus`, which lives in
+the hidden driver view. The card lines (`#connPadStatus`/`#connHrmStatus`) are set only
+by `updateConnStatus()` to end-states ("Not connected"), so a failed connect looked
+silent.
+
+**Fixes:**
+- `updateStatus()` now mirrors every message onto a new `#connStatus` line on the
+  Connections view, with a red `.conn-error` class when the text matches
+  fail/failed/refused/stuck. This is the single funnel for connect progress and errors.
+- `connectHRM()` gained an initial "Connecting to the Heart Rate Monitor…" and a
+  "No Heart Rate Monitor selected." on `NotFoundError` (previously a silent `return`).
+- New `#connDebugPanel` on the Connections view (Copy/Clear + `<pre>`), fed by the same
+  `debugLog` as the player's panel; `refreshDebugView()` now fills both panels. Shown
+  when `metaDebug || debugEnabled` via `updateConnDebugPanel()`.
+- `trace()` and `restoreDebugLog()` now honour `debugEnabled` (the ?dbg/manager toggle),
+  not just `metaDebug`, so the trace records on the Connections view too.
+- New `applyUrlFlags(urlParams)` restores the t/dbg/eruda flags on a cold load of the
+  connections view (the router's connections branch never ran `initManagerMode`, so
+  `?view=connections` with a `dbg` flag lost the flags and `showView` stripped `dbg`
+  from the URL).
+
+**Test:** `test/nav.test.cjs` case [9] mocks `navigator.bluetooth.requestDevice` to throw
+and asserts `#connStatus` shows a "fail" message on the Connections view (verified to
+fail without the mirror). `node --check` + `tsc --checkJs` baseline unchanged (36).

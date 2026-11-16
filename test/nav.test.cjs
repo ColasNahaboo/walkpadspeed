@@ -154,6 +154,26 @@ const param = (url, key) => new URL(url).searchParams.has(key);
         const st = await status(page);
         check('gist shows loaded or error (never stuck)', /Loaded routines|Gist load failed/.test(st), st);
 
+        // ---- 9. a failed connect shows a visible message on Connections --
+        // Regression: connect errors went only to the hidden player status,
+        // so the Connections view looked silent when a connect failed.
+        console.log('\n[9] failed connect shows a message on the Connections view');
+        const ctx2 = await browser.newContext();
+        await ctx2.addInitScript(() => {
+            navigator.bluetooth = {
+                requestDevice: async () => { throw new Error('GATT operation already in progress'); },
+                getAvailability: async () => true,
+            };
+        });
+        const page2 = await ctx2.newPage();
+        await page2.goto(`${BASE}/walkpadspeed.html?view=connections`);
+        await page2.waitForTimeout(400);
+        await page2.locator('#connectHrmBtn').click();
+        await page2.waitForTimeout(500);
+        const connStatus = (await page2.locator('#connStatus').innerText()).trim();
+        check('HRM connect failure is visible', /fail/i.test(connStatus), connStatus);
+        await ctx2.close();
+
     } finally {
         await browser.close();
         server.close();

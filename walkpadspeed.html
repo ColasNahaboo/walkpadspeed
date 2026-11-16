@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.4";}
+      #version:after {content: "v1.2.0-dev.5";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -535,6 +535,7 @@
 
       /* === Shared Styles === */
       .status-text { margin-top: 20px; font-weight: bold; color: #8e8e93; font-size: 1rem; }
+      .status-text.conn-error { color: #ff453a; }
       .error-msg { color: #ff453a !important; margin: 10px 0; font-family: monospace; }
     </style>
   </head>
@@ -740,6 +741,17 @@
         </label>
         <p>Test mode simulates a Walkpad and a Heart Rate Monitor, no Bluetooth needed</p>
       </div>
+
+      <p class="status-text" id="connStatus"></p>
+
+      <details id="connDebugPanel" style="display:none; text-align:left; margin-top:12px;" ontoggle="refreshDebugView()">
+        <summary id="connDebugSummary" style="cursor:pointer; color:#8e8e93; font-size:0.85rem;">Debug log</summary>
+        <div style="display:flex; gap:8px; margin:8px 0;">
+          <button onclick="clearDebugLog()" style="flex:1; padding:0.6rem;">Clear</button>
+          <button onclick="copyDebugLog()" style="flex:1; padding:0.6rem;">Copy</button>
+        </div>
+        <pre id="connDebugText" class="routine-raw-view" style="display:block; max-height:50vh; overflow:auto;"></pre>
+      </details>
 
       <p class="status-text" style="font-weight:400; font-size:0.85rem;">Connections stay alive when you switch views or pick a routine. The ☰ button returns to the routines list without disconnecting.</p>
     </div>
@@ -2056,7 +2068,8 @@
 
       async function connectHRM() {
           updateHrmUI('connecting');
-          
+          updateStatus('Connecting to the Heart Rate Monitor…');
+
           // ★ TEST MODE BRANCH ★
           if (isTestMode) {
               const success = loadTestHrData();
@@ -2144,7 +2157,10 @@
               stopHrmBeatWatchdog();
               resetHrTrend();
               updateHrmUI('idle');
-              if (err.name === 'NotFoundError') return;
+              if (err.name === 'NotFoundError') {
+                  updateStatus('No Heart Rate Monitor selected.');
+                  return;
+              }
               hrmFailCount++;
               // A timeout here usually means the strap was asleep — but it can
               // also mean this page's Bluetooth session is stuck: Chrome queues
@@ -3608,6 +3624,13 @@
 
       function updateStatus(msg) {
           document.getElementById('driverStatus').innerText = "Status: " + msg;
+          // Mirror onto the Connections view so connect progress and errors
+          // are visible there too (the card lines only show end states).
+          const conn = document.getElementById('connStatus');
+          if (conn) {
+              conn.innerText = "Status: " + msg;
+              conn.classList.toggle('conn-error', /fail|failed|refused|stuck/i.test(msg));
+          }
       }
 
       // Escapes text that reaches innerHTML (routine file lines, network error
@@ -3636,7 +3659,7 @@
       }
 
       function restoreDebugLog() {
-          if (!metaDebug) return;
+          if (!metaDebug && !debugEnabled) return;
           try {
               const saved = localStorage.getItem(DEBUG_STORAGE_KEY);
               if (!saved) return;
@@ -3647,7 +3670,8 @@
       }
 
       function trace(msg) {
-          if (!metaDebug) return;   // #debug: 1 (or ?dbg=1) enables the trace
+          // #debug: 1 in the routines file, or the ?dbg/manager toggle, enables the trace
+          if (!metaDebug && !debugEnabled) return;
           if (!traceStart) traceStart = Date.now();
           const t = ((Date.now() - traceStart) / 1000).toFixed(1).padStart(6, ' ');
           const line = `+${t}s ${msg}`;
@@ -3667,10 +3691,14 @@
       }
 
       function refreshDebugView() {
-          const pre = document.getElementById('debugText');
-          const summary = document.getElementById('debugSummary');
-          if (pre) pre.innerText = debugLog.length ? debugLog.join('\n') : '(empty)';
-          if (summary) summary.innerText = `Debug log (${debugLog.length} lines)`;
+          const text = debugLog.length ? debugLog.join('\n') : '(empty)';
+          const label = `Debug log (${debugLog.length} lines)`;
+          for (const [preId, sumId] of [['debugText', 'debugSummary'], ['connDebugText', 'connDebugSummary']]) {
+              const pre = document.getElementById(preId);
+              const summary = document.getElementById(sumId);
+              if (pre) pre.innerText = text;
+              if (summary) summary.innerText = label;
+          }
       }
 
       async function copyDebugLog() {
@@ -4031,6 +4059,7 @@
               showView('driver');
           } else if (urlParams.get('view') === 'connections') {
               document.title = 'walkpadspeed- Connections';
+              applyUrlFlags(urlParams);
               initConnectionsMode();
               showView('connections');
           } else {
@@ -4656,6 +4685,16 @@ Climb with Inclines // For walkpads with automatic incline settings
          and back/forward keep working.
          ================================================================ */
 
+      // Restores the t/dbg/eruda URL flags on a cold load of a view that does
+      // not run initManagerMode (the connections view), so a bookmarked
+      // ?view=connections&dbg=1 keeps the trace on.
+      function applyUrlFlags(urlParams) {
+          isTestMode = urlParams.get('t') === '1';
+          debugEnabled = urlParams.get('dbg') === '1';
+          erudaEnabled = urlParams.get('eruda') === '1';
+          if (erudaEnabled) loadEruda();
+      }
+
       function currentFlagParams() {
           const p = new URLSearchParams();
           if (isTestMode) p.set('t', '1');
@@ -4817,9 +4856,19 @@ Climb with Inclines // For walkpads with automatic incline settings
           updateConnStatus();
       }
 
+      // The trace panel follows the same rule as the player's: shown when the
+      // routines file declares #debug or the dbg toggle is on.
+      function updateConnDebugPanel() {
+          const panel = document.getElementById('connDebugPanel');
+          if (!panel) return;
+          const on = metaDebug || debugEnabled;
+          panel.style.display = on ? 'block' : 'none';
+          if (on) { restoreDebugLog(); refreshDebugView(); }
+      }
+
       let connectionsInited = false;
       function initConnectionsMode() {
-          if (connectionsInited) { updateConnStatus(); return; }
+          if (connectionsInited) { updateConnStatus(); updateConnDebugPanel(); return; }
           connectionsInited = true;
 
           const testCheckbox = document.getElementById('testModeCheckbox');
