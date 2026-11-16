@@ -35,7 +35,7 @@ To use walkpadspeed, you need:
 
 ## What does it looks like?
 
-[![Screenshots](docs/screens-v0.5.1/all-1024.webp)](docs/screens-v0.5.1/all-big.webp)
+[![Screenshots](docs/screens-v1.2.0/all.webp)](docs/screens-v1.2.0/all.webp)
 
 <table width="100%">
   <colgroup>
@@ -48,23 +48,21 @@ To use walkpadspeed, you need:
 <thead>
     <tr>
     <th>[    Manager      |</th>
-    <th>Connection     |</th>
-    <th>Routine Ready   |</th>
+    <th>Connections     |</th>
+    <th>Connected   |</th>
     <th>Routine Playing   ]</th>
     </tr>
   </thead>
 
 <tbody>
     <tr>
-      <td>You load your routines text file, and the manager lets you choose one to play, and see its source file definition</td>
-      <td>You connect to your Walking Pad via Bluetooth.</td>
-      <td>The routine is now ready to play; click on the blue button with its name.</td>
-      <td>Routine started, now Walk! This screenshot is of a routine that displays the incline, as the chosen routins defined them.</td>
+      <td>You load your routines text file, and the manager lets you choose one to play, and see its source file definition. The 🔗 icon (top right) opens the Connections screen.</td>
+      <td>All Bluetooth connections live on their own screen: walkpad and heart-rate monitor, each with its own button, plus the Test Mode switch.</td>
+      <td>Connected buttons turn orange and show what the pad reported (speed and incline ranges).</td>
+      <td>Open a routine from the Manager and hit its button: the pad starts, the clock runs, the ❤ box shows your live heart rate.</td>
     </tr>
   </tbody>
 </table>
-
-*Note: screens have changed a bit since these screenshots, but you get the idea.*
 
 ### 2. Opening the App
 
@@ -76,10 +74,12 @@ Save it in your phone browser bookmarks!
 ### 3. Connecting to Your Machine
 
 1. Turn on your walking pad or treadmill.
-2. Click the **Connect Walkpad** button at the top of the screen. \
-   **Enabling Test mode** allows you tu run the application without any walkpad connected, to see how the application works, and to test your created routines.
-3. A browser window will pop up listing nearby Bluetooth devices. Select your treadmill from the list and click **Pair** or **Connect**.
-4. Once connected, your live speed, distance, and time will appear on the screen, as well as big button to start your routine.
+2. From the Manager screen, tap the **🔗** icon (top right) to open the **Connections** screen, and press **Connect to WalkPad**. \
+   **Enabling Test Mode** on the same screen allows you to run the application without any walkpad connected, to see how the application works, and to test your created routines.
+3. A browser window will pop up listing nearby Bluetooth devices. Select your treadmill from the list and click **Pair** or **Connect**. The button turns **orange** while connected, and shows the speed and incline ranges the pad reported.
+4. Open a routine from the Manager (the ☰ button on any screen takes you back) and press its button to start.
+
+Connections stay open while you move between screens — you never have to reconnect to change routine, check the log or tweak a setting.
 
 ## Step 1 — Write your routines
 
@@ -201,10 +201,10 @@ You can also host your routines file in the same way, but as a text file of a we
 
 Click any routine button on the Manager screen to jump to the **Player** screen, pre-loaded with that routine.
 
-1. Press **Connect to WalkPad**. Your browser will ask you to pick your device from a list — choose your walkpad and approve the connection.
+1. If the pad is not connected yet (the buttons on the **🔗 Connections** screen are still blue), connect from there — the Player keeps working with the pad connected in the background.
 2. Once connected, you'll see live numbers:
    - **Incline** - a percentage if the routine has any incline changes defined
-   - **❤ HR** - the heart rate monitor, if not disabled by `#hrm: 0`. If you wear one, **connect to it** by clicking on the indicator (the `- -`). Re-clicking disconnects.
+   - **❤ HR** - the heart rate monitor, if not disabled by `#hrm: 0`. It shows your live BPM and zone once you have connected a band on the Connections screen.
    - **Elapsed** — how long you've been moving
    - **Speed** — your pad's current actual speed
    - **Remain** — how much time is left in the whole routine
@@ -232,11 +232,11 @@ Click any routine button on the Manager screen to jump to the **Player** screen,
   
   Feeling great today? Tap `+`. Tired? Tap `-`. The whole rest of the routine adjusts immediately.
 
-Tap the **☰** menu in the top-right corner at any time to go back to the Manager screen and pick a different routine.
+Tap the **☰** button in the top-right corner at any time to go back to the Manager screen and pick a different routine. A running routine is **auto-paused** when you leave the Player (the pad stops, the clock freezes); tapping the same routine again brings you back and RESUME continues where you left off.
 
 ### While a routine is paused
 
-You can jump directly to any routine step by clicking on the list or "Routine steps" that appear at the bottom on the connection screen, or on the Player screen when the routine is stopped.
+You can jump directly to any routine step by clicking on the "Routine steps" list that appears at the bottom of the Player screen when the routine is stopped or paused.
 
 And while the routine is playing, you can restart the current step, go to the previous step, or go to the next step by using the  prev step `⏮` and next step `⏭` buttons to the left of stop / pause buttons.
 
@@ -245,7 +245,7 @@ And while the routine is playing, you can restart the current step, go to the pr
 ## Heart rate monitoring
 
 An **❤ HR** display is available under the speed display.
-If you wear an heart rate monitoring system (armband, chest band, smart watch...), you can activate at any time the **❤ HR** display by clicking onto it. The indicator will display your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left.
+If you wear an heart rate monitoring system (armband, chest band, smart watch...), connect it on the **🔗 Connections** screen at any time (before, during or after a routine). The display then shows your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left.
 
 Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
 
@@ -356,10 +356,10 @@ LOGFILE="logswps/$(date +%Y-%m).log"
 
 ## Test Mode — try it without a walkpad
 
-Don't have your walkpad on hand, or just want to see how the app behaves first? Flip on **Test Mode** on either screen.
+Don't have your walkpad on hand, or just want to see how the app behaves first? Flip on **Test Mode** on the **🔗 Connections** screen.
 
-- On the Manager screen, it adds a small marker to your routine links so they open in Test Mode too.
-- On the Player screen, "Connect" pretends to connect instantly — no real Bluetooth needed — and a small ▶/⏸ button appears so you can simulate pressing your walkpad's physical remote, to check that pause/resume detection behaves correctly.
+- It adds a small marker to your routine links so they open in Test Mode too.
+- The Connect buttons then pretend to connect instantly — no real Bluetooth needed — and a small ▶/⏸ button appears on the Player screen so you can simulate pressing your walkpad's physical remote, to check that pause/resume detection behaves correctly.
 
 This is purely a practice/preview mode — it won't move anything, since there's nothing real to move.
 
@@ -384,9 +384,9 @@ Note that reloading the player while a routine is running drops the app's contro
 
 If the debug log shows `HRM link up ... — link already existed outside this page` (the connection completes in a fraction of a second, then nothing answers): another tab or app window of the same browser already holds a half-dead connection to the band — Chrome shares one Bluetooth session across all its tabs, and only the owner can release it. The band itself is fine (it answers other phones and computers instantly). The fix: **force-stop Chrome completely** — Android Settings > Apps > Chrome > Force stop (closing tabs is not enough: Android keeps them alive in the background) — then reopen the app and connect. If a walkpadspeed *installed app* (PWA) exists on the phone, close it too, or remove it. Toggling Bluetooth off/on also drops the stale link.
 
-If `hrmdiag.html` shows the connection succeeding but `startNotifications` timing out: this is a Chrome 157 (Android, updated 2026-11-11) regression in its Bluetooth layer with some heart-rate bands — the band streams notifications on characteristics Chrome has no wrapper for, which wedges its per-device queue so the subscription write is never acknowledged. Chrome, Edge and Vivaldi all show it; **Vivaldi sometimes succeeds after a few retries** — use it, or keep tapping the ❤ box until one attempt wins the race.
+If `hrmdiag.html` shows the connection succeeding but `startNotifications` timing out: this is a Chrome 157 (Android, updated 2026-11-11) regression in its Bluetooth layer with some heart-rate bands — the band streams notifications on characteristics Chrome has no wrapper for, which wedges its per-device queue so the subscription write is never acknowledged. Chrome, Edge and Vivaldi all show it; **Vivaldi sometimes succeeds after a few retries** — use it, or keep pressing Connect on the Connections screen until one attempt wins the race.
 
-**The reliable fix — route the band through a relay.** Run the small [`hr-relay`](https://github.com/ColasNahaboo/hr-relay) program on any always-on Linux machine with a Bluetooth dongle (it can be the same box that serves the app). It connects to the band over its own clean BlueZ stack and re-advertises as a plain heart-rate belt named **HR RELAY**; the phone then only ever talks to that single well-behaved characteristic, so Chrome's buggy path is never exercised. In the app, tap the ❤ box and pick **HR RELAY** instead of the band. It shows `--` until the band is actually worn and streaming, then the heart rate appears live with no further action. This is the only method that has worked every time on the affected Chrome builds.
+**The reliable fix — route the band through a relay.** Run the small [`hr-relay`](https://github.com/ColasNahaboo/hr-relay) program on any always-on Linux machine with a Bluetooth dongle (it can be the same box that serves the app). It connects to the band over its own clean BlueZ stack and re-advertises as a plain heart-rate belt named **HR RELAY**; the phone then only ever talks to that single well-behaved characteristic, so Chrome's buggy path is never exercised. In the app, connect on the Connections screen and pick **HR RELAY** instead of the band. It shows `--` until the band is actually worn and streaming, then the heart rate appears live with no further action. This is the only method that has worked every time on the affected Chrome builds.
 
 Note: to access the browser console to see internal log messages, use the "Console" toggle switch at the bottom of the manager view.
 
@@ -516,6 +516,13 @@ recipe for capturing a new pad's behaviour and a template to document it.
 
 This repository is developed by me, a human hobbyist in my personal time in close collaboration with various AI programming assistants. System architecture, logic design, and final reviews are handled by me, while code scaffolding, repetitive tasks, and standard styling are co-piloted by AI. AI contributions are commited under their model name, and can be quite verbose for tracability.
 
+## What's new in v1.2.0
+
+- **New Connections screen** (🔗 icon on the Manager): all Bluetooth connections — walkpad and heart-rate monitor — plus the Test Mode switch live there now. Connect buttons turn **orange** while connected and show the speed/incline ranges the pad reported.
+- **No more reconnecting.** The app became a single-page app: moving between the Manager, Connections and Player screens never reloads the page, so your Bluetooth connections survive every screen change.
+- **☰ auto-pauses**: leaving the Player while a routine runs pauses it cleanly (pad stops, clock freezes); tapping the same routine returns and RESUME continues.
+- The ❤ HR box on the Player is now a pure display (connect/disconnect moved to the Connections screen).
+
 ## What's new in v1.0.3
 
 - **Pads that enforce the FTMS control point now work.** The app takes control of the machine before sending anything and reads its answers, so a pad that used to beep twice and keep its own speed now obeys. Refusals are reported in the status line instead of looking like success.
@@ -531,6 +538,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
+- v1.2.0 2026-11-16 ui: new **Connections screen** (🔗 icon) centralizing the walkpad and heart-rate monitor connect/disconnect and the Test Mode switch; connect buttons turn orange when connected. The app is now a single-page app: moving between the Manager, Connections and Player screens never reloads the page, so **you no longer lose the Bluetooth connections when changing screen**; leaving the Player with a running routine auto-pauses it, and the ☰ button resumes where you left off.
 - v1.1.4 2026-11-15: the routine clock no longer double-steps when a step change is slow (incline waits); a pad disconnect mid-routine now pauses the routine instead of silently logging fake distance; `#hrm: 0` now also hides the heart-rate box with a real pad; ⏮/⏭ while paused no longer start the belt; "Delete all routines" really clears the cached file; pause/stop work again in Test Mode; the HR trend no longer carries stale state across sessions.
 - v1.1.3 2026-11-14 docs: troubleshooting connection problems with the heart monitor.
 - v1.1.2 2026-11-12 fix: Handling crashes of the bluetooth server of the phone.
