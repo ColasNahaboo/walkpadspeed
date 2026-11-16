@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.1.4";}
+      #version:after {content: "v1.2.0-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -437,7 +437,7 @@
       }
       .hr-max-alert { animation: hrMaxAlert 0.6s ease-in-out infinite; }
 
-      #navBackBtn {
+      .wpss-nav-conn {
           position: absolute;
           top: 15px;
           right: 15px;
@@ -453,13 +453,26 @@
           border-bottom: none;
           background: transparent;
           padding: 4px 8px;
+          z-index: 10;
       }
-      #navBackBtn:hover {
+      .wpss-nav-conn:hover {
           opacity: 1;
           transform: scale(1.05);
           box-shadow: none;
           color: #359aff;
       }
+
+      /* === Connections View === */
+      .conn-card {
+          background: #1c1c1e;
+          border: 1px solid #2c2c2e;
+          border-radius: 12px;
+          padding: 14px 16px;
+          margin: 16px auto;
+          max-width: 90%;
+      }
+      .conn-card h3 { margin-top: 0; }
+      .conn-card .connect-btn { margin-bottom: 4px; }
 
       /* === Test Mode Toggle === */
       .test-toggle-row {
@@ -533,6 +546,7 @@
 
     <!-- ==================== MANAGER VIEW ==================== -->
     <div id="managerView">
+      <a id="managerConnBtn" class="wpss-nav-conn" href="#" title="Bluetooth Connections" onclick="showView('connections'); return false;">🔗</a>
       <h1>walkpadspeed</h1>
       <div class="subtitle" id="subtitleTextManager">Walkpad Routines Manager</div>
 
@@ -599,7 +613,7 @@
 
     <!-- ==================== DRIVER VIEW ==================== -->
     <div id="driverView" style="display: none;">
-      <a id="navBackBtn" href="#" class="wpss-nav-menu" title="Return to Routines Manager">☰</a>
+      <a id="navBackBtn" href="#" class="wpss-nav-conn" title="Return to Routines Manager" onclick="backToManager(); return false;">☰</a>
 
       <h1>walkpadspeed</h1>
       <div class="subtitle" id="subtitleText">Walkpad Routine Player</div>
@@ -607,17 +621,6 @@
       <div class="global-progress-track" id="globalProgressTrack">
         <div class="global-progress-segments" id="globalProgressSegments"></div>
         <div class="global-progress-eraser" id="globalProgressEraser"></div>
-      </div>
-
-      <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
-
-      <div id="testModeToggle" class="test-toggle-row">
-        <span class="test-toggle-label">Test Mode</span>
-        <label class="test-toggle-switch">
-          <input type="checkbox" id="testModeCheckbox">
-          <span class="test-toggle-track"></span>
-        </label>
-        <p>Test mode allows to test the application without connecting to an actual Walkpad</p>
       </div>
 
       <div id="controls" style="display:none; margin-top: 20px;">
@@ -656,8 +659,7 @@
                   <div class="hrm-fill"></div>
                 </div>
               </div>
-              <div id="hrmMetric" onclick="handleHrmBoxClick()"
-                   title="Tap to connect Heart Rate Monitor">
+              <div id="hrmMetric" onclick="handleHrmBoxClick()" title="Heart Rate Monitor — connect from the Connections view">
                 <div class="metric-title" id="hrmTitle">❤ HR</div>
                 <div class="metric-value" id="hrmValue">- -</div>
               </div>
@@ -709,6 +711,36 @@
         <p class="status-text" style="margin-top:0; font-weight:400; font-size:0.85rem;">Tap a step to position the routine there, paused — press RESUME to start moving from that point.</p>
         <div id="stepsList"></div>
       </div>
+    </div>
+
+    <!-- CONNECTIONS VIEW -->
+    <div id="connectionsView" style="display:none;">
+      <a id="connBackBtn" href="#" class="wpss-nav-conn" title="Return to Routines Manager" onclick="backFromConnections(); return false;">☰</a>
+      <h1>walkpadspeed</h1>
+      <div class="subtitle">Bluetooth Connections</div>
+
+      <div class="conn-card">
+        <h3>WalkPad</h3>
+        <button class="connect-btn" id="connectBtn">Connect to WalkPad</button>
+        <p class="status-text" id="connPadStatus">Not connected</p>
+      </div>
+
+      <div class="conn-card">
+        <h3>Heart Rate Monitor</h3>
+        <button class="connect-btn" id="connectHrmBtn">Connect to Heart Rate Monitor</button>
+        <p class="status-text" id="connHrmStatus">Not connected</p>
+      </div>
+
+      <div id="testModeToggle" class="test-toggle-row">
+        <span class="test-toggle-label">Test Mode</span>
+        <label class="test-toggle-switch">
+          <input type="checkbox" id="testModeCheckbox">
+          <span class="test-toggle-track"></span>
+        </label>
+        <p>Test mode simulates a Walkpad and a Heart Rate Monitor, no Bluetooth needed</p>
+      </div>
+
+      <p class="status-text" style="font-weight:400; font-size:0.85rem;">Connections stay alive when you switch views or pick a routine. The ☰ button returns to the routines list without disconnecting.</p>
     </div>
 
     <!-- Shared Footer -->
@@ -1167,6 +1199,12 @@
       // null when no session is currently active (idle, or between routines).
       let currentSession = null;
 
+      // Current SPA view ('manager' | 'driver' | 'connections'). View switches
+      // never reload the page, so the Bluetooth links survive navigation.
+      let currentView = 'manager';
+      let connectionsReturnView = 'manager'; // where ☰ from Connections goes back to
+      let driverListenersBound = false; // initDriverMode may run again per routine; bind its listeners once
+
       /* ================================================================
          HRM ZONE SPEED CONTROL
          When a step specifies a target zone (e.g. "4.5/Z2") and the HRM
@@ -1591,6 +1629,8 @@
               } else {
                   updateStatus('Walkpad disconnected — reconnect to continue.');
               }
+              refreshControlsVisibility();
+              updateConnStatus();
           });
       }
 
@@ -1747,24 +1787,14 @@
          displays the live BPM. Tapping while connected disconnects.
          ================================================================ */
 
+      // The ❤ box is display-only since v1.2: connect/disconnect moved to the
+      // Connections view. It keeps exactly one affordance — after repeated
+      // failures this tab's Bluetooth queue is wedged and retrying only stacks
+      // doomed operations (2026-11-15: 4 doomed taps, instant success in a
+      // fresh page), so the box becomes a RELOAD button.
       function handleHrmBoxClick() {
-          if (hrmConnecting) return;   // a connect attempt is already running
-          // After repeated failures this tab's Bluetooth queue is wedged and
-          // tapping again only stacks doomed operations: the box becomes a
-          // reload button (2026-11-15: 4 doomed taps, instant success in a
-          // fresh page).
           if (hrmFailCount >= 2 && !hrmCharacteristic) {
               location.reload();
-              return;
-          }
-          // Only a link with a live characteristic counts as connected: after a
-          // strap sleep or a laptop suspend the GATT server can still report
-          // connected === true while every operation fails with "GATT Server is
-          // disconnected", and a tap would then "disconnect" nothing.
-          if (hrmDevice && hrmDevice.gatt.connected && hrmCharacteristic) {
-              disconnectHRM();
-          } else {
-              connectHRM();
           }
       }
       
@@ -2528,17 +2558,24 @@
           return Math.round(delta * 10) / 10;
       }
       
+      let lastHrmUiState = null;
       function updateHrmUI(state, bpm) {
           const title = document.getElementById('hrmTitle');
           const value = document.getElementById('hrmValue');
           const box   = document.getElementById('hrmMetric');
           if (!box || !title || !value) return;
+          // Keep the Connections view in sync on every state transition
+          // (updateHrmUI also runs at 1 Hz while connected — only refresh then).
+          if (state !== lastHrmUiState) {
+              lastHrmUiState = state;
+              updateConnStatus();
+          }
 
           if (state === 'idle') {
               title.textContent = '❤ HR';
               value.textContent = '- -';
               value.className = 'metric-value';
-              box.title = 'Tap to connect Heart Rate Monitor';
+              box.title = 'Heart Rate Monitor — connect from the Connections view';
               // Hide zone strip and reset pillars on disconnect
               const zone = document.getElementById('hrZoneMetric');
               if (zone) { zone.style.display = 'none'; zone.className = ''; }
@@ -2556,7 +2593,7 @@
               title.textContent = 'BPM';
               value.textContent = bpm;
               value.className = 'metric-value connected';
-              box.title = 'Tap to disconnect Heart Rate Monitor';
+              box.title = 'Heart Rate Monitor connected — manage it from the Connections view';
           }
       }
 
@@ -3987,15 +4024,32 @@
           const rParam = urlParams.get('r');
 
           if (rParam && rParam.trim() !== '') {
-              document.getElementById('managerView').style.display = 'none';
-              document.getElementById('driverView').style.display = 'block';
               document.title = 'walkpadspeed- Routine Player';
               initDriverMode(urlParams);
+              showView('driver');
+          } else if (urlParams.get('view') === 'connections') {
+              document.title = 'walkpadspeed- Connections';
+              initConnectionsMode();
+              showView('connections');
           } else {
-              document.getElementById('managerView').style.display = 'block';
-              document.getElementById('driverView').style.display = 'none';
               document.title = 'walkpadspeed - Routine Manager';
               initManagerMode(urlParams);
+              showView('manager');
+          }
+      });
+
+      // In-session navigation never reloads the page, so the Bluetooth links
+      // survive view switches; back/forward re-dispatch from the pushed URLs.
+      window.addEventListener('popstate', () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const rParam = urlParams.get('r');
+          if (rParam && rParam.trim() !== '') {
+              initDriverMode(urlParams);
+              switchToView('driver');
+          } else if (urlParams.get('view') === 'connections') {
+              switchToView('connections');
+          } else {
+              switchToView('manager');
           }
       });
 
@@ -4487,6 +4541,7 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                   const link = document.createElement('a');
                   link.href = `?${routine.queryStringParams}`;
+                  link.onclick = (e) => { e.preventDefault(); goToRoutine(routine.queryStringParams); };
                   link.className = 'routine-link-btn';
                   link.innerText = routine.name;
 
@@ -4537,6 +4592,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   }
                   // Re-stamp routine link hrefs so they carry (or drop) ?eruda=1
                   refreshFlagsOnLinks();
+                  if (currentView === 'manager') showView('manager', true);
               });
           }
 
@@ -4547,6 +4603,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   debugEnabled = debugCheckEl.checked;
                   // Re-stamp routine link hrefs so they carry (or drop) ?dbg=1
                   refreshFlagsOnLinks();
+                  if (currentView === 'manager') showView('manager', true);
               });
           }
       }
@@ -4586,11 +4643,362 @@ Climb with Inclines // For walkpads with automatic incline settings
       }
 
       /* ================================================================
+         SPA VIEW NAVIGATION
+         Views are DOM sections toggled in place: switching never reloads
+         the page, so the pad and HRM Bluetooth links survive every
+         navigation. The URL is kept in sync with pushState so bookmarks
+         and back/forward keep working.
+         ================================================================ */
+
+      function currentFlagParams() {
+          const p = new URLSearchParams();
+          if (isTestMode) p.set('t', '1');
+          if (erudaEnabled) p.set('eruda', '1');
+          if (debugEnabled) p.set('dbg', '1');
+          return p;
+      }
+
+      // Shows a view without touching history (used by popstate).
+      function switchToView(name) {
+          if (name === 'connections' && currentView !== 'connections') {
+              connectionsReturnView = currentView;
+          }
+          currentView = name;
+          document.getElementById('managerView').style.display = name === 'manager' ? 'block' : 'none';
+          document.getElementById('driverView').style.display = name === 'driver' ? 'block' : 'none';
+          document.getElementById('connectionsView').style.display = name === 'connections' ? 'block' : 'none';
+          const titles = { manager: 'walkpadspeed - Routine Manager',
+                           driver: 'walkpadspeed- Routine Player',
+                           connections: 'walkpadspeed- Connections' };
+          document.title = titles[name];
+          refreshControlsVisibility();
+          if (name === 'connections') initConnectionsMode();
+      }
+
+      function viewUrl(name) {
+          const flags = currentFlagParams().toString();
+          const path = window.location.pathname;
+          if (name === 'driver') {
+              const p = currentFlagParams();
+              p.set('n', routineNameCached);
+              p.set('r', routineRawCached);
+              return path + '?' + p.toString();
+          }
+          if (name === 'connections') {
+              return path + '?' + (flags ? flags + '&view=connections' : 'view=connections');
+          }
+          return path + (flags ? '?' + flags : '');
+      }
+
+      function showView(name, replace) {
+          switchToView(name);
+          const url = viewUrl(name);
+          if (replace) history.replaceState({ view: name }, '', url);
+          else history.pushState({ view: name }, '', url);
+      }
+
+      function backToManager() {
+          // Leaving the player mid-routine: pause like the pad-disconnect
+          // handler does, so the clock and session log stop while the user
+          // browses. Returning (or starting another routine) resumes.
+          if (currentView === 'driver' && isRoutineActive && !isPaused) {
+              togglePauseState();
+          }
+          showView('manager');
+      }
+
+      function backFromConnections() {
+          // currentView is 'connections' here — return where the user came from.
+          if (connectionsReturnView === 'driver') showView('driver');
+          else showView('manager');
+      }
+
+      // Manager routine button → driver view without a page load.
+      async function goToRoutine(queryString) {
+          const p = new URLSearchParams(queryString);
+          // Tapping the same routine while it is paused (e.g. after leaving
+          // mid-run via ☰) just goes back to the driver view, where RESUME
+          // continues it.
+          if (isRoutineActive && p.get('r') === routineRawCached) {
+              showView('driver');
+              return;
+          }
+          // Picking another routine ends any paused one: close its session
+          // log before the new routine's state replaces it.
+          if (isRoutineActive) await stopTreadmill(false);
+          // The link was generated before a possible Test Mode toggle: the
+          // live global wins over the link's stale t= flag.
+          if (isTestMode) p.set('t', '1'); else p.delete('t');
+          initDriverMode(p);
+          showView('driver');
+      }
+
+      /* ================================================================
+         CONNECTIONS VIEW
+         All Bluetooth connect/disconnect affordances live here so the
+         links can be managed without entering the player.
+         ================================================================ */
+
+      function padConnected() {
+          return isTestMode ? ftmsControlCharacteristic !== null
+                            : !!(bluetoothDevice && bluetoothDevice.gatt.connected && ftmsControlCharacteristic);
+      }
+
+      function hrmConnected() {
+          return !!hrmCharacteristic;
+      }
+
+      // The player's controls (and step-jump list) are usable as soon as the
+      // pad is connected, wherever that connection was made.
+      function refreshControlsVisibility() {
+          document.getElementById('controls').style.display = padConnected() ? 'block' : 'none';
+      }
+
+      function updateConnStatus() {
+          const padBtn = document.getElementById('connectBtn');
+          const padStatus = document.getElementById('connPadStatus');
+          const hrmBtn = document.getElementById('connectHrmBtn');
+          const hrmStatus = document.getElementById('connHrmStatus');
+          if (!padBtn || !padStatus || !hrmBtn || !hrmStatus) return;
+          refreshControlsVisibility();
+
+          if (padConnected()) {
+              padBtn.innerText = "Disconnect WalkPad";
+              let s = isTestMode ? 'Connected (Test Mode).' : `Connected: ${bluetoothDevice.name || 'WalkPad'}.`;
+              if (!isTestMode) {
+                  s += ` Speed ${speedMinThreshold}–${maxSpeedLimit} km/h`;
+                  if (bleMaxIncline !== null) s += `, incline 0–${bleMaxIncline} %`;
+              }
+              padStatus.innerText = s;
+          } else {
+              padBtn.innerText = isTestMode ? "Connect (Test Mode)" : "Connect to WalkPad";
+              padStatus.innerText = 'Not connected';
+          }
+
+          if (hrmConnected()) {
+              hrmBtn.innerText = "Disconnect Heart Rate Monitor";
+              hrmStatus.innerText = isTestMode ? 'Connected (Test Mode).'
+                                               : `Connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`;
+          } else {
+              hrmBtn.innerText = "Connect to Heart Rate Monitor";
+              hrmStatus.innerText = 'Not connected';
+          }
+      }
+
+      function applyTestMode(on) {
+          if (on === isTestMode) return;
+          // A running routine would lose its link under it: pause it first so
+          // the clock and session log stop, RESUME included.
+          if (isRoutineActive && !isPaused) togglePauseState();
+          if (padConnected() || hrmConnected()) {
+              if (!confirm('Switching Test Mode disconnects the current devices. Continue?')) {
+                  document.getElementById('testModeCheckbox').checked = isTestMode;
+                  return;
+              }
+              if (hrmConnected()) disconnectHRM();
+              disconnectPad();
+          }
+          isTestMode = on;
+          const simBtn = document.getElementById('simStartPauseBtn');
+          if (simBtn) simBtn.style.display = isTestMode ? 'inline-block' : 'none';
+          // Keep the URL flag in sync so a reload keeps the mode.
+          showView(currentView, true);
+          updateConnStatus();
+      }
+
+      let connectionsInited = false;
+      function initConnectionsMode() {
+          if (connectionsInited) { updateConnStatus(); return; }
+          connectionsInited = true;
+
+          const testCheckbox = document.getElementById('testModeCheckbox');
+          testCheckbox.checked = isTestMode;
+          testCheckbox.addEventListener('change', () => applyTestMode(testCheckbox.checked));
+
+          document.getElementById('connectBtn').addEventListener('click', async () => {
+              if (padConnected()) { disconnectPad(); updateConnStatus(); return; }
+              await connectPad();
+              updateConnStatus();
+          });
+
+          document.getElementById('connectHrmBtn').addEventListener('click', async () => {
+              if (hrmConnecting) return;
+              if (hrmConnected()) { disconnectHRM(); updateConnStatus(); return; }
+              await connectHRM();
+              updateConnStatus();
+          });
+
+          updateConnStatus();
+      }
+
+      function disconnectPad() {
+          if (isTestMode) {
+              ftmsControlCharacteristic = null;
+          } else if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+              try { bluetoothDevice.gatt.disconnect(); } catch (e) { /* already gone */ }
+              bluetoothDevice = null;
+              ftmsControlCharacteristic = null;
+              ftmsHasControl = false;
+          }
+          refreshControlsVisibility();
+          updateConnStatus();
+      }
+
+      async function connectPad() {
+          try {
+              audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+              if (isTestMode) {
+                  updateStatus("Test Mode active. Bypassing Bluetooth...");
+
+                  ftmsControlCharacteristic = {
+                      writeValue: async (buffer) => {
+                          console.log('Test Mode write:', buffer);
+                          // Control-point commands arrive as Uint8Array; real
+                          // writeValue accepts any BufferSource, so accept both.
+                          const ab = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
+                          if (buffer.byteLength === 3 && new DataView(ab).getUint8(0) === 0x02) {
+                              const rawSpeed = new DataView(ab).getUint16(1, true);
+                              currentLiveSpeed = rawSpeed / 100;
+                              document.getElementById('liveSpeed').innerText = (rawSpeed / 100).toFixed(1);
+                          }
+                      }
+                  };
+
+                  if (routineHasIncline) {
+                      document.getElementById('inclineMetric').classList.remove('metric-off');
+                  }
+                  await requestWakeLock();
+                  return;
+              }
+
+              updateStatus("Requesting Bluetooth device...");
+              bluetoothDevice = await navigator.bluetooth.requestDevice({
+                  filters: [{ services: [FTMS_SERVICE_UUID] }]
+              });
+
+              trace(`CONNECT ${bluetoothDevice.name || '(unnamed)'} id=${bluetoothDevice.id || '?'} build=${buildVersion()}`);
+              updateStatus("Connecting to GATT server...");
+              const server = await bluetoothDevice.gatt.connect();
+
+              // Chrome fires this on link loss / pad power-off. Without a
+              // listener the app kept believing it was connected. Attached
+              // once per device (requestDevice returns the same
+              // BluetoothDevice instance, like the HRM handler).
+              attachPadDisconnectHandler(bluetoothDevice);
+
+              // Fresh connection: forget what a previous pad reported.
+              currentLiveIncline = null;
+              lastInclineCommand = null;
+              completeDataFramesSeen = 0;
+              moreDataFramesSkipped = 0;
+
+              updateStatus("Getting Fitness Machine Service...");
+              const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
+
+              updateStatus("Getting Control Point Characteristic...");
+              ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
+
+              // Subscribe to control point notifications: they carry the
+              // pad's replies (result codes) for every command we send.
+              ftmsHasControl = false;
+              ftmsCpResponses = 0;
+              try {
+                  ftmsControlCharacteristic.addEventListener('characteristicvaluechanged', handleControlPointIndication);
+                  await ftmsControlCharacteristic.startNotifications();
+              } catch (cpErr) {
+                  console.warn('Control Point notifications unavailable:', cpErr.message);
+              }
+
+              // Request Control before any target command. Pads that do not
+              // indicate keep working fire-and-forget (result null).
+              try {
+                  const controlResult = await writeControlPoint(
+                      ftmsControlCharacteristic,
+                      Uint8Array.of(FTMS_OP_REQUEST_CONTROL),
+                      FTMS_CP_PROBE_TIMEOUT_MS);
+                  if (controlResult === null) {
+                      trace('CONTROL no indication (fire-and-forget)');
+                      console.info('Pad does not indicate control point responses — fire-and-forget mode.');
+                  } else if (controlResult === FTMS_RESULT_SUCCESS) {
+                      trace('CONTROL acquired');
+                      updateStatus('Control point acquired.');
+                  } else {
+                      trace(`CONTROL refused: ${ftmsResultName(controlResult)}`);
+                      updateStatus(`Control point refused (${ftmsResultName(controlResult)}).`);
+                  }
+              } catch (cpErr) {
+                  console.warn('Request Control failed: ', cpErr.message);
+              }
+
+              // Machine Status channel: the pad's own events.
+              // This is what distinguishes "command refused" from
+              // "accepted but the belt is not moving".
+              try {
+                  const statusChar = await service.getCharacteristic(FTMS_STATUS_UUID);
+                  statusChar.addEventListener('characteristicvaluechanged', handleMachineStatus);
+                  await statusChar.startNotifications();
+              } catch (statusErr) {
+                  console.info('Machine Status notifications unavailable: ', statusErr.message);
+              }
+
+              try {
+                  updateStatus("Subscribing to Walkpad Data stream...");
+                  const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
+                  await dataChar.startNotifications();
+                  dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
+                  updateStatus("Connected & Ready!");
+              } catch (dataErr) {
+                  console.warn('Data notifications unavailable: ', dataErr.message);
+              }
+
+              // Read the pad's supported speed range so we can cap sent
+              // speeds at the pad's real maximum. 0x2AD4 is probed first,
+              // then the deprecated 0x2AD1; pads exposing neither — or only
+              // implausible values — fall back to the #max-speed override
+              // (or the default cap).
+              updateStatus("Reading pad speed range...");
+              let gotSpeedRange = false;
+              try {
+                  gotSpeedRange = await readPadSpeedRange(service);
+              } catch (rangeErr) {
+                  console.warn('Speed range read failed: ', rangeErr.message);
+              }
+              updateMaxSpeedLimit();
+              updateSpeedMinThreshold();
+              trace(`RANGE ${gotSpeedRange ? 'using pad range' : 'no usable pad range (#max-speed fallback)'}` +
+                    ` → cap ${maxSpeedLimit} km/h, floor ${speedMinThreshold} km/h`);
+
+              // Supported Inclination Range: used to clamp incline commands
+              // to what the pad can actually do (W60: 0–12 %).
+              try {
+                  const inclineRangeChar = await service.getCharacteristic(FTMS_SUPPORTED_INCLINATION_RANGE_UUID);
+                  const idv = await inclineRangeChar.readValue();
+                  bleMinIncline = idv.getUint16(0, true) / 10;
+                  bleMaxIncline = idv.getUint16(2, true) / 10;
+                  trace(`RANGE incline ${bleMinIncline}–${bleMaxIncline} %`);
+              } catch (inclineRangeErr) {
+                  console.info('Supported Inclination Range not readable; incline commands are not clamped.');
+              }
+
+              if (routineHasIncline) {
+                  document.getElementById('inclineMetric').classList.remove('metric-off');
+              }
+              updateStatus("Connected & Ready!");
+          } catch (error) {
+              if (error.name === 'NotFoundError') {
+                  updateStatus('No WalkPad selected.');
+              } else {
+                  updateStatus("Connection failed: " + error.message);
+              }
+          }
+      }
+
+      /* ================================================================
          DRIVER MODE INITIALIZATION
          ================================================================ */
 
       function initDriverMode(urlParams) {
-          const basePath = window.location.pathname;
           isTestMode = urlParams.get('t') === '1';
           erudaEnabled = urlParams.get('eruda') === '1';
           if (erudaEnabled) loadEruda();
@@ -4598,32 +5006,15 @@ Climb with Inclines // For walkpads with automatic incline settings
           routineNameCached = urlParams.get('n') || "Test";
           routineRawCached = urlParams.get('r');
 
-          const testCheckbox = document.getElementById('testModeCheckbox');
-          testCheckbox.checked = isTestMode;
-
           // Show the simulated start/pause button ONLY in test mode
           const simBtn = document.getElementById('simStartPauseBtn');
-          if (isTestMode && simBtn) {
-              simBtn.style.display = 'inline-block';
-              simBtn.addEventListener('click', simulateRemoteStartPause);
+          if (simBtn) {
+              simBtn.style.display = isTestMode ? 'inline-block' : 'none';
+              if (isTestMode && !simBtn.dataset.bound) {
+                  simBtn.dataset.bound = '1';
+                  simBtn.addEventListener('click', simulateRemoteStartPause);
+              }
           }
-
-          testCheckbox.addEventListener('change', () => {
-              const newParams = new URLSearchParams(urlParams);
-              newParams.set('t', testCheckbox.checked ? '1' : '0');
-              window.location.href = basePath + '?' + newParams.toString();
-          });
-
-          if (isTestMode) {
-              document.getElementById('connectBtn').innerText = "Connect (Test Mode)";
-          }
-
-          // Build navBack href preserving t=1 / eruda=1 / dbg=1 flags
-          let backParams = [];
-          if (isTestMode) backParams.push('t=1');
-          if (erudaEnabled) backParams.push('eruda=1');
-          if (urlParams.get('dbg') === '1') backParams.push('dbg=1');
-          document.getElementById('navBackBtn').href = basePath + (backParams.length ? '?' + backParams.join('&') : '');
 
           updateRoutineButtonText(false);
 
@@ -4658,176 +5049,15 @@ Climb with Inclines // For walkpads with automatic incline settings
               neutralBtn.classList.add('active');
           }
 
-          document.getElementById('connectBtn').addEventListener('click', async () => {
-              try {
-                  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-                  if (isTestMode) {
-                      updateStatus("Test Mode active. Bypassing Bluetooth...");
-
-                      ftmsControlCharacteristic = {
-                          writeValue: async (buffer) => {
-                              console.log("Mock BLE Control Write:", buffer);
-                              // Control-point commands arrive as Uint8Array; real
-                              // writeValue accepts any BufferSource, so accept both.
-                              const ab = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
-                              if (buffer.byteLength === 3 && new DataView(ab).getUint8(0) === 0x02) {
-                                  const rawSpeed = new DataView(ab).getUint16(1, true);
-                                  // Keep mock live speed updated
-                                  currentLiveSpeed = rawSpeed / 100; 
-                                  document.getElementById('liveSpeed').innerHTML = `${(rawSpeed / 100).toFixed(1)}`;
-                              }
-                          }
-                      };
-
-                      document.getElementById('testModeToggle').style.display = 'none';
-                      document.getElementById('controls').style.display = 'block';
-                      if (routineHasIncline) {
-                          document.getElementById('inclineMetric').classList.remove('metric-off');
-                      }
-
-                      document.getElementById('connectBtn').style.display = 'none';
-                      await requestWakeLock();
-                      return;
-                  }
-
-                  updateStatus("Requesting Bluetooth device...");
-                  bluetoothDevice = await navigator.bluetooth.requestDevice({
-                      filters: [{ services: [FTMS_SERVICE_UUID] }]
-                  });
-
-                  trace(`CONNECT ${bluetoothDevice.name || '(unnamed)'} id=${bluetoothDevice.id || '?'} build=${buildVersion()}`);
-                  updateStatus("Connecting to GATT Server...");
-                  const server = await bluetoothDevice.gatt.connect();
-
-                  // Chrome fires this on link loss / pad power-off. Without a
-                  // listener the app kept believing it was connected. Attached
-                  // once per device (requestDevice returns the same
-                  // BluetoothDevice instance, like the HRM handler).
-                  attachPadDisconnectHandler(bluetoothDevice);
-
-                  // Fresh connection: forget what a previous pad reported.
-                  currentLiveIncline = null;
-                  lastInclineCommand = null;
-                  completeDataFramesSeen = 0;
-                  moreDataFramesSkipped = 0;
-
-                  updateStatus("Getting Fitness Machine Service...");
-                  const service = await server.getPrimaryService(FTMS_SERVICE_UUID);
-
-                  updateStatus("Getting Control Point Characteristic...");
-                  ftmsControlCharacteristic = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
-
-                  // Subscribe to control point indications first: they carry the
-                  // pad's answer to every command, so rejections (two beeps and
-                  // an unchanged speed) become visible instead of silent.
-                  ftmsHasControl = false;
-                  ftmsCpResponses = 0;
-                  try {
-                      ftmsControlCharacteristic.addEventListener(
-                          'characteristicvaluechanged', handleControlPointIndication);
-                      await ftmsControlCharacteristic.startNotifications();
-                  } catch (cpSubscribeErr) {
-                      console.warn("Control point indications unavailable: ", cpSubscribeErr.message);
-                  }
-
-                  // Request Control before any target command. Pads that do not
-                  // indicate keep working fire-and-forget (result null).
-                  try {
-                      const controlResult = await writeControlPoint(
-                          ftmsControlCharacteristic,
-                          Uint8Array.of(FTMS_OP_REQUEST_CONTROL),
-                          FTMS_CP_PROBE_TIMEOUT_MS);
-                      if (controlResult === null) {
-                          trace('CONTROL no indication (fire-and-forget)');
-                          console.info('Pad does not indicate control point responses — fire-and-forget mode.');
-                      } else if (controlResult === FTMS_RESULT_SUCCESS) {
-                          trace('CONTROL acquired');
-                          updateStatus('Control point acquired.');
-                      } else {
-                          trace(`CONTROL refused: ${ftmsResultName(controlResult)}`);
-                          updateStatus(`Control point refused (${ftmsResultName(controlResult)}).`);
-                      }
-                  } catch (cpErr) {
-                      console.warn('Request Control failed: ', cpErr.message);
-                  }
-
-                  // Fitness Machine Status channel: the pad's own events.
-                  // This is what distinguishes "command refused" from
-                  // "accepted but the belt is not moving".
-                  try {
-                      const statusChar = await service.getCharacteristic(FTMS_STATUS_UUID);
-                      statusChar.addEventListener('characteristicvaluechanged', handleMachineStatus);
-                      await statusChar.startNotifications();
-                  } catch (statusErr) {
-                      console.info('Machine status channel unavailable: ', statusErr.message);
-                  }
-
-                  try {
-updateStatus("Subscribing to Walkpad Data stream...");
-                       const dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
-                       await dataChar.startNotifications();
-                       dataChar.addEventListener('characteristicvaluechanged', handleTreadmillData);
-                       updateStatus("Connected & Ready!");
-                   } catch (dataErr) {
-                       console.warn("Metrics channel initialization skipped: ", dataErr.message);
-                   }
-
-                   // Read the pad's supported speed range so we can cap sent
-                   // speeds at the pad's real maximum. 0x2AD4 (current FTMS) is
-                   // probed first, then the deprecated 0x2AD1; pads exposing
-                   // neither — or only implausible values — fall back to the
-                   // #max-speed override (or the default cap).
-                   updateStatus("Reading pad speed range...");
-                   let gotSpeedRange = false;
-                   try {
-                       gotSpeedRange = await readPadSpeedRange(service);
-                   } catch (rangeErr) {
-                       console.warn("Reading the pad speed range failed: ", rangeErr.message);
-                   }
-                   updateMaxSpeedLimit();
-                   updateSpeedMinThreshold();
-                   trace(`RANGE ${gotSpeedRange ? 'using pad range' : 'no usable pad range (#max-speed fallback)'}` +
-                         ` → cap ${maxSpeedLimit} km/h, floor ${speedMinThreshold} km/h`);
-
-                   // Supported Inclination Range: used to clamp incline commands
-                   // to what the deck can actually do (W60: 0–12 %).
-                   try {
-                       const inclineRangeChar = await service.getCharacteristic(FTMS_SUPPORTED_INCLINATION_RANGE_UUID);
-                       const idv = await inclineRangeChar.readValue();
-                       bleMinIncline = idv.getUint16(0, true) / 10;
-                       bleMaxIncline = idv.getUint16(2, true) / 10;
-                       trace(`RANGE incline ${bleMinIncline}–${bleMaxIncline} %`);
-                   } catch (inclineRangeErr) {
-                       console.info('Supported Inclination Range not readable; incline commands are not clamped.');
-                   }
-
-                  document.getElementById('testModeToggle').style.display = 'none';
-                  document.getElementById('controls').style.display = 'block';
-                  if (routineHasIncline) {
-                      document.getElementById('inclineMetric').classList.remove('metric-off');
-                  }
-                  document.getElementById('connectBtn').style.display = 'none';
-                  updateStatus("Connected & Ready!");
-                  updateLiveRemainDisplay(routineTotalDuration - totalElapsedSeconds);
-                  await requestWakeLock();
-              } catch (error) {
-                  updateStatus("Error: " + error.message);
-              }
-          });
+          if (driverListenersBound) return;   // listeners are one-time
+          driverListenersBound = true;
 
           document.getElementById('routineBtn').addEventListener('click', async () => {
-              if (!isTestMode) {
-                  const connected = ftmsControlCharacteristic && bluetoothDevice?.gatt?.connected;
-                  if (!connected) {
-                      ftmsControlCharacteristic = null;
-                      bluetoothDevice = null;
-                      document.getElementById('connectBtn').style.display = '';
-                      updateStatus("WalkPad disconnected — please reconnect.");
-                      document.getElementById('connectBtn').scrollIntoView({ behavior: 'smooth' });
-                      return;
-                  }
+              if (!padConnected()) {
+                  updateStatus("WalkPad not connected — open the Connections view (🔗) to connect.");
+                  return;
               }
+              document.getElementById('controls').style.display = 'block';
 
               resetRoutineState();
 
