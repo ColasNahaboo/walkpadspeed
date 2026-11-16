@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.3";}
+      #version:after {content: "v1.2.0-dev.4";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1203,6 +1203,7 @@
       // Current SPA view ('manager' | 'driver' | 'connections'). View switches
       // never reload the page, so the Bluetooth links survive navigation.
       let currentView = 'manager';
+      let routineSource = null; // ['gist'|'https', value] — kept across view switches so URLs stay bookmarkable
       let connectionsReturnView = 'manager'; // where ☰ from Connections goes back to
       let driverListenersBound = false; // initDriverMode may run again per routine; bind its listeners once
 
@@ -4086,8 +4087,10 @@
           const gistParam = urlParams.get('gist');
           const httpsParam = urlParams.get('https');
           if (gistParam) {
+              routineSource = ['gist', gistParam];
               loadGistRoutines(gistParam, statusText);
           } else if (httpsParam) {
+              routineSource = ['https', httpsParam];
               loadHttpsRoutines(httpsParam, statusText);
           } else {
               const cachedData = localStorage.getItem('wpss_cached_routines');
@@ -4274,6 +4277,7 @@ Climb with Inclines // For walkpads with automatic incline settings
 
                   localStorage.setItem('wpss_cached_routines', content);
                   parseAndGenerateLinks(content);
+                  routineSource = ['gist', gistId];
                   setGistUrlParam(gistId);
                   statusEl.innerText = `Status: Loaded routines from gist "${file.filename}".`;
               } catch (err) {
@@ -4311,6 +4315,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   const content = await response.text();
                   localStorage.setItem('wpss_cached_routines', content);
                   parseAndGenerateLinks(content);
+                  routineSource = ['https', httpsId];
                   setHttpsUrlParam(httpsId);
                   statusEl.innerText = `Status: Loaded routines from "${httpsId}".`;
               } catch (err) {
@@ -4656,6 +4661,9 @@ Climb with Inclines // For walkpads with automatic incline settings
           if (isTestMode) p.set('t', '1');
           if (erudaEnabled) p.set('eruda', '1');
           if (debugEnabled) p.set('dbg', '1');
+          // Keep the routines source (gist/https) in the URL so a bookmark
+          // made after a driver round-trip still reloads the file.
+          if (routineSource) p.set(routineSource[0], routineSource[1]);
           return p;
       }
 

@@ -1,0 +1,22 @@
+#!/bin/bash
+# This is a simple runner running all the *.test.cjs browser tests in this
+# directory with node (playwright). Mirrors the RUN-ALL-TESTS pattern of the
+# tewiba test suites.
+# Place it in tests/ or above; it finds its own dir.
+set -u
+
+cd "$(dirname "$(realpath "$0")")" || exit 1
+
+if ! command -v node >/dev/null; then echo "***ABORTING: node not found" >&2; exit 1; fi
+if [ ! -d ../node_modules/playwright ]; then
+    echo "***ABORTING: playwright not installed (npm install in the repo root)" >&2; exit 1;
+fi
+
+ok=true
+for t in check-types.cjs *.test.cjs; do
+    [ -e "$t" ] || continue
+    echo "=== $t"
+    node "$t" || { echo "***FAILED: $t"; ok=false; }
+done
+
+$ok && echo "ALL TESTS PASSED" || { echo "***ABORTING: test failures"; exit 1; }

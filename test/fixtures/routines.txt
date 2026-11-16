@@ -1,0 +1,14 @@
+#name: Test User
+#birth: 1975
+#rest-heart-rate: 60
+#max-heart-rate: 180
+
+Short Digestive
+3.0 60
+3.5 60
+3.6/Z0 13m Z0 period
+
+Z2 40mn
+3.0 5m Warmup
+4.5/Z2 40m Aerobic
+3.0 5m Cooldown

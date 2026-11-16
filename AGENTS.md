@@ -226,7 +226,31 @@ Two details learned the hard way (2026-10-30, Fousae):
 
 ---
 
+### Test suite
+
+`test/RUN-ALL-TESTS` (bash, run from repo root or test/) runs everything:
+- `test/check-types.cjs` — extracts the app's inline `<script>` and runs
+  `tsc --checkJs` on it with a **baseline of 36 known errors**; fails only
+  when the error count rises. TypeScript is a lint gate only — the app
+  stays a zero-build single file (no build step, no TS source).
+- `test/nav.test.cjs` — Playwright (already a dependency): serves the repo
+  over a local HTTP server and drives the real UI through the
+  manager↔driver↔connections view matrix, asserting the bookmarkable-URL
+  invariants (`?gist=`/`?https=` and the `t=`/`dbg=` flags survive every
+  view switch, and reloading the shown URL restores the same state).
+- `test/fixtures/routines.txt` — small routines file served to the tests.
+
+When adding a view-switch or URL-handling change, extend `nav.test.cjs`
+rather than testing by hand.
+
+---
+
 ### Collaboration style notes (important for next agent)
+
+- **Never publish URLs of Colas's private server** (`nahaboo.org` /
+  `tm.nahaboo.org`) in README, docs, screenshots or any user-visible text.
+  Historical mentions already in this file's session notes are fine, but
+  new docs/screenshots must not expose them.
 
 - Colas uploads the current file at session start and often mid-session when he's made local changes. Always `diff` against working copy before adopting.
 - He version-bumps locally and reports it; sync the working copy's version string accordingly.
