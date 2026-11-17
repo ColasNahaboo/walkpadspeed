@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.5";}
+      #version:after {content: "v1.2.0-dev.6";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -4115,17 +4115,21 @@
 
           const gistParam = urlParams.get('gist');
           const httpsParam = urlParams.get('https');
+          // Cache-first: the stored copy always renders immediately, so a
+          // slow or failed remote fetch can never leave the list empty.
+          // A gist/https URL param then refreshes the cache in the
+          // background; on success the list is re-rendered from the fresh
+          // copy, on failure the cached one stays with a warning.
+          const cachedData = localStorage.getItem('wpss_cached_routines');
+          if (cachedData) {
+              parseAndGenerateLinks(cachedData);
+          }
           if (gistParam) {
               routineSource = ['gist', gistParam];
               loadGistRoutines(gistParam, statusText);
           } else if (httpsParam) {
               routineSource = ['https', httpsParam];
               loadHttpsRoutines(httpsParam, statusText);
-          } else {
-              const cachedData = localStorage.getItem('wpss_cached_routines');
-              if (cachedData) {
-                  parseAndGenerateLinks(cachedData);
-              }
           }
 
           ['dragenter', 'dragover'].forEach(eventName => {
@@ -4164,8 +4168,11 @@
               reader.onload = (e) => {
                   try {
                       const fileContent = e.target.result;
-                      localStorage.setItem('wpss_cached_routines', fileContent);
-                      parseAndGenerateLinks(fileContent);
+                      // Only persist a file that actually yields routines, so
+                      // a bad upload can never replace the stored good copy.
+                      if (parseAndGenerateLinks(fileContent) > 0) {
+                          localStorage.setItem('wpss_cached_routines', fileContent);
+                      }
                   } catch (err) {
                       statusText.innerHTML = `<span class="error-msg">Parser Critical Failure: ${escapeHtml(err.message)}</span>`;
                   }
@@ -4304,13 +4311,14 @@ Climb with Inclines // For walkpads with automatic incline settings
                       content = await rawResponse.text();
                   }
 
-                  localStorage.setItem('wpss_cached_routines', content);
-                  parseAndGenerateLinks(content);
+                  if (parseAndGenerateLinks(content) > 0) {
+                      localStorage.setItem('wpss_cached_routines', content);
+                  }
                   routineSource = ['gist', gistId];
                   setGistUrlParam(gistId);
                   statusEl.innerText = `Status: Loaded routines from gist "${file.filename}".`;
               } catch (err) {
-                  statusEl.innerHTML = `<span class="error-msg">Gist load failed: ${escapeHtml(err.message)}</span>`;
+                  statusEl.innerHTML = `<span class="error-msg">Gist load failed: ${escapeHtml(err.message)}${localStorage.getItem('wpss_cached_routines') ? ' — showing the saved copy.' : '.'}</span>`;
               }
           }
 
@@ -4342,16 +4350,20 @@ Climb with Inclines // For walkpads with automatic incline settings
                       throw new Error(`Https URL returned ${response.status}`);
                   }
                   const content = await response.text();
-                  localStorage.setItem('wpss_cached_routines', content);
-                  parseAndGenerateLinks(content);
+                  if (parseAndGenerateLinks(content) > 0) {
+                      localStorage.setItem('wpss_cached_routines', content);
+                  }
                   routineSource = ['https', httpsId];
                   setHttpsUrlParam(httpsId);
                   statusEl.innerText = `Status: Loaded routines from "${httpsId}".`;
               } catch (err) {
-                  statusEl.innerHTML = `<span class="error-msg">Https load of ${escapeHtml(httpsId)} failed: ${escapeHtml(err.message)}</span>`;
+                  statusEl.innerHTML = `<span class="error-msg">Could not refresh ${escapeHtml(httpsId)}: ${escapeHtml(err.message)}${localStorage.getItem('wpss_cached_routines') ? ' — showing the saved copy.' : '.'}</span>`;
               }
           }
 
+          // Parses a routines file and renders the list. Returns the number
+          // of valid routines so callers can refuse to persist garbage over
+          // the stored good copy.
           function parseAndGenerateLinks(text) {
               parseMetadata(text);
               const blocks = text.split(/\n\s*\n/);
@@ -4552,6 +4564,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   statusText.innerHTML = '<span class="error-msg">Ignored bogus step line(s) — fix them in your routines file:<br>' +
                       routineParseErrors.map(escapeHtml).join('<br>') + '</span>';
               }
+              return routines.length;
           }
           
           function renderRoutineList(routines, loaded) {
@@ -4561,7 +4574,12 @@ Climb with Inclines // For walkpads with automatic incline settings
                   if (loaded) {
                       statusText.innerHTML = '<span class="error-msg">No valid routines detected in file. Check formatting.</span>';
                   }
-                  clearRoutineList();
+                  // Only blank the UI; the stored copy is kept so a bad
+                  // upload or fetch cannot wipe the routines. They return
+                  // on the next load, or are removed via "Delete all".
+                  routineContainer.style.display = 'none';
+                  document.getElementById('defLoad').style.display = 'block';
+                  document.getElementById('routinesClear').style.display = 'none';
                   return;
               }
 
