@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.7";}
+      #version:after {content: "v1.2.0-dev.8";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -474,6 +474,17 @@
       }
       .conn-card h3 { margin-top: 0; }
       .conn-card .connect-btn { margin-bottom: 4px; }
+      .conn-input {
+        width: 100%;
+        box-sizing: border-box;
+        margin: 4px 0;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #3a3a3c;
+        background: #1c1c1e;
+        color: #fff;
+        font-size: 0.95rem;
+      }
 
       /* === Test Mode Toggle === */
       .test-toggle-row {
@@ -731,6 +742,15 @@
         <h3>Heart Rate Monitor</h3>
         <button class="connect-btn" id="connectHrmBtn">Connect to Heart Rate Monitor</button>
         <p class="status-text" id="connHrmStatus">Not connected</p>
+      </div>
+
+      <div class="conn-card">
+        <h3>Heart Rate over Wi-Fi</h3>
+        <p class="status-text" style="margin-top:0;">Read the strap through an <a href="https://github.com/ColasNahaboo/hr-relay" target="_blank" rel="noopener noreferrer">hr-relay</a> on your LAN instead of Bluetooth. The phone and the relay must be on the same network.</p>
+        <input type="url" id="lanHrmUrl" class="conn-input" placeholder="http://192.168.1.5:8080/api/v1/hr" autocomplete="off">
+        <input type="password" id="lanHrmToken" class="conn-input" placeholder="Bearer token" autocomplete="off">
+        <button class="connect-btn" id="connectLanHrmBtn">Connect over Wi-Fi</button>
+        <p class="status-text" id="connLanHrmStatus">Not connected</p>
       </div>
 
       <div id="testModeToggle" class="test-toggle-row">
@@ -1925,6 +1945,10 @@
       let hrmReconnectTries = 0;
       let hrmReconnectTimer = null;
       let hrmReconnecting = false;
+      // Which HR source is live: null | 'ble' | 'lan' | 'test'. hrmCharacteristic
+      // stays the BLE characteristic object (and Test Mode's truthy flag);
+      // everything that only asks "is HR available" goes through hrmConnected().
+      let hrTransport = null;
       const HRM_RECONNECT_ATTEMPTS = 3;
       const HRM_RECONNECT_BACKOFF_MS = [2000, 4000, 8000];
 
@@ -1953,6 +1977,7 @@
           attachHrmDisconnectHandler(hrmDevice);
           characteristic.addEventListener('characteristicvaluechanged', handleHrmNotification);
           hrmCharacteristic = characteristic;
+          hrTransport = 'ble';
           updateHrmUI('connected', '--');
           hrmFirstBeatSeen = false;
           stopHrmBeatWatchdog();
@@ -2131,6 +2156,7 @@
               stopHrmBeatWatchdog();
               resetHrTrend();
               hrmCharacteristic = null;
+              if (hrTransport === 'ble') hrTransport = null;
               currentHeartRate = 0;
               hrmFirstBeatSeen = false;
               updateHrmUI('idle');
@@ -2149,6 +2175,7 @@
               if (success) {
                   // Set a truthy value so zone control logic (!hrmCharacteristic) passes
                   hrmCharacteristic = true; 
+                  hrTransport = 'test';
                   
                   updateHrmUI('connected', testHrData[0]?.bpm ?? '--');
                   updateStatus(`Test HRM connected (${testHrData.length} data points from embedded profile).`);
@@ -2210,6 +2237,7 @@
               }
               hrmDevice = null;
               hrmCharacteristic = null;
+              hrTransport = null;
               currentHeartRate = 0;
               hrmFirstBeatSeen = false;
               stopHrmBeatWatchdog();
@@ -2261,6 +2289,7 @@
                   testHrInterval = null;
               }
               hrmCharacteristic = null;
+              hrTransport = null;
               testHrData = [];
               updateHrmUI('idle');
               return;
@@ -2275,6 +2304,7 @@
               hrmDevice = null;
               hrmCharacteristic = null;
           }
+          hrTransport = null;
           currentHeartRate = 0;
           hrmFirstBeatSeen = false;
           stopHrmBeatWatchdog();
@@ -2292,6 +2322,13 @@
               stopHrmBeatWatchdog();
               trace(`HRM first BPM ${bpm}`);
           }
+          processHrSample(bpm);
+      }
+
+      /* Single BPM pipeline shared by every HR transport (BLE, Wi-Fi relay,
+         and anything added later): update the live value, feed the 1 Hz gain
+         learner history, refresh the UI and the zone. */
+      function processHrSample(bpm) {
           currentHeartRate = bpm;
           // 1 Hz history for the gain learner (learnHrGain), pruned to 4 min
           hrHistory.push({ t: Date.now(), speed: currentTargetSpeed, hr: bpm });
@@ -2299,6 +2336,120 @@
           while (hrHistory.length && hrHistory[0].t < cutoff) hrHistory.shift();
           updateHrmUI('connected', bpm);
           updateHrZone(bpm);
+      }
+
+      /* ================================================================
+         HR OVER Wi-Fi (hr-relay LAN API)
+         The phone's BLE hop to the relay is the unreliable leg (2026-11-19:
+         six ACLs, all dropped 25-58 s in). The relay's HTTP snapshot lets
+         the app read the strap over the LAN instead. 1 Hz GET poll, dedupe
+         on (relayId, sampleSeq), stale samples cannot drive zone control.
+         ================================================================ */
+      const LAN_HR_STALE_MS = 5000;
+      let lanPollTimer = null;
+      let lanPollAbort = null;
+      let lanRelayId = null;   // relay process id — resets the dedupe on restart
+      let lanSampleSeq = 0;
+      let lanLastSampleAt = 0;
+      let lanStale = true;
+
+      /* Chrome 145+ verifies that the resolved IP matches the declared
+         address space: loopback is its own, more private space, so a
+         hard-coded 'local' fails the check for a localhost mock. */
+      function addressSpaceFor(urlString) {
+          try {
+              const h = new URL(urlString).hostname;
+              if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.localhost')) return 'loopback';
+              if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
+                  /^\[?[fd][0-9a-f]/i.test(h) || h.endsWith('.local')) return 'local';
+          } catch (e) { /* not a URL — let fetch report it */ }
+          return null;
+      }
+
+      function markLanStale(reason) {
+          if (lanStale) return;
+          lanStale = true;
+          currentHeartRate = 0;
+          hrHistory.length = 0;
+          resetHrTrend();
+          // hrmStepTargetZone stays armed: the currentHeartRate <= 0 guard in
+          // applyHrmZoneAdjust stops control, and it resumes when data does.
+          updateHrmUI('idle');
+          updateStatus(`HR over Wi-Fi: ${reason}`);
+          updateConnStatus();
+      }
+
+      async function lanPollTick() {
+          const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmUrl'));
+          const tokenInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmToken'));
+          const url = urlInput.value.trim();
+          const token = tokenInput.value;
+          let backoff = 1000;
+          try {
+              const ctrl = new AbortController();
+              const timer = setTimeout(() => ctrl.abort(), 3000);
+              /** @type {any} */
+              const init = { headers: { 'Authorization': 'Bearer ' + token }, signal: ctrl.signal, cache: 'no-store' };
+              const space = addressSpaceFor(url);
+              if (space) init.targetAddressSpace = space;
+              const resp = await fetch(url, init);
+              clearTimeout(timer);
+              if (resp.status === 401 || resp.status === 403) {
+                  stopLanPoll();
+                  updateStatus('HR over Wi-Fi: token rejected — check the token and try again.');
+                  return;
+              }
+              if (!resp.ok) throw new Error('HTTP ' + resp.status);
+              const j = await resp.json();
+              if (j.relayId !== lanRelayId) { lanRelayId = j.relayId; lanSampleSeq = 0; }
+              const fresh = j.sensorConnected === true &&
+                  Number.isSafeInteger(j.bpm) && j.bpm > 0 && j.bpm <= 300 &&
+                  (j.sampleAgeMs === null || j.sampleAgeMs <= LAN_HR_STALE_MS);
+              if (!fresh) {
+                  markLanStale(j.sensorConnected === false ? 'relay has no strap data' : 'strap data is stale');
+              } else if (Number.isSafeInteger(j.sampleSeq) && j.sampleSeq > lanSampleSeq) {
+                  lanSampleSeq = j.sampleSeq;
+                  lanLastSampleAt = Date.now();
+                  if (lanStale) {
+                      lanStale = false;
+                      updateStatus('HR over Wi-Fi: data is fresh again.');
+                      updateConnStatus();
+                  }
+                  processHrSample(j.bpm);
+              } else if (!lanStale && Date.now() - lanLastSampleAt > LAN_HR_STALE_MS) {
+                  markLanStale('relay is not forwarding new samples');
+              }
+          } catch (err) {
+              // A LAN hiccup is not a wedged BLE queue: never touch hrmFailCount.
+              backoff = 5000;
+              if (lanPollAbort) updateStatus(`HR over Wi-Fi: relay unreachable (${err.message || err.name})`);
+          }
+          if (lanPollAbort) lanPollTimer = setTimeout(lanPollTick, backoff);
+      }
+
+      function startLanPoll() {
+          stopLanPoll();
+          if (hrmCharacteristic) disconnectHRM(); // one HR transport at a time
+          hrTransport = 'lan';
+          lanRelayId = null;
+          lanSampleSeq = 0;
+          lanStale = true;
+          lanPollAbort = new AbortController();
+          updateStatus('Connecting to the relay over Wi-Fi…');
+          lanPollTick();
+          updateConnStatus();
+      }
+
+      function stopLanPoll() {
+          if (lanPollTimer) { clearTimeout(lanPollTimer); lanPollTimer = null; }
+          if (lanPollAbort) { lanPollAbort.abort(); lanPollAbort = null; }
+          if (hrTransport === 'lan') {
+              hrTransport = null;
+              currentHeartRate = 0;
+              resetHrTrend();
+              updateHrmUI('idle');
+          }
+          updateConnStatus();
       }
 
       function getZoneBpmBounds(zone) {
@@ -2376,7 +2527,7 @@
           }
 
           // For zone-terminated steps, always send the speed (no zone-control skip)
-          if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic && currentHeartRate > 0) {
+          if (step.targetZone !== null && !step.zoneTerminate && hrmConnected() && currentHeartRate > 0) {
               const bounds = getZoneBpmBounds(step.targetZone);
               if (bounds && currentHeartRate >= bounds.low && currentHeartRate <= bounds.high) {
                   if (inclineToSend !== undefined && inclineToSend !== null) {
@@ -2467,7 +2618,7 @@
       function startHrmZoneControl(zoneStr) {
           stopHrmZoneControl();
           if (zoneStr === null || zoneStr === undefined) return;
-          if (!hrmCharacteristic) return;
+          if (!hrmConnected()) return;
           const zoneNum = zoneMap[zoneStr] !== undefined ? zoneMap[zoneStr] : parseInt(zoneStr, 10);
           if (isNaN(zoneNum)) return;
           const bounds = getZoneBpmBounds(zoneNum);
@@ -2892,7 +3043,7 @@
                       startClockLoop();
                   }
                   const resumingStep = currentRoutineSteps[currentStepIndex];
-                  if (resumingStep?.targetZone !== null && !resumingStep?.zoneTerminate && hrmCharacteristic) {
+                  if (resumingStep?.targetZone !== null && !resumingStep?.zoneTerminate && hrmConnected()) {
                       startHrmZoneControl(resumingStep.targetZone);
                   }
 
@@ -2970,7 +3121,7 @@
               if (secondsLeftInStep >= 0) {
                   const step = currentRoutineSteps[currentStepIndex];
                   if (step.zoneTerminate && step.targetZone !== null &&
-                      hrmCharacteristic && currentHeartRate > 0) {
+                      hrmConnected() && currentHeartRate > 0) {
                       const currentZone = getHRZone(currentHeartRate);
                       if (currentZone !== null && currentZone >= step.targetZone) {
                         routineTotalDuration -= secondsLeftInStep;
@@ -2996,7 +3147,7 @@
                   try {
                       await enterStepSpeed(step, false);
                       stopHrmZoneControl();
-                      if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic) {
+                      if (step.targetZone !== null && !step.zoneTerminate && hrmConnected()) {
                           startHrmZoneControl(step.targetZone);
                       }
                   } finally {
@@ -3508,7 +3659,7 @@
                   stepTransitioning = false;
               }
               stopHrmZoneControl();
-              if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
+              if (step.targetZone !== null && !step.zoneTerminate && hrmConnected())
                   startHrmZoneControl(step.targetZone);
           }
           updateLiveTimeDisplay(actualElapsedSeconds);
@@ -3541,7 +3692,7 @@
                   stepTransitioning = false;
               }
               stopHrmZoneControl();
-              if (step.targetZone !== null && !step.zoneTerminate && hrmCharacteristic)
+              if (step.targetZone !== null && !step.zoneTerminate && hrmConnected())
                   startHrmZoneControl(step.targetZone);
           }
           updateLiveTimeDisplay(actualElapsedSeconds);
@@ -3676,7 +3827,7 @@
                    startClockLoop();
                }
                const remotedStep = currentRoutineSteps[currentStepIndex];
-               if (remotedStep?.targetZone !== null && !remotedStep?.zoneTerminate && hrmCharacteristic) {
+               if (remotedStep?.targetZone !== null && !remotedStep?.zoneTerminate && hrmConnected()) {
                    startHrmZoneControl(remotedStep.targetZone);
                }
                return;
@@ -3838,7 +3989,7 @@
           if (!currentSession) return;
 
           const step = currentRoutineSteps[currentStepIndex];
-          const hrOn = !!hrmCharacteristic;
+          const hrOn = hrmConnected();
           const inclineTracked = routineHasIncline || (metaIncline !== null && metaIncline !== undefined);
 
           const snapshot = {
@@ -4872,7 +5023,8 @@ Climb with Inclines // For walkpads with automatic incline settings
       }
 
       function hrmConnected() {
-          return !!hrmCharacteristic;
+          if (hrTransport === 'lan') return !lanStale;
+          return !!hrmCharacteristic; // 'ble' and Test Mode keep their semantics
       }
 
       // The player's controls (and step-jump list) are usable as soon as the
@@ -4903,14 +5055,39 @@ Climb with Inclines // For walkpads with automatic incline settings
               padStatus.innerText = 'Not connected';
           }
 
-          hrmBtn.classList.toggle('connected', hrmConnected());
-          if (hrmConnected()) {
+          // The BLE card reflects the BLE transport only; the Wi-Fi card has
+          // its own state below, so the two never claim the same source.
+          const bleHrmUp = hrTransport === 'ble' || (isTestMode && !!hrmCharacteristic);
+          hrmBtn.classList.toggle('connected', bleHrmUp);
+          if (bleHrmUp) {
               hrmBtn.innerText = "Disconnect Heart Rate Monitor";
               hrmStatus.innerText = isTestMode ? 'Connected (Test Mode).'
                                                : `Connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`;
           } else {
               hrmBtn.innerText = "Connect to Heart Rate Monitor";
-              hrmStatus.innerText = 'Not connected';
+              hrmStatus.innerText = hrTransport === 'lan'
+                  ? 'Not connected (Heart Rate is on Wi-Fi below).' : 'Not connected';
+          }
+
+          const lanBtn = document.getElementById('connectLanHrmBtn');
+          const lanStatus = document.getElementById('connLanHrmStatus');
+          if (lanBtn && lanStatus) {
+              const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmUrl'));
+              const tokenInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmToken'));
+              if (urlInput && !urlInput.value) {
+                  urlInput.value = localStorage.getItem('wpss_lan_hr_url') || '';
+              }
+              if (tokenInput && !tokenInput.value) {
+                  try { tokenInput.value = sessionStorage.getItem('wpss_lan_hr_token') || ''; } catch (e) { /* private mode */ }
+              }
+              lanBtn.classList.toggle('connected', hrTransport === 'lan');
+              if (hrTransport === 'lan') {
+                  lanBtn.innerText = "Disconnect Wi-Fi Heart Rate";
+                  lanStatus.innerText = lanStale ? 'Connected, waiting for fresh data…' : 'Connected over Wi-Fi.';
+              } else {
+                  lanBtn.innerText = "Connect over Wi-Fi";
+                  lanStatus.innerText = 'Not connected';
+              }
           }
       }
 
@@ -4925,6 +5102,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   return;
               }
               if (hrmConnected()) disconnectHRM();
+              stopLanPoll();
               disconnectPad();
           }
           isTestMode = on;
@@ -4962,9 +5140,26 @@ Climb with Inclines // For walkpads with automatic incline settings
 
           document.getElementById('connectHrmBtn').addEventListener('click', async () => {
               if (hrmConnecting) return;
-              if (hrmConnected()) { disconnectHRM(); updateConnStatus(); return; }
+              if (hrmCharacteristic) { disconnectHRM(); updateConnStatus(); return; }
+              stopLanPoll(); // one HR transport at a time
               await connectHRM();
               updateConnStatus();
+          });
+
+          document.getElementById('connectLanHrmBtn').addEventListener('click', () => {
+              if (hrTransport === 'lan') { stopLanPoll(); return; }
+              const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmUrl'));
+              const tokenInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmToken'));
+              const url = urlInput.value.trim();
+              if (!/^https?:\/\//.test(url)) {
+                  updateStatus('HR over Wi-Fi: enter the relay URL (http://<relay-ip>:<port>/api/v1/hr).');
+                  return;
+              }
+              try {
+                  localStorage.setItem('wpss_lan_hr_url', url);
+                  sessionStorage.setItem('wpss_lan_hr_token', tokenInput.value);
+              } catch (e) { /* private mode */ }
+              startLanPoll();
           });
 
           updateConnStatus();
@@ -5247,7 +5442,7 @@ Climb with Inclines // For walkpads with automatic incline settings
                   updateStepsListVisibility();
                   return;
               }
-              if (startStep.targetZone !== null && !startStep.zoneTerminate && hrmCharacteristic) {
+              if (startStep.targetZone !== null && !startStep.zoneTerminate && hrmConnected()) {
                   startHrmZoneControl(startStep.targetZone);
               }
               recordSessionState();

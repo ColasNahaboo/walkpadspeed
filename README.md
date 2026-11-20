@@ -247,6 +247,25 @@ And while the routine is playing, you can restart the current step, go to the pr
 An **❤ HR** display is available under the speed display.
 If you wear an heart rate monitoring system (armband, chest band, smart watch...), connect it on the **🔗 Connections** screen at any time (before, during or after a routine). The display then shows your heart rate as a number of beats per minute, with the [cardio zone](https://learn.beyondpulse.com/blog/the-five-zones-of-heart-rate-training/) to its left.
 
+### Heart rate over Wi-Fi (LAN relay)
+
+On some Android browsers the Bluetooth path to the band is unreliable (Chrome
+157 regression, links dropped after tens of seconds). If you run
+[hr-relay](https://github.com/ColasNahaboo/hr-relay) on a machine with a BLE
+dongle on the same LAN as your phone, the app can read the band through it
+over Wi-Fi instead: on the **🔗 Connections** screen, fill the relay URL
+(`http://<relay-ip>:<port>/api/v1/hr`) and its bearer token, then tap
+**Connect over Wi-Fi**. The app polls the relay once per second; everything
+else (zones, speed control, session log) works exactly the same.
+
+- The phone and the relay must be on the same network. Chrome may ask once to
+  allow the app to access devices on your local network — allow it.
+- If the band stops reporting (off, asleep, flat), the app marks the data
+  stale within 5 s, shows `--`, and pauses the HR-based speed control until
+  the feed recovers.
+- The token is kept for the browser session only and never appears in the
+  debug log. Keep the relay on your LAN; never expose it to the internet.
+
 Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
 
 * **Z0 (38–43% | Digestive/Glucose | Purple):** Optimizes postprandial glycemic control by actively clearing glucose from the bloodstream through light muscle contractions after meals. The 43–50% band is intentionally left outside any zone (the display shows `--`).
