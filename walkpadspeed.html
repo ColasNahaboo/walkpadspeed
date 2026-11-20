@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.6";}
+      #version:after {content: "v1.2.0-dev.7";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1916,6 +1916,17 @@
       let hrmFirstBeatSeen = false;
       let hrmBeatTimer = null;
       let hrmPhantomLink = false;
+      // 2026-11-19 journal: the phone→relay ACL died 25–58 s after connecting,
+      // six attempts in a row, while the relay kept forwarding. Nothing in the
+      // app reconnected, so one drop cost the whole session. Auto-reconnect a
+      // dropped link (never a user disconnect) with a backoff, on a separate
+      // counter from hrmFailCount so it does not trigger the reload-the-tab hint.
+      let hrmUserDisconnected = false;
+      let hrmReconnectTries = 0;
+      let hrmReconnectTimer = null;
+      let hrmReconnecting = false;
+      const HRM_RECONNECT_ATTEMPTS = 3;
+      const HRM_RECONNECT_BACKOFF_MS = [2000, 4000, 8000];
 
       function hrmOpTimeout(promise, label, ms = HRM_OP_TIMEOUT_MS) {
           return Promise.race([
@@ -1928,6 +1939,67 @@
 
       function stopHrmBeatWatchdog() {
           if (hrmBeatTimer) { clearTimeout(hrmBeatTimer); hrmBeatTimer = null; }
+      }
+
+      function stopHrmReconnect() {
+          if (hrmReconnectTimer) { clearTimeout(hrmReconnectTimer); hrmReconnectTimer = null; }
+          hrmReconnectTries = 0;
+      }
+
+      /* Re-arm the beat watchdog and the notification listener on a
+         (re)opened link. Shared by connectHRM and the auto-reconnect. */
+      async function armHrmLink() {
+          const characteristic = await openHrmGatt();
+          attachHrmDisconnectHandler(hrmDevice);
+          characteristic.addEventListener('characteristicvaluechanged', handleHrmNotification);
+          hrmCharacteristic = characteristic;
+          updateHrmUI('connected', '--');
+          hrmFirstBeatSeen = false;
+          stopHrmBeatWatchdog();
+          hrmBeatTimer = setTimeout(() => {
+              hrmBeatTimer = null;
+              if (!hrmFirstBeatSeen) {
+                  trace('HRM no data after connect');
+                  updateStatus('HRM connected but sending no data — is the strap worn and in contact?');
+              }
+          }, HRM_FIRST_BEAT_MS);
+          return characteristic;
+      }
+
+      function scheduleHrmReconnect() {
+          // hrmConnecting: a manual connect is already running. The flag is
+          // not set during auto-reconnect, so a disconnect event fired by a
+          // failed reconnect attempt must not arm a competing timer — the
+          // reconnect's own catch reschedules it.
+          if (hrmUserDisconnected || isTestMode || hrmConnecting || hrmReconnecting || !hrmDevice || hrmReconnectTimer) return;
+          if (hrmReconnectTries >= HRM_RECONNECT_ATTEMPTS) {
+              updateStatus('HRM link lost and ' + HRM_RECONNECT_ATTEMPTS +
+                  ' reconnects failed — tap the ❤ box to reconnect.');
+              return;
+          }
+          const delay = HRM_RECONNECT_BACKOFF_MS[hrmReconnectTries];
+          hrmReconnectTries++;
+          trace(`HRM auto-reconnect ${hrmReconnectTries}/${HRM_RECONNECT_ATTEMPTS} in ${delay / 1000}s`);
+          updateStatus(`HRM link lost — reconnecting (attempt ${hrmReconnectTries}/${HRM_RECONNECT_ATTEMPTS})…`);
+          hrmReconnectTimer = setTimeout(async () => {
+              hrmReconnectTimer = null;
+              if (hrmUserDisconnected || isTestMode || !hrmDevice || hrmCharacteristic) return;
+              // A failed attempt's disconnect event must not arm a competing
+              // timer; this callback's catch reschedules instead.
+              hrmReconnecting = true;
+              try {
+                  await armHrmLink();
+                  hrmReconnectTries = 0;
+                  hrmFailCount = 0;
+                  updateStatus(`HRM reconnected: ${hrmDevice.name || 'Heart Rate Monitor'}.`);
+              } catch (err) {
+                  trace(`HRM auto-reconnect failed: ${err.message || err.name}`);
+                  hrmReconnecting = false;
+                  scheduleHrmReconnect();
+              } finally {
+                  hrmReconnecting = false;
+              }
+          }, delay);
       }
 
       async function openHrmGatt() {
@@ -2063,6 +2135,7 @@
               hrmFirstBeatSeen = false;
               updateHrmUI('idle');
               updateStatus('Heart Rate Monitor disconnected.');
+              scheduleHrmReconnect();
           });
       }
 
@@ -2109,26 +2182,11 @@
               });
               trace(`HRM CONNECT ${hrmDevice.name || '(unnamed)'} id=${hrmDevice.id || '?'} build=${buildVersion()}`);
 
-              const characteristic = await openHrmGatt();
-              attachHrmDisconnectHandler(hrmDevice);
-              characteristic.addEventListener('characteristicvaluechanged', handleHrmNotification);
-              hrmCharacteristic = characteristic;
-
-              updateHrmUI('connected', '--');
+              hrmUserDisconnected = false;
+              stopHrmReconnect();
+              await armHrmLink();
               updateStatus(`HRM connected: ${hrmDevice.name || 'Heart Rate Monitor'}.`);
               hrmFailCount = 0;
-
-              // A strap that is connected but not worn notifies nothing at all,
-              // which looks exactly like a broken connection. Say so.
-              hrmFirstBeatSeen = false;
-              stopHrmBeatWatchdog();
-              hrmBeatTimer = setTimeout(() => {
-                  hrmBeatTimer = null;
-                  if (!hrmFirstBeatSeen) {
-                      trace('HRM no data after connect');
-                      updateStatus('HRM connected but sending no data — is the strap worn and in contact?');
-                  }
-              }, HRM_FIRST_BEAT_MS);
           } catch (err) {
               // Drop a half-open link so the next tap starts from a clean slate.
               if (hrmDevice && hrmDevice.gatt.connected) {
@@ -2209,6 +2267,9 @@
           }
 
           // ★ REAL BLE CLEANUP ★
+          hrmUserDisconnected = true;
+          stopHrmReconnect();
+          trace('HRM user disconnect');
           if (hrmDevice) {
               if (hrmDevice.gatt.connected) hrmDevice.gatt.disconnect();
               hrmDevice = null;
@@ -5197,6 +5258,13 @@ Climb with Inclines // For walkpads with automatic incline settings
           document.addEventListener('visibilitychange', async () => {
               if (wakeLock !== null && document.visibilityState === 'visible') {
                   await requestWakeLock();
+              }
+              // Android freezes background tabs and can drop the HRM link;
+              // coming back to the foreground is a good moment to notice and
+              // re-arm the reconnect schedule.
+              if (document.visibilityState === 'visible' && hrmDevice && !hrmCharacteristic &&
+                  !hrmUserDisconnected && !isTestMode && !hrmReconnectTimer) {
+                  scheduleHrmReconnect();
               }
           });
       }
