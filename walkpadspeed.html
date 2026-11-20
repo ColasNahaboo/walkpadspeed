@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.9";}
+      #version:after {content: "v1.2.0-dev.10";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -474,6 +474,22 @@
       }
       .conn-card h3 { margin-top: 0; }
       .conn-card .connect-btn { margin-bottom: 4px; }
+      .conn-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 4px 0;
+      }
+      .conn-field-label {
+        flex: 0 0 3.2em;
+        color: #8e8e93;
+        font-size: 0.9rem;
+        font-weight: bold;
+      }
+      .conn-input-port {
+        flex: 0 0 5em;
+        width: auto;
+      }
       .conn-input {
         width: 100%;
         box-sizing: border-box;
@@ -747,8 +763,10 @@
       <div class="conn-card">
         <h3>Heart Rate over Wi-Fi</h3>
         <p class="status-text" style="margin-top:0;">Read the strap through an <a href="https://github.com/ColasNahaboo/hr-relay" target="_blank" rel="noopener noreferrer">hr-relay</a> on your LAN instead of Bluetooth. The phone and the relay must be on the same network.</p>
-        <input type="text" id="lanHrmHost" class="conn-input" placeholder="Relay hostname or IP (e.g. colas or 192.168.1.5)" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <input type="text" id="lanHrmPort" class="conn-input" placeholder="Port" value="8080" inputmode="numeric" autocomplete="off">
+        <label class="conn-field"><span class="conn-field-label">host</span>
+          <input type="text" id="lanHrmHost" class="conn-input" placeholder="hostname or IP (e.g. colas)" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <label class="conn-field"><span class="conn-field-label">port</span>
+          <input type="text" id="lanHrmPort" class="conn-input conn-input-port" value="8080" inputmode="numeric" autocomplete="off"></label>
         <button class="connect-btn" id="connectLanHrmBtn">Connect over Wi-Fi</button>
         <p class="status-text" id="connLanHrmStatus">Not connected</p>
       </div>
