@@ -885,3 +885,59 @@ working path** for the COROS strap from Chrome on the phone — it is not "not n
 `journalctl --user -u hr-relay.service -n 20 -o cat` — `client connected:` means the
 phone reached the relay (so a failure is in the app's GATT/subscribe path); silence
 means the phone never got there (scan/advertisement side).
+
+---
+
+### Session 2026-11-20: LAN HR transport, relay scan-wedge fix, HRM auto-reconnect (v1.2.0-dev.8)
+
+Multi-model planning (`plans/002-*.md`), then implementation. Root evidence:
+the 2026-11-19 journal shows the phone→relay ACL dying 25–58 s after each
+connect (six attempts), the relay forwarding `HR … bpm` through every drop —
+so the fragile leg is phone↔relay BLE, not the strap. The relay's own central
+loop was wedged 1140× on `scan: Operation already in progress` (per-attempt
+`adapter.Scan` races the previous non-cancellable one).
+
+**hr-relay** (`3154391`, `9b60b90`, deployed + restarted):
+- Single long-lived scan (one goroutine, advertisements → channel); the
+  StopScan/Scan race is gone. Watchdog: no scan result AND no scan restart
+  for `-watchdog-secs` (600) → `log.Fatal` → systemd restart (a wedged BlueZ
+  scan cannot be cancelled any other way). `-stale-secs` 60 → 300. Strap ACL
+  logged as `sensor link lost (ACL)`, phones as `phone client connected:`.
+- Opt-in LAN API (`httpapi.go`): `GET /api/v1/hr` JSON snapshot
+  `{relayId, version, sensorConnected, bpm, sampleSeq, sampleAgeMs,
+  forwardErrors, lastForwardOkMs}`. Enabled only with `-http <lan-addr>`
+  (refuses 0.0.0.0 without `-allow-any-bind`) + `HR_RELAY_HTTP_TOKEN`
+  (constant-time compare) + `-http-origin` (exact CORS origin, Max-Age 600).
+  `relayId` is random per process — mandatory: `sampleSeq` restarts at 1 on
+  relay restart and would freeze a seq-only dedupe. `version` via
+  `-ldflags "-X main.version=$(git rev-parse --short HEAD)"`. `main_test.go`
+  covers fresh/stale/no-sample/seq/auth/CORS/config. **Not yet enabled**:
+  needs the systemd unit to pass `-http`/`-http-origin` + the token env.
+- Windows (`games` host) ruled out: TinyGo peripheral/GATT-server support is
+  BlueZ-only in practice; not worth a WinRT rewrite.
+
+**walkpadspeed** (`e9239c9`, `f11d820`):
+- **HRM auto-reconnect**: `gattserverdisconnected` → up to 3 reconnects
+  (2/4/8 s) via `armHrmLink()` unless user-disconnected; separate counter
+  from `hrmFailCount` (never triggers the RELOAD hint); `trace('HRM user
+  disconnect')`; retry on `visibilitychange`. Fixes the "one drop costs the
+  session" gap.
+- **LAN HR transport**: Connections-view card (endpoint → localStorage
+  `wpss_lan_hr_url`, token → sessionStorage only). `hrTransport`
+  (`null|ble|lan|test`); `hrmConnected()` is now the availability predicate
+  at all zone/session guard sites (`hrmCharacteristic` stays the BLE object).
+  `processHrSample()` = one BPM pipeline for both transports. 1 Hz serialized
+  `setTimeout` poll, 3 s abort timeout, dedupe on `(relayId, sampleSeq)`,
+  stale (`sensorConnected:false` / age>5 s / frozen seq) → `currentHeartRate=0`
+  + trend reset but **`hrmStepTargetZone` stays armed** (clearing it would
+  permanently disarm control). `addressSpaceFor()` → `'loopback'` for
+  localhost, `'local'` for RFC1918 (Chrome LNA verifies the resolved space).
+  Network errors back off to 5 s, never touch `hrmFailCount`; 401 stops
+  polling visibly. `targetAddressSpace` passed via `/** @type {any} */` init
+  to keep the tsc baseline at 36.
+- `test/hrm-lan.test.cjs` (24 checks, mock fetch). Full suite green.
+
+**Pending (user)**: enable `-http` on the systemd unit, run the phone LNA
+reachability gate (plan 001 step 4) from the real HTTPS origin, then the
+end-to-end run. If LNA blocks, fallback is option E: serve app+API
+same-origin HTTPS from the relay (ACME DNS-01).

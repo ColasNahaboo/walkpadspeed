@@ -9,8 +9,12 @@ sibling `hr-relay` repository. Run the plans in order; plan 002 depends on plan
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001 | Expose a protected LAN HR snapshot API in `hr-relay` | P1 | M | — | TODO |
-| 002 | Consume LAN HR snapshots in walkpadspeed | P1 | M | 001 | TODO |
+| 001 | Expose a protected LAN HR snapshot API in `hr-relay` | P1 | M | — | IN PROGRESS (code done `9b60b90`, tests green; phone reachability gate pending — needs `-http`/`-http-origin`/token config) |
+| 002 | Consume LAN HR snapshots in walkpadspeed | P1 | M | 001 | IN PROGRESS (code done `f11d820`, 24-check Playwright suite green; end-to-end on the phone pending plan 001's gate) |
+
+Also done out-of-band (2026-11-20): relay scan-loop wedge fix + watchdog + log
+split (`hr-relay 3154391`, deployed), app HRM auto-reconnect
+(`walkpadspeed e9239c9`).
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` (with one-line reason),
 or `REJECTED` (with one-line rationale).
