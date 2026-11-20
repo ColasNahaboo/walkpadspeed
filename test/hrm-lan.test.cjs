@@ -81,8 +81,8 @@ let fetchCount = 0;
 
         console.log('\n[2] connect over Wi-Fi processes fresh samples once per sampleSeq');
         await setMock(fresh(1));
-        await page.fill('#lanHrmUrl', `${BASE}/api/v1/hr`);
-        await page.fill('#lanHrmToken', 'sekret');
+        await page.fill('#lanHrmHost', '127.0.0.1');
+        await page.fill('#lanHrmPort', String(PORT));
         await page.click('#connectLanHrmBtn');
         await page.waitForTimeout(1500);
         const st = await page.evaluate(() => ({
@@ -92,7 +92,6 @@ let fetchCount = 0;
         check('BPM from LAN applied', st.hr === 97, JSON.stringify(st));
         check('transport is lan', st.transport === 'lan');
         check('history fed once per poll of a new seq', st.hist >= 1);
-        check('token sent as bearer', st.init && st.init.headers.Authorization === 'Bearer sekret');
         check('address space declared', st.init && (st.init.targetAddressSpace === 'loopback' || st.init.targetAddressSpace === 'local'), JSON.stringify(st.init));
         check('no BLE picker used', !(await page.evaluate(() => window.__bluetoothTouched)));
 
@@ -132,15 +131,15 @@ let fetchCount = 0;
         await page.waitForTimeout(6500); // poll backs off to 5 s after an error
         check('recovers after network error', (await page.evaluate(() => currentHeartRate)) === 92);
 
-        console.log('\n[8] 401 stops polling with a visible message');
-        await setMock({}, 401);
+        console.log('\n[8] 403 stops polling with a visible message');
+        await setMock({}, 403);
         await page.waitForTimeout(1500);
         const conn = await page.locator('#connStatus').innerText();
-        check('token rejection visible', /token rejected/.test(conn), conn);
+        check('refusal visible', /refused this device/.test(conn), conn);
         const c1 = await page.evaluate(() => window.__fetchCount);
         await page.waitForTimeout(2500);
         const c2 = await page.evaluate(() => window.__fetchCount);
-        check('polling stopped after 401', c2 === c1, `${c1}->${c2}`);
+        check('polling stopped after 403', c2 === c1, `${c1}->${c2}`);
 
         console.log('\n[9] disconnect stops polling');
         await setMock(fresh(5, 95));
@@ -154,10 +153,10 @@ let fetchCount = 0;
         check('no polls after disconnect', d2 === d1, `${d1}->${d2}`);
         check('transport cleared', (await page.evaluate(() => hrTransport)) === null);
 
-        console.log('\n[10] endpoint persisted, token in sessionStorage only');
-        check('endpoint persisted', (await page.evaluate(() => localStorage.getItem('wpss_lan_hr_url') || '')).includes('/api/v1/hr'));
-        check('token in sessionStorage', (await page.evaluate(() => sessionStorage.getItem('wpss_lan_hr_token'))) === 'sekret');
-        check('token not in localStorage', (await page.evaluate(() => localStorage.getItem('wpss_lan_hr_token'))) === null);
+        console.log('\n[10] host and port persisted');
+        check('host persisted', (await page.evaluate(() => localStorage.getItem('wpss_lan_hr_host'))) === '127.0.0.1');
+        check('port persisted', (await page.evaluate(() => localStorage.getItem('wpss_lan_hr_port'))) === String(PORT));
+        check('port default 8080', await page.evaluate(() => document.getElementById('lanHrmPort').defaultValue === '8080'));
 
         console.log(`\n=== ${pass} passed, ${fail} failed ===`);
     } finally {

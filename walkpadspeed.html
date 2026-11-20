@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.8";}
+      #version:after {content: "v1.2.0-dev.9";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -747,8 +747,8 @@
       <div class="conn-card">
         <h3>Heart Rate over Wi-Fi</h3>
         <p class="status-text" style="margin-top:0;">Read the strap through an <a href="https://github.com/ColasNahaboo/hr-relay" target="_blank" rel="noopener noreferrer">hr-relay</a> on your LAN instead of Bluetooth. The phone and the relay must be on the same network.</p>
-        <input type="url" id="lanHrmUrl" class="conn-input" placeholder="http://192.168.1.5:8080/api/v1/hr" autocomplete="off">
-        <input type="password" id="lanHrmToken" class="conn-input" placeholder="Bearer token" autocomplete="off">
+        <input type="text" id="lanHrmHost" class="conn-input" placeholder="Relay hostname or IP (e.g. colas or 192.168.1.5)" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <input type="text" id="lanHrmPort" class="conn-input" placeholder="Port" value="8080" inputmode="numeric" autocomplete="off">
         <button class="connect-btn" id="connectLanHrmBtn">Connect over Wi-Fi</button>
         <p class="status-text" id="connLanHrmStatus">Not connected</p>
       </div>
@@ -2361,7 +2361,8 @@
               const h = new URL(urlString).hostname;
               if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.localhost')) return 'loopback';
               if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) ||
-                  /^\[?[fd][0-9a-f]/i.test(h) || h.endsWith('.local')) return 'local';
+                  /^\[?[fd][0-9a-f]/i.test(h) || h.endsWith('.local') ||
+                  !h.includes('.')) return 'local';
           } catch (e) { /* not a URL — let fetch report it */ }
           return null;
       }
@@ -2379,24 +2380,27 @@
           updateConnStatus();
       }
 
+      function lanHrmUrl() {
+          const host = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmHost')).value.trim();
+          const port = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmPort')).value.trim() || '8080';
+          return 'http://' + host + ':' + port + '/api/v1/hr';
+      }
+
       async function lanPollTick() {
-          const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmUrl'));
-          const tokenInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmToken'));
-          const url = urlInput.value.trim();
-          const token = tokenInput.value;
+          const url = lanHrmUrl();
           let backoff = 1000;
           try {
               const ctrl = new AbortController();
               const timer = setTimeout(() => ctrl.abort(), 3000);
               /** @type {any} */
-              const init = { headers: { 'Authorization': 'Bearer ' + token }, signal: ctrl.signal, cache: 'no-store' };
+              const init = { signal: ctrl.signal, cache: 'no-store' };
               const space = addressSpaceFor(url);
               if (space) init.targetAddressSpace = space;
               const resp = await fetch(url, init);
               clearTimeout(timer);
-              if (resp.status === 401 || resp.status === 403) {
+              if (resp.status === 403) {
                   stopLanPoll();
-                  updateStatus('HR over Wi-Fi: token rejected — check the token and try again.');
+                  updateStatus('HR over Wi-Fi: the relay refused this device — the phone must be on the same network as the relay.');
                   return;
               }
               if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -5072,13 +5076,13 @@ Climb with Inclines // For walkpads with automatic incline settings
           const lanBtn = document.getElementById('connectLanHrmBtn');
           const lanStatus = document.getElementById('connLanHrmStatus');
           if (lanBtn && lanStatus) {
-              const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmUrl'));
-              const tokenInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmToken'));
-              if (urlInput && !urlInput.value) {
-                  urlInput.value = localStorage.getItem('wpss_lan_hr_url') || '';
+              const hostInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmHost'));
+              const portInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmPort'));
+              if (hostInput && !hostInput.value) {
+                  hostInput.value = localStorage.getItem('wpss_lan_hr_host') || '';
               }
-              if (tokenInput && !tokenInput.value) {
-                  try { tokenInput.value = sessionStorage.getItem('wpss_lan_hr_token') || ''; } catch (e) { /* private mode */ }
+              if (portInput && portInput.value === '8080') {
+                  portInput.value = localStorage.getItem('wpss_lan_hr_port') || '8080';
               }
               lanBtn.classList.toggle('connected', hrTransport === 'lan');
               if (hrTransport === 'lan') {
@@ -5148,16 +5152,15 @@ Climb with Inclines // For walkpads with automatic incline settings
 
           document.getElementById('connectLanHrmBtn').addEventListener('click', () => {
               if (hrTransport === 'lan') { stopLanPoll(); return; }
-              const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmUrl'));
-              const tokenInput = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmToken'));
-              const url = urlInput.value.trim();
-              if (!/^https?:\/\//.test(url)) {
-                  updateStatus('HR over Wi-Fi: enter the relay URL (http://<relay-ip>:<port>/api/v1/hr).');
+              const host = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmHost')).value.trim();
+              const port = /** @type {HTMLInputElement} */ (document.getElementById('lanHrmPort')).value.trim() || '8080';
+              if (!host) {
+                  updateStatus('HR over Wi-Fi: enter the relay hostname or IP.');
                   return;
               }
               try {
-                  localStorage.setItem('wpss_lan_hr_url', url);
-                  sessionStorage.setItem('wpss_lan_hr_token', tokenInput.value);
+                  localStorage.setItem('wpss_lan_hr_host', host);
+                  localStorage.setItem('wpss_lan_hr_port', port);
               } catch (e) { /* private mode */ }
               startLanPoll();
           });

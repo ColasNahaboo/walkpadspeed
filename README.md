@@ -253,18 +253,19 @@ On some Android browsers the Bluetooth path to the band is unreliable (Chrome
 157 regression, links dropped after tens of seconds). If you run
 [hr-relay](https://github.com/ColasNahaboo/hr-relay) on a machine with a BLE
 dongle on the same LAN as your phone, the app can read the band through it
-over Wi-Fi instead: on the **🔗 Connections** screen, fill the relay URL
-(`http://<relay-ip>:<port>/api/v1/hr`) and its bearer token, then tap
-**Connect over Wi-Fi**. The app polls the relay once per second; everything
-else (zones, speed control, session log) works exactly the same.
+over Wi-Fi instead: on the **🔗 Connections** screen, fill the relay's
+hostname (or IP) and port (default 8080), then tap **Connect over Wi-Fi**.
+The app polls the relay once per second; everything else (zones, speed
+control, session log) works exactly the same.
 
-- The phone and the relay must be on the same network. Chrome may ask once to
-  allow the app to access devices on your local network — allow it.
+- The phone and the relay must be on the same network — the relay only
+  answers requests coming from its own LAN subnet. A plain hostname (e.g.
+  `colas`) only works if your network's DNS resolves it; an IP address always
+  does. Chrome may ask once to allow the app to access devices on your local
+  network — allow it.
 - If the band stops reporting (off, asleep, flat), the app marks the data
   stale within 5 s, shows `--`, and pauses the HR-based speed control until
   the feed recovers.
-- The token is kept for the browser session only and never appears in the
-  debug log. Keep the relay on your LAN; never expose it to the internet.
 
 Walkpadspeed adds a pseudo zone "digestive" Z0 before the Z1 zone, for the optimal digestive effort to reduce glycemic peaks after meals.
 
