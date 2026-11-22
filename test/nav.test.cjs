@@ -195,6 +195,32 @@ const param = (url, key) => new URL(url).searchParams.has(key);
         check('no reload needed (same document)', await page.evaluate(() => window.__sameDocument === true));
         check('manager URL keeps https=', param(page.url(), 'https'));
 
+        // ---- 11. a failed lazy manager build is retried ------------------
+        // managerInited must only stick when initManagerMode completed: if it
+        // throws halfway, ensureManagerMode() has to retry the build on the
+        // next visit instead of skipping forever.
+        console.log('\n[11] failed lazy manager build retries on next visit');
+        await page.goto(`${BASE}/walkpadspeed.html?https=${FIXTURE}`);
+        await page.waitForTimeout(500);
+        await page.locator('#routineList a').first().click();
+        await page.waitForTimeout(400);
+        await page.reload();                       // cold load on the ?r=... player URL
+        await page.waitForTimeout(500);
+        await page.evaluate(() => {
+            const real = window.parseMetadata;
+            window.parseMetadata = (t) => {
+                window.parseMetadata = real;       // fail once only
+                throw new Error('boom');
+            };
+        });
+        await page.locator('#navBackBtn').click(); // build throws → list stays empty
+        await page.waitForTimeout(400);
+        check('failed build leaves the list empty', (await page.locator('#routineList a').count()) === 0);
+        await page.locator('#navBackBtn').click(); // next visit retries the build
+        await page.waitForTimeout(600);
+        check('manager build retried after failure', (await page.locator('#routineList a').count()) >= 2,
+              await status(page));
+
     } finally {
         await browser.close();
         server.close();

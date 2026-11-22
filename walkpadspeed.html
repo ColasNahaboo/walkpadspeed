@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.12";}
+      #version:after {content: "v1.2.0-dev.13";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -4350,7 +4350,6 @@
          ================================================================ */
 
       function initManagerMode(urlParams) {
-          managerInited = true;
           const fileInput = document.getElementById('fileInput');
           const dropZone = document.getElementById('dropZone');
           const statusText = document.getElementById('managerStatus');
@@ -4921,6 +4920,10 @@ Climb with Inclines // For walkpads with automatic incline settings
                   if (currentView === 'manager') showView('manager', true);
               });
           }
+
+          // Only mark the manager built once the whole init succeeded, so a
+          // throw halfway through lets ensureManagerMode() retry the build.
+          managerInited = true;
       }
 
       // Adds or removes eruda=1 / dbg=1 on every routine-link href to match the toggles
