@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.11";}
+      #version:after {content: "v1.2.0-dev.12";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -3962,7 +3962,18 @@
       // than inside initDriverMode means it also works when the page was
       // loaded straight into the manager or the Connections view.
       document.addEventListener('visibilitychange', async () => {
-          if (document.visibilityState !== 'visible') return;
+          if (document.visibilityState !== 'visible') {
+              // A hidden tab has its 1 s clock throttled or frozen while the
+              // belt keeps running, so the elapsed time, step transitions and
+              // session log would all silently desync (and a step change
+              // would never be sent). Pause like the pad-disconnect handler
+              // does: the belt stops and RESUME picks the routine up on return.
+              if (isRoutineActive && !isPaused) {
+                  trace('PAUSE page hidden');
+                  await togglePauseState();
+              }
+              return;
+          }
           if (wakeLock !== null) await requestWakeLock();
           // Coming back to the foreground is a good moment to notice a link
           // that went away while frozen and to re-arm the reconnect schedule.

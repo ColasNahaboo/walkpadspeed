@@ -941,3 +941,46 @@ loop was wedged 1140× on `scan: Operation already in progress` (per-attempt
 reachability gate (plan 001 step 4) from the real HTTPS origin, then the
 end-to-end run. If LNA blocks, fallback is option E: serve app+API
 same-origin HTTPS from the relay (ACME DNS-01).
+
+---
+
+### Session 2026-11-22: player-first loads build the manager lazily; hidden tab pauses the routine
+
+**Report.** Colas left the app open in Chrome on Android overnight, came back and
+started a session: the player showed the routine's step list, the pad and HRM
+connected fine, but ☰ showed an **empty manager** (no routines). Reloading made
+them appear — and dropped both BLE links. He then had to reconnect.
+
+**Diagnosis (reproduced in Playwright).** Not a frozen-page state: Android Chrome
+had discarded/reloaded the backgrounded tab, restoring its last URL — the
+**player** URL (`?r=…`). The cold-load router takes its `r` branch (`initDriverMode`
++ `showView('driver')`), so `initManagerMode` never ran and `#routineList` stayed
+empty; `switchToView` only toggled `display` (the Connections view had
+`connectionsInited` for exactly this reason, the manager had no equivalent).
+Reloading worked only because the URL had become the manager URL by then — and a
+reload necessarily drops Web Bluetooth links. A cold `?view=connections` load then
+Back had the same empty manager.
+
+**Fixes (commit `f03baf1`, v1.2.0-dev.11):**
+- `ensureManagerMode()` (called from `switchToView('manager')`) builds the manager
+  on first visit, in the same document, from `currentFlagParams()`; `managerInited`
+  guards `initManagerMode` against double binding. No reload → links survive.
+- `initDriverMode` now remembers the `gist=`/`https=` routines source, so a
+  player-first load keeps it in the manager URL (bookmarkable-URL invariant).
+- The `visibilitychange` handler (wake-lock re-acquire + HRM reconnect re-arm)
+  moved from `initDriverMode` to top level, so it works whichever view the page
+  cold-loaded on.
+- `test/nav.test.cjs` case [10]: cold `?r=` load → ☰ builds the list, same
+  document (a `window` marker proves no reload), `https=` kept.
+
+**Hidden tab pauses the routine (v1.2.0-dev.12, Colas's choice of options).**
+The 1 s clock is throttled/frozen in a background tab while the belt keeps
+running, so elapsed time, step transitions and the session log would silently
+desync. The top-level `visibilitychange` handler now calls `togglePauseState()`
+when the tab goes hidden during an active, unpaused routine (`trace('PAUSE page
+hidden')`); the belt stops and RESUME continues on return. Coming back does
+**not** auto-resume. Trade-off, accepted: locking the phone or switching apps
+mid-routine stops the belt. `test/lifecycle.test.cjs` covers idle hide/show,
+hide mid-routine (belt/clock frozen, RESUME shown), no auto-resume, RESUME, STOP;
+it waits on `routineInterval !== null` because the start path awaits the belt
+spin-up before the clock begins.
