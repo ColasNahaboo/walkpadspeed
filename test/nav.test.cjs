@@ -174,6 +174,27 @@ const param = (url, key) => new URL(url).searchParams.has(key);
         check('HRM connect failure is visible', /fail/i.test(connStatus), connStatus);
         await ctx2.close();
 
+        // ---- 10. player-first load builds the manager on first visit -----
+        // Android Chrome discards backgrounded tabs and restores the last URL,
+        // so a session can resume straight on the player. The manager list
+        // used to stay empty (only a reload built it) and that reload dropped
+        // both BLE links. ☰ must build it in the same document instead.
+        console.log('\n[10] player-first load builds the manager in the same document');
+        await page.goto(`${BASE}/walkpadspeed.html?https=${FIXTURE}`);
+        await page.waitForTimeout(500);
+        await page.locator('#routineList a').first().click();
+        await page.waitForTimeout(400);
+        await page.reload();                       // cold load on the ?r=... player URL
+        await page.waitForTimeout(500);
+        check('cold load starts in the player', (await page.evaluate(() => currentView)) === 'driver');
+        await page.evaluate(() => { window.__sameDocument = true; });
+        await page.locator('#navBackBtn').click();
+        await page.waitForTimeout(600);
+        check('manager list built on first visit', (await page.locator('#routineList a').count()) >= 2,
+              await status(page));
+        check('no reload needed (same document)', await page.evaluate(() => window.__sameDocument === true));
+        check('manager URL keeps https=', param(page.url(), 'https'));
+
     } finally {
         await browser.close();
         server.close();

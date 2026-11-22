@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0-dev.10";}
+      #version:after {content: "v1.2.0-dev.11";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1256,6 +1256,7 @@
       let routineSource = null; // ['gist'|'https', value] — kept across view switches so URLs stay bookmarkable
       let connectionsReturnView = 'manager'; // where ☰ from Connections goes back to
       let driverListenersBound = false; // initDriverMode may run again per routine; bind its listeners once
+      let managerInited = false; // the manager is built lazily when a player-first load visits it
 
       /* ================================================================
          HRM ZONE SPEED CONTROL
@@ -3956,6 +3957,21 @@
       // Flush the last second of the trace when the page goes away.
       window.addEventListener('pagehide', () => persistDebugLog(true));
 
+      // Android freezes background tabs, which can drop the HRM link (and a
+      // long freeze releases the wake lock). Binding this at top level rather
+      // than inside initDriverMode means it also works when the page was
+      // loaded straight into the manager or the Connections view.
+      document.addEventListener('visibilitychange', async () => {
+          if (document.visibilityState !== 'visible') return;
+          if (wakeLock !== null) await requestWakeLock();
+          // Coming back to the foreground is a good moment to notice a link
+          // that went away while frozen and to re-arm the reconnect schedule.
+          if (hrmDevice && !hrmCharacteristic &&
+              !hrmUserDisconnected && !isTestMode && !hrmReconnectTimer) {
+              scheduleHrmReconnect();
+          }
+      });
+
       function escapeHtml(value) {
           return String(value).replace(/[&<>"']/g, c => (
               { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -4323,6 +4339,7 @@
          ================================================================ */
 
       function initManagerMode(urlParams) {
+          managerInited = true;
           const fileInput = document.getElementById('fileInput');
           const dropZone = document.getElementById('dropZone');
           const statusText = document.getElementById('managerStatus');
@@ -4958,8 +4975,20 @@ Climb with Inclines // For walkpads with automatic incline settings
           return p;
       }
 
+      // A page load can land straight on the player: a bookmarked ?r= URL, the
+      // URL Chrome restores when it discards and reloads a backgrounded tab,
+      // or a ?view=connections bookmark. The manager view is then still empty,
+      // because only the cold-load router initializes it. Build it on the
+      // first visit, in the same document, so the Bluetooth links survive —
+      // a reload would drop them.
+      function ensureManagerMode() {
+          if (managerInited) return;
+          initManagerMode(new URLSearchParams(currentFlagParams()));
+      }
+
       // Shows a view without touching history (used by popstate).
       function switchToView(name) {
+          if (name === 'manager') ensureManagerMode();
           if (name === 'connections' && currentView !== 'connections') {
               connectionsReturnView = currentView;
           }
@@ -5361,6 +5390,14 @@ Climb with Inclines // For walkpads with automatic incline settings
           routineNameCached = urlParams.get('n') || "Test";
           routineRawCached = urlParams.get('r');
 
+          // Remember where the routines came from even when the page loads
+          // straight into the player, so the manager (built lazily) can
+          // refresh from it and the URL stays bookmarkable across views.
+          const gistParam = urlParams.get('gist');
+          const httpsParam = urlParams.get('https');
+          if (gistParam) routineSource = ['gist', gistParam];
+          else if (httpsParam) routineSource = ['https', httpsParam];
+
           // Show the simulated start/pause button ONLY in test mode
           const simBtn = document.getElementById('simStartPauseBtn');
           if (simBtn) {
@@ -5469,19 +5506,6 @@ Climb with Inclines // For walkpads with automatic incline settings
               recordSessionState();
               await requestWakeLock();
               startClockLoop();
-          });
-
-          document.addEventListener('visibilitychange', async () => {
-              if (wakeLock !== null && document.visibilityState === 'visible') {
-                  await requestWakeLock();
-              }
-              // Android freezes background tabs and can drop the HRM link;
-              // coming back to the foreground is a good moment to notice and
-              // re-arm the reconnect schedule.
-              if (document.visibilityState === 'visible' && hrmDevice && !hrmCharacteristic &&
-                  !hrmUserDisconnected && !isTestMode && !hrmReconnectTimer) {
-                  scheduleHrmReconnect();
-              }
           });
       }
       
