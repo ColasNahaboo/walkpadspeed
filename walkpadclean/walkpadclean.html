@@ -92,6 +92,89 @@
         padding: 0.9rem 1rem;
     }
 
+    /* Selected duration: lit up. The others: dimmed but still tappable,
+       so the duration can be changed until the belt actually starts. */
+    .clean-btn.selected {
+        background: var(--accent);
+        color: #121212;
+        box-shadow: 0 0 0 3px rgba(255, 159, 10, 0.45);
+        transform: scale(1.03);
+    }
+    .clean-btn.dimmed { opacity: 0.3; }
+
+    /* Simulated remote, shown only in test mode. Dashed border = not real. */
+    .sim-remote-btn {
+        background: var(--accent);
+        color: #121212;
+        border: 2px dashed rgba(0, 0, 0, 0.4);
+        width: 100%;
+        margin: 6px 0;
+        font-size: 1.1rem;
+    }
+
+    /* Test mode toggle (same switch as walkpadspeed.html) */
+    .test-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin: 22px 0 0;
+        width: 100%;
+        font-size: 0.9rem;
+        color: var(--muted);
+        user-select: none;
+    }
+    .test-toggle-switch {
+        position: relative;
+        width: 48px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+    .test-toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+    }
+    .test-toggle-track {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: var(--panel2);
+        border-radius: 14px;
+        border: 1px solid #3a3a3c;
+        cursor: pointer;
+        transition: background 0.25s, border-color 0.25s;
+    }
+    .test-toggle-track::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        background: var(--muted);
+        border-radius: 50%;
+        transition: transform 0.25s, background 0.25s;
+    }
+    .test-toggle-switch input:checked + .test-toggle-track {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+    .test-toggle-switch input:checked + .test-toggle-track::after {
+        transform: translateX(20px);
+        background: #121212;
+    }
+    .test-toggle-switch input:focus-visible + .test-toggle-track {
+        outline: 2px solid #0a84ff;
+        outline-offset: 2px;
+    }
+    .test-toggle-note {
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-align: center;
+        margin: 8px 0 0;
+    }
+
     .status {
         text-align: center;
         font-size: 1.05rem;
@@ -108,6 +191,27 @@
     .status.running { color: var(--accent); }
     .status.done { color: var(--ok); }
     .status.error { color: var(--danger); }
+
+    /* The "start the belt with the remote" prompt: loud on purpose, it is
+       the one action the app cannot do for you. */
+    .status.hint {
+        background: var(--accent);
+        color: #121212;
+        font-weight: 800;
+        font-size: 1.15rem;
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
+        min-height: 0;
+        width: 100%;
+        animation: hint-pulse 1.3s ease-in-out infinite;
+    }
+    @keyframes hint-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255, 159, 10, 0.55); }
+        50% { box-shadow: 0 0 0 14px rgba(255, 159, 10, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .status.hint { animation: none; }
+    }
 
     .speed-readout {
         font-size: 1.1rem;
@@ -167,19 +271,27 @@
     <section id="connectView" class="view active">
         <p class="subtitle">Clean and oil your walkpad belt. Connect, pick a duration, start the belt with the remote, and this app stops it for you.</p>
         <button id="connectBtn" class="connect-btn">Connect to walkpad</button>
+        <div class="test-toggle-row">
+            <span class="test-toggle-label">Test Mode</span>
+            <label class="test-toggle-switch">
+                <input type="checkbox" id="testModeCheckbox" aria-label="Test mode">
+                <span class="test-toggle-track"></span>
+            </label>
+        </div>
+        <p class="test-toggle-note">Test mode uses a mock walkpad, no Bluetooth needed.</p>
         <p id="connectStatus" class="status"></p>
     </section>
 
     <!-- PANEL VIEW -->
     <section id="panelView" class="view">
-        <p class="subtitle">Start the belt with the physical remote, then tap a duration below.</p>
+        <p id="panelSubtitle" class="subtitle">Pick a duration, then start the belt with the physical remote.</p>
         <p id="speedReadout" class="speed-readout">Belt speed: <b id="liveSpeed">0.0</b> km/h</p>
         <p id="panelStatus" class="status"></p>
         <button id="cleanBtn30"  class="clean-btn" data-ms="30000">30s</button>
-        <button id="cleanBtn45"  class="clean-btn" data-ms="45000">45s</button>
+        <button id="cleanBtn40"  class="clean-btn" data-ms="40000">40s</button>
+        <button id="cleanBtn50"  class="clean-btn" data-ms="50000">50s</button>
         <button id="cleanBtn60"  class="clean-btn" data-ms="60000">1mn</button>
-        <button id="cleanBtn90"  class="clean-btn" data-ms="90000">1mn30s</button>
-        <button id="cleanBtn120" class="clean-btn" data-ms="120000">2mn</button>
+        <button id="simRemoteBtn" class="sim-remote-btn" style="display: none;">⏯ Simulated remote — start belt</button>
         <button id="cancelBtn" class="cancel-btn">Cancel</button>
     </section>
 
@@ -208,14 +320,22 @@
     // Belt is considered "spinning" above this threshold (km/h).
     var START_SPEED_KMH = 0.1;
 
+    // Simulated belt speed in test mode: the slowest speed a real pad runs
+    // at, which is what its remote resumes to (walkpadspeed.html does the same).
+    var TEST_BELT_SPEED_KMH = 1.0;
+
     // === State ===
     var bluetoothDevice = null;
     var controlChar = null;
     var latestSpeed = 0.0; // km/h, last value received from the pad
 
+    var isTestMode = false;
+    var testBeltSpeed = 0.0; // km/h, simulated belt speed in test mode
+
     var cycleTotalMs = 0;
     var cycleRemainingMs = 0;
     var cyclePhase = "idle"; // "idle" | "waiting" | "countdown" | "done"
+    var waitTimer = null;    // polls for the belt to spin before the countdown
     var progressTimer = null;
     var wakeLock = null;
 
@@ -225,8 +345,11 @@
     var countdownView = document.getElementById("countdownView");
     var connectBtn = document.getElementById("connectBtn");
     var connectStatus = document.getElementById("connectStatus");
+    var testModeCheckbox = document.getElementById("testModeCheckbox");
+    var panelSubtitle = document.getElementById("panelSubtitle");
     var liveSpeedEl = document.getElementById("liveSpeed");
     var cleanBtns = Array.prototype.slice.call(document.querySelectorAll("button.clean-btn"));
+    var simRemoteBtn = document.getElementById("simRemoteBtn");
     var cancelBtn = document.getElementById("cancelBtn");
     var cancelBtn2 = document.getElementById("cancelBtn2");
     var countdownEl = document.getElementById("countdown");
@@ -244,10 +367,93 @@
         el.className = "status" + (cls ? " " + cls : "");
     }
 
+    // === Test mode: a mock walkpad, no Bluetooth ===
+    // Mirrors walkpadspeed.html: the toggle swaps the real BLE connect for a
+    // fake pad, and a simulated physical remote starts/stops the belt. The
+    // mock control point accepts the same stop commands the app sends to a
+    // real pad, so the whole cycle (wait -> countdown -> automatic stop) can
+    // be exercised without hardware.
+    function applyTestMode(on) {
+        isTestMode = on;
+        testModeCheckbox.checked = on;
+        connectBtn.textContent = on ? "Connect (Test Mode)" : "Connect to walkpad";
+        panelSubtitle.textContent = on
+            ? "Pick a duration, then start the mock belt with the simulated remote."
+            : "Pick a duration, then start the belt with the physical remote.";
+        simRemoteBtn.style.display = on ? "" : "none";
+        // The static note under the switch already explains test mode; only
+        // clear a stale connection message when it is switched back off.
+        if (!controlChar && !on) setStatus(connectStatus, "", "");
+        syncTestModeUrl();
+    }
+
+    // ?t=1 keeps test mode across a reload, like walkpadspeed.html.
+    function syncTestModeUrl() {
+        try {
+            var url = new URL(window.location.href);
+            if (isTestMode) url.searchParams.set("t", "1");
+            else url.searchParams.delete("t");
+            history.replaceState(null, "", url.toString());
+        } catch (e) { /* file:// or very old browser */ }
+    }
+
+    function connectTestPad() {
+        connectBtn.disabled = true;
+        setStatus(connectStatus, "Connecting to the mock walkpad...", "");
+        controlChar = {
+            writeValue: function (buffer) {
+                var bytes = buffer instanceof ArrayBuffer
+                    ? new Uint8Array(buffer)
+                    : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+                // Opcode 0x08 = Stop/Pause, opcode 0x02 with speed 0 = the
+                // speed-0 stop trick. Either one stops the simulated belt.
+                var isZeroSpeed = bytes[0] === 0x02 && bytes.byteLength >= 3 &&
+                    bytes[1] === 0 && bytes[2] === 0;
+                if (bytes[0] === 0x08 || isZeroSpeed) setTestBeltSpeed(0);
+                return Promise.resolve();
+            }
+        };
+        setStatus(connectStatus, "Connected to the mock walkpad (test mode).", "done");
+        connectBtn.disabled = false;
+        connectBtn.style.display = "none";
+        simRemoteBtn.style.display = "";
+        updateTestRemoteButton();
+        show(panelView);
+        requestWakeLock();
+    }
+
+    function setTestBeltSpeed(speedKmh) {
+        testBeltSpeed = speedKmh;
+        // A frame shaped exactly like a real FTMS Treadmill Data notification:
+        // flags (speed present, no More Data) + uint16 LE speed at 0.01 km/h.
+        var buffer = new ArrayBuffer(4);
+        var dv = new DataView(buffer);
+        dv.setUint16(0, 0, true);
+        dv.setUint16(2, Math.round(testBeltSpeed * 100), true);
+        onSpeedChanged({ target: { value: dv } });
+        updateTestRemoteButton();
+    }
+
+    function updateTestRemoteButton() {
+        var spinning = testBeltSpeed > 0;
+        simRemoteBtn.textContent = spinning
+            ? "⏸ Simulated remote — stop belt"
+            : "⏯ Simulated remote — start belt";
+    }
+
+    function toggleTestRemote() {
+        if (!controlChar) return;
+        setTestBeltSpeed(testBeltSpeed > 0 ? 0 : TEST_BELT_SPEED_KMH);
+    }
+
     // === BLE connection ===
     async function connect() {
+        if (isTestMode) {
+            connectTestPad();
+            return;
+        }
         if (!navigator.bluetooth) {
-            setStatus(connectStatus, "Web Bluetooth is not available. Use Chrome over HTTPS.");
+            setStatus(connectStatus, "Web Bluetooth is not available. Use Chrome over HTTPS.", "error");
             return;
         }
         connectBtn.disabled = true;
@@ -365,32 +571,71 @@
         } catch (e) { /* non-critical */ }
     }
 
+    // === Duration selection ===
+    // Lights the tapped duration up and dims the rest. The dimmed buttons stay
+    // tappable: until the belt actually spins, tapping another duration just
+    // retargets the pending cycle.
+    function highlightDuration(btn) {
+        cleanBtns.forEach(function (b) {
+            b.classList.toggle("selected", b === btn);
+            b.classList.toggle("dimmed", b !== btn);
+        });
+    }
+
+    function clearDurationHighlight() {
+        cleanBtns.forEach(function (b) {
+            b.classList.remove("selected");
+            b.classList.remove("dimmed");
+        });
+    }
+
+    function waitingHint() {
+        return isTestMode
+            ? "👆 Tap the simulated remote to start the belt"
+            : "👆 Start the belt with the physical remote";
+    }
+
     // === Cycle logic ===
-    function startCycle(totalMs) {
-        if (cyclePhase === "waiting" || cyclePhase === "countdown") return;
+    function startCycle(btn) {
+        if (!controlChar || cyclePhase === "countdown" || cyclePhase === "done") return;
+        var totalMs = parseInt(btn.getAttribute("data-ms"), 10);
+        if (!totalMs) return;
+
         cycleTotalMs = totalMs;
         cycleRemainingMs = totalMs;
+        highlightDuration(btn);
+
+        if (cyclePhase === "waiting") {
+            // The belt has not started yet: retarget the pending cycle.
+            updatePanelStatus(waitingHint(), "hint");
+            return;
+        }
+
         cyclePhase = "waiting";
-
         show(panelView);
-        updatePanelStatus("Waiting for belt to spin — start it with the remote.", "waiting");
+        updatePanelStatus(waitingHint(), "hint");
 
-        var poll = setInterval(function () {
-            if (cyclePhase !== "waiting") { clearInterval(poll); return; }
+        if (waitTimer) clearInterval(waitTimer);
+        waitTimer = setInterval(function () {
+            if (cyclePhase !== "waiting") { clearWaitTimer(); return; }
             if (latestSpeed > START_SPEED_KMH) {
-                clearInterval(poll);
+                clearWaitTimer();
                 beginCountdown();
             }
         }, 200);
     }
 
+    function clearWaitTimer() {
+        if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+    }
+
     function beginCountdown() {
         cyclePhase = "countdown";
         show(countdownView);
-        countdownStatus.textContent = "Counting down";
-        countdownStatus.className = "status running";
+        setStatus(countdownStatus, "Counting down", "running");
         renderCountdown();
         var tickStart = Date.now();
+        if (progressTimer) clearInterval(progressTimer);
         progressTimer = setInterval(function () {
             if (cyclePhase !== "countdown") { clearInterval(progressTimer); return; }
             // If the belt stopped mid-cycle (manual pause), abort and return.
@@ -419,8 +664,9 @@
 
     function finishCycle() {
         cyclePhase = "done";
-        countdownStatus.textContent = "Done — stopping pad";
-        countdownStatus.className = "status done";
+        clearWaitTimer();
+        clearDurationHighlight();
+        setStatus(countdownStatus, "Done — stopping pad", "done");
         beep();
         stopPad();
         releaseWakeLock();
@@ -435,8 +681,10 @@
     }
 
     function abortCycle(isDisconnect) {
+        clearWaitTimer();
         if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
         cyclePhase = "idle";
+        clearDurationHighlight();
         if (!isDisconnect) {
             show(panelView);
             updatePanelStatus("Cancelled.", "");
@@ -456,15 +704,23 @@
 
     // === Wire up events ===
     connectBtn.addEventListener("click", connect);
+    simRemoteBtn.addEventListener("click", toggleTestRemote);
+    testModeCheckbox.addEventListener("change", function () {
+        applyTestMode(testModeCheckbox.checked);
+    });
 
     cleanBtns.forEach(function (btn) {
-        btn.addEventListener("click", function () {
-            startCycle(parseInt(btn.getAttribute("data-ms"), 10));
-        });
+        btn.addEventListener("click", function () { startCycle(btn); });
     });
 
     cancelBtn.addEventListener("click", function () { abortCycle(false); });
     cancelBtn2.addEventListener("click", function () { abortCycle(false); });
+
+    // ?t=1 opens the page with test mode already on (handy for trying the
+    // app without a pad, and for a reload after the toggle was flipped).
+    try {
+        if (new URL(window.location.href).searchParams.get("t") === "1") applyTestMode(true);
+    } catch (e) { /* file:// or very old browser */ }
 
 })();
 </script>
