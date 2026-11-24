@@ -17,6 +17,17 @@ The app only waits, counts, and stops. You control belt speed with the pad's own
 
 ![](lube-n-walk.jpeg)
 
+## What does it look like?
+
+| ![Main](screens/0-main.png) | ![Chooser](screens/1-chooser.png) | ![Selected](screens/2-selected.png) | ![Running](screens/3-running.png) |
+| :---: | :---: | :---: | :---: |
+| **Main** | **Chooser** | **Selected** | **Running** |
+
+- **Main**: tap *Connect to walkpad* and pick your pad, or flip **Test Mode** on to try the whole app with a mock pad, no Bluetooth needed.
+- **Chooser**: once connected, pick the length of the pass: **30s, 40s, 50s or 1mn**. Belt speed stays entirely under the remote's control.
+- **Selected**: the chosen duration lights up, the others dim, and a loud banner reminds you to start the belt with the physical remote.
+- **Running**: the belt spins, the countdown runs with a progress bar. At zero the pad stops and beeps.
+
 ## Requirements
 
 - **Google Chrome** (Web Bluetooth is not supported in Safari or Firefox).
@@ -26,6 +37,7 @@ The app only waits, counts, and stops. You control belt speed with the pad's own
 ## Files
 
 - `walkpadclean.html` — the entire app (HTML + CSS + JS in one file, no dependencies). You can copy it to any HTTPS server of your choice if you want.
+- `screens/` — the screenshots above.
 
 ## Notes
 
