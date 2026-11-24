@@ -35,14 +35,19 @@ To use walkpadspeed, you need:
 
 ## What does it looks like?
 
-| ![Manager](docs/screens-v1.2.0/0-manager.png) | ![Routines](docs/screens-v1.2.0/1-manager-routines.png) | ![Connections](docs/screens-v1.2.0/2-connections.png) | ![Routine playing](docs/screens-v1.2.0/4-player-running.png) |
-| :---: | :---: | :---: | :---: |
-| **Manager** | **Routines** | **Connections** | **Routine playing** |
+<table>
+  <tr>
+    <td><img src="docs/screens-v1.2.0/0-manager.png" width="180" alt="Manager"></td>
+    <td><img src="docs/screens-v1.2.0/1-manager-routines.png" width="180" alt="Routines"></td>
+    <td><img src="docs/screens-v1.2.0/2-connections.png" width="180" alt="Connections"></td>
+    <td><img src="docs/screens-v1.2.0/4-player-running.png" width="180" alt="Routine playing"></td>
+  </tr>
+</table>
 
-- You load your routines text file, and the manager lets you choose one to play, and see its source file definition. The 🔗 icon (top right) opens the Connections screen. The hamburger menu icon (≡) returns to the manager.
-- All Bluetooth connections live on their own screen: walkpad and heart-rate monitor, each with its own button, plus the Test Mode switch.
-- Connected buttons turn orange and show what the pad reported (speed and incline ranges).
-- Open a routine from the Manager and hit its button: the pad starts, the clock runs, the ❤ box shows your live heart rate.
+- **Manager**: You load your routines text file, and the manager lets you choose one to play, and see its source file definition. The 🔗 icon (top right) opens the Connections screen. The hamburger menu icon (≡) returns to the manager.
+- **Routines**: each routine of your file is listed with its duration, average speed and incline; tap one to play it.
+- **Connections**: All Bluetooth connections live on their own screen: walkpad and heart-rate monitor, each with its own button, plus the Test Mode switch. Connected buttons turn orange and show what the pad reported (speed and incline ranges).
+- **Routine playing**: Open a routine from the Manager and hit its button: the pad starts, the clock runs, the ❤ box shows your live heart rate.
 
 ### 2. Opening the App
 

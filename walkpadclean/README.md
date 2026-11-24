@@ -19,9 +19,14 @@ The app only waits, counts, and stops. You control belt speed with the pad's own
 
 ## What does it look like?
 
-| ![Main](screens/0-main.png) | ![Chooser](screens/1-chooser.png) | ![Selected](screens/2-selected.png) | ![Running](screens/3-running.png) |
-| :---: | :---: | :---: | :---: |
-| **Main** | **Chooser** | **Selected** | **Running** |
+<table>
+  <tr>
+    <td><img src="screens/0-main.png" width="180" alt="Main"></td>
+    <td><img src="screens/1-chooser.png" width="180" alt="Chooser"></td>
+    <td><img src="screens/2-selected.png" width="180" alt="Selected"></td>
+    <td><img src="screens/3-running.png" width="180" alt="Running"></td>
+  </tr>
+</table>
 
 - **Main**: tap *Connect to walkpad* and pick your pad, or flip **Test Mode** on to try the whole app with a mock pad, no Bluetooth needed.
 - **Chooser**: once connected, pick the length of the pass: **30s, 40s, 50s or 1mn**. Belt speed stays entirely under the remote's control.
