@@ -48,8 +48,9 @@ select a duration, wait for the belt, count down, automatic stop — can be exer
 `walkpadclean.html` uses the same FTMS BLE protocol as [`walkpadspeed.html`](https://github.com/ColasNahaboo/walkpadspeed):
 
 - Connects to the **Fitness Machine Service** (`0x1826`).
-- Reads speed from the **Fitness Machine Data** characteristic (`0x2ACD`) — flags byte + uint16 LE speed at 0.01 km/h resolution.
-- Stops the pad by sending a **speed-0 command** (opcode `0x02`, speed `0`) followed by a **pause** command (opcode `0x08`).
+- Reads speed from the **Fitness Machine Data** characteristic (`0x2ACD`) — flags byte + uint16 LE speed at 0.01 km/h resolution. Pads disagree on the flags' "More Data" bit: some send a second, speed-less frame per second, others set the bit on every frame. The bit only means "no speed field" once the same pad has also been seen clearing it.
+- Requests control of the **Control Point** (`0x2AD9`, opcode `0x00`) once per connection, as the spec requires before any target command.
+- Stops the pad with **Stop/Pause** (opcode `0x08`, mandatory parameter `0x01` = stop), falling back to the historical **speed-0 command** (opcode `0x02`, speed `0`) on pads that refuse it or never answer.
 
 It sends no start or speed commands — the belt is driven entirely by the pad's physical remote.
 

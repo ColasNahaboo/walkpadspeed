@@ -35,34 +35,14 @@ To use walkpadspeed, you need:
 
 ## What does it looks like?
 
-[![Screenshots](docs/screens-v1.2.0/all.webp)](docs/screens-v1.2.0/all.webp)
+| ![Manager](docs/screens-v1.2.0/0-manager.png) | ![Routines](docs/screens-v1.2.0/1-manager-routines.png) | ![Connections](docs/screens-v1.2.0/2-connections.png) | ![Routine playing](docs/screens-v1.2.0/4-player-running.png) |
+| :---: | :---: | :---: | :---: |
+| **Manager** | **Routines** | **Connections** | **Routine playing** |
 
-<table width="100%">
-  <colgroup>
-    <col style="width:25%">
-    <col style="width:25%">
-    <col style="width:25%">
-    <col style="width:25%">
-  </colgroup>
-
-<thead>
-    <tr>
-    <th>[    Manager      |</th>
-    <th>Connections     |</th>
-    <th>Connected   |</th>
-    <th>Routine Playing   ]</th>
-    </tr>
-  </thead>
-
-<tbody>
-    <tr>
-      <td>You load your routines text file, and the manager lets you choose one to play, and see its source file definition. The 🔗 icon (top right) opens the Connections screen.</td>
-      <td>All Bluetooth connections live on their own screen: walkpad and heart-rate monitor, each with its own button, plus the Test Mode switch.</td>
-      <td>Connected buttons turn orange and show what the pad reported (speed and incline ranges).</td>
-      <td>Open a routine from the Manager and hit its button: the pad starts, the clock runs, the ❤ box shows your live heart rate.</td>
-    </tr>
-  </tbody>
-</table>
+- You load your routines text file, and the manager lets you choose one to play, and see its source file definition. The 🔗 icon (top right) opens the Connections screen. The hamburger menu icon (≡) returns to the manager.
+- All Bluetooth connections live on their own screen: walkpad and heart-rate monitor, each with its own button, plus the Test Mode switch.
+- Connected buttons turn orange and show what the pad reported (speed and incline ranges).
+- Open a routine from the Manager and hit its button: the pad starts, the clock runs, the ❤ box shows your live heart rate.
 
 ### 2. Opening the App
 

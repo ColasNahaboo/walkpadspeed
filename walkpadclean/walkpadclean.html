@@ -317,6 +317,19 @@
     var FTMS_CONTROL_POINT_UUID = 0x2AD9;
     var FTMS_DATA_UUID = 0x2ACD;
 
+    // Control point opcodes and result codes.
+    // "Stop or Pause" (0x08) carries a MANDATORY parameter: 0x01 = stop,
+    // 0x02 = pause. Sending the bare opcode is rejected as an invalid
+    // parameter by spec-compliant pads.
+    var FTMS_OP_REQUEST_CONTROL = 0x00;
+    var FTMS_OP_SET_SPEED = 0x02;
+    var FTMS_OP_STOP_PAUSE = 0x08;
+    var FTMS_STOP_PAUSE_STOP = 0x01;
+    var FTMS_RESULT_SUCCESS = 0x01;
+    var FTMS_RESULT_NO_CONTROL = 0x05;
+    var FTMS_CP_RESPONSE_TIMEOUT_MS = 1200; // per-command wait, when the pad indicates
+    var FTMS_CP_PROBE_TIMEOUT_MS = 2500;    // Request Control probe at connect time
+
     // Belt is considered "spinning" above this threshold (km/h).
     var START_SPEED_KMH = 0.1;
 
@@ -331,6 +344,15 @@
 
     var isTestMode = false;
     var testBeltSpeed = 0.0; // km/h, simulated belt speed in test mode
+
+    // Control point handshake state (see "FTMS control point" below).
+    var ftmsHasControl = false;   // true once Request Control was granted
+    var ftmsCpResponses = 0;      // 0x80 responses seen (0 = pad does not indicate)
+    var ftmsCpWaiter = null;      // {op, timer, resolve} - one command in flight at a time
+    var ftmsCommandChain = Promise.resolve(); // serialises control-point writes
+
+    // Treadmill Data frame bookkeeping (see onSpeedChanged).
+    var completeDataFramesSeen = 0; // frames without the "More Data" bit
 
     var cycleTotalMs = 0;
     var cycleRemainingMs = 0;
@@ -475,6 +497,40 @@
             setStatus(connectStatus, "Getting control point...", "");
             controlChar = await service.getCharacteristic(FTMS_CONTROL_POINT_UUID);
 
+            // Subscribe to the pad's replies before asking for control: an
+            // indication that arrives before the subscription is lost, and the
+            // probe would then wrongly conclude the pad never answers.
+            ftmsHasControl = false;
+            ftmsCpResponses = 0;
+            ftmsCpWaiter = null;
+            ftmsCommandChain = Promise.resolve();
+            try {
+                controlChar.addEventListener("characteristicvaluechanged", handleControlPointIndication);
+                await controlChar.startNotifications();
+            } catch (cpErr) {
+                console.warn("Control Point notifications unavailable:", cpErr.message);
+            }
+
+            // Request Control before any target command. A pad that does not
+            // indicate keeps working fire-and-forget (result null).
+            setStatus(connectStatus, "Requesting control...", "");
+            try {
+                var controlResult = await writeControlPoint(
+                    Uint8Array.of(FTMS_OP_REQUEST_CONTROL), FTMS_CP_PROBE_TIMEOUT_MS);
+                if (controlResult === FTMS_RESULT_SUCCESS) {
+                    ftmsHasControl = true;
+                } else if (controlResult === null) {
+                    console.info("Pad does not indicate control point responses — fire-and-forget mode.");
+                } else {
+                    console.warn("Control point refused (" + ftmsResultName(controlResult) + ").");
+                }
+            } catch (cpErr) {
+                console.warn("Request Control failed:", cpErr.message);
+            }
+
+            // A fresh connection: forget what a previous pad's frames looked like.
+            completeDataFramesSeen = 0;
+
             setStatus(connectStatus, "Subscribing to speed data...", "");
             var dataChar = await service.getCharacteristic(FTMS_DATA_UUID);
             dataChar.addEventListener("characteristicvaluechanged", onSpeedChanged);
@@ -491,24 +547,132 @@
         }
     }
 
+    /* FTMS Treadmill Data (0x2ACD). Instantaneous speed is a mandatory field,
+       but pads disagree on flags bit 0 ("More Data"):
+         - most pads clear it, and every frame carries the speed;
+         - the Merach W60 sets it on every frame and still carries the speed;
+         - the Fousae ZX-390 sends a *second* frame per second with the bit set
+           that has no speed field at all: its first two bytes are a cumulative
+           total (distance/energy) that reads as 0.1, 0.2, ... km/h. Reading
+           that as a speed makes the app think the belt is racing or stopped.
+       So the bit only means "this frame has no speed field" once the same pad
+       has been seen clearing it. Pads that never clear it (W60) keep working.
+       (Ported from walkpadspeed.html's handleTreadmillData.) */
     function onSpeedChanged(event) {
         var data = event.target.value;
         if (!data || data.byteLength < 2) return;
         var flags = data.getUint16(0, true);
+        var moreData = (flags & 0x0001) !== 0;
+
+        if (moreData && completeDataFramesSeen > 0) return;
+        if (!moreData) completeDataFramesSeen++;
+
         var offset = 2;
-        // Bit 0 == 0 means speed is present (per FTMS / walkpadspeed.html).
-        if ((flags & 0x0001) === 0) {
-            latestSpeed = data.getUint16(offset, true) / 100;
-            offset += 2;
-        }
+        latestSpeed = data.getUint16(offset, true) / 100;
+        offset += 2;
         if (flags & 0x0002) offset += 2;
         if (flags & 0x0004) offset += 3;
         if (flags & 0x0008) offset += 4;
         liveSpeedEl.textContent = latestSpeed.toFixed(1);
     }
 
+    // === FTMS control point (0x2AD9) ===
+    // A spec-compliant pad ignores target commands from a client that does not
+    // own the control point, so Request Control is sent once per connection.
+    // Pads that never indicate are assumed to have granted it (fire-and-forget,
+    // which is how this app behaved before). Ported from walkpadspeed.html.
+    function ftmsResultName(code) {
+        switch (code) {
+            case 0x01: return "Success";
+            case 0x02: return "OpCode not supported";
+            case 0x03: return "Invalid parameter";
+            case 0x04: return "Operation failed";
+            case 0x05: return "Control not permitted";
+            default: return "result 0x" + code.toString(16);
+        }
+    }
+
+    // Control point indications are [0x80, request opcode, result code].
+    function handleControlPointIndication(event) {
+        var dv = event.target.value;
+        var raw = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength);
+        if (raw[0] !== 0x80) return;
+        var op = raw[1];
+        var result = raw[2];
+        ftmsCpResponses++;
+        if (op === FTMS_OP_REQUEST_CONTROL) ftmsHasControl = (result === FTMS_RESULT_SUCCESS);
+        var waiter = ftmsCpWaiter;
+        if (waiter && waiter.op === op) {
+            ftmsCpWaiter = null;
+            clearTimeout(waiter.timer);
+            waiter.resolve(result);
+        }
+    }
+
+    // Writes one control-point frame. Returns the pad's result code, or null
+    // when waiting is disabled or the pad did not answer in time.
+    async function writeControlPoint(bytes, waitMs) {
+        if (!waitMs) {
+            await controlChar.writeValue(bytes);
+            return null;
+        }
+        var op = bytes[0];
+        var response = new Promise(function (resolve) {
+            var timer = setTimeout(function () {
+                if (ftmsCpWaiter && ftmsCpWaiter.op === op) {
+                    ftmsCpWaiter = null;
+                    resolve(null);
+                }
+            }, waitMs);
+            ftmsCpWaiter = {
+                op: op,
+                timer: timer,
+                resolve: function (code) { clearTimeout(timer); resolve(code); }
+            };
+        });
+        await controlChar.writeValue(bytes);
+        return await response;
+    }
+
+    async function ensureControl() {
+        if (isTestMode || ftmsHasControl || !controlChar) return true;
+        var waitMs = ftmsCpResponses > 0 ? FTMS_CP_RESPONSE_TIMEOUT_MS : 0;
+        var result = await writeControlPoint(Uint8Array.of(FTMS_OP_REQUEST_CONTROL), waitMs);
+        if (result === null || result === FTMS_RESULT_SUCCESS) {
+            ftmsHasControl = true;
+        } else {
+            console.warn("FTMS control point: request refused (" + ftmsResultName(result) + ").");
+        }
+        return ftmsHasControl;
+    }
+
+    // Serialised control-point command, with one retry after re-acquiring
+    // control: ownership is per-connection and some pads drop it on idle.
+    function sendControlCommand(bytes, label) {
+        var run = async function () {
+            if (!controlChar) return null;
+            await ensureControl();
+            var waitMs = ftmsCpResponses > 0 ? FTMS_CP_RESPONSE_TIMEOUT_MS : 0;
+            var result = await writeControlPoint(bytes, waitMs);
+            if (result === FTMS_RESULT_NO_CONTROL) {
+                ftmsHasControl = false;
+                await ensureControl();
+                result = await writeControlPoint(bytes, waitMs);
+            }
+            if (result !== null && result !== FTMS_RESULT_SUCCESS) {
+                console.warn("FTMS " + label + " refused: " + ftmsResultName(result));
+            }
+            return result;
+        };
+        var next = ftmsCommandChain.then(run, run);
+        ftmsCommandChain = next.catch(function () { return null; });
+        return next;
+    }
+
     function onDisconnected() {
         controlChar = null;
+        ftmsHasControl = false;
+        ftmsCpResponses = 0;
         latestSpeed = 0.0;
         liveSpeedEl.textContent = "0.0";
         abortCycle(true);
@@ -521,14 +685,17 @@
     async function stopPad() {
         if (!controlChar) return;
         try {
-            // Speed-0 frame (opcode 0x02, speed 0) then pause (opcode 0x08).
-            var buf = new ArrayBuffer(3);
-            var dv = new DataView(buf);
-            dv.setUint8(0, 0x02);
-            dv.setUint16(1, 0, true);
-            await controlChar.writeValue(buf);
-            await new Promise(function (r) { setTimeout(r, 200); });
-            await controlChar.writeValue(new Uint8Array([0x08]));
+            // FTMS "Stop or Pause" with its mandatory parameter. Trust the
+            // pad's acknowledgement when it indicates; pads that ignore the
+            // opcode (or do not answer) also get the historical "speed 0"
+            // frame, which every walkpad understands.
+            var stopResult = await sendControlCommand(
+                Uint8Array.of(FTMS_OP_STOP_PAUSE, FTMS_STOP_PAUSE_STOP), "stop");
+            if (stopResult === null || stopResult !== FTMS_RESULT_SUCCESS) {
+                await new Promise(function (r) { setTimeout(r, 200); });
+                await sendControlCommand(
+                    Uint8Array.of(FTMS_OP_SET_SPEED, 0x00, 0x00), "stop (speed 0 fallback)");
+            }
         } catch (err) {
             console.error("Failed to stop pad:", err);
         }
@@ -662,13 +829,15 @@
         progressFill.style.width = pct.toFixed(1) + "%";
     }
 
-    function finishCycle() {
+    async function finishCycle() {
         cyclePhase = "done";
         clearWaitTimer();
         clearDurationHighlight();
         setStatus(countdownStatus, "Done — stopping pad", "done");
         beep();
-        stopPad();
+        // Wait for the stop to be issued (and its fallback, if the pad did not
+        // acknowledge it) so the "Belt stopped" message is not a guess.
+        await stopPad();
         releaseWakeLock();
         // Return to the panel shortly after issuing the stop.
         setTimeout(function () {
@@ -677,7 +846,7 @@
                 show(panelView);
                 updatePanelStatus("Clean done. Belt stopped — ready for another round.", "done");
             }
-        }, 600);
+        }, 300);
     }
 
     function abortCycle(isDisconnect) {
