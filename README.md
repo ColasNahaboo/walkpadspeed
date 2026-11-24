@@ -538,7 +538,7 @@ This repository is developed by me, a human hobbyist in my personal time in clos
 
 ## History
 
-- v1.2.0 2026-11-16 ui: new **Connections screen** (🔗 icon) centralizing the walkpad and heart-rate monitor connect/disconnect and the Test Mode switch; connect buttons turn orange when connected. The app is now a single-page app: moving between the Manager, Connections and Player screens never reloads the page, so **you no longer lose the Bluetooth connections when changing screen**; leaving the Player with a running routine auto-pauses it, and the ☰ button resumes where you left off.
+- v1.2.0 2026-11-24 ui: new **Connections screen** (🔗 icon) centralizing the walkpad and heart-rate monitor connect/disconnect and the Test Mode switch; connect buttons turn orange when connected. The app is now a single-page app: moving between the Manager, Connections and Player screens never reloads the page, so **you no longer lose the Bluetooth connections when changing screen**; leaving the Player with a running routine auto-pauses it, and the ☰ button resumes where you left off.
 - v1.1.4 2026-11-15: the routine clock no longer double-steps when a step change is slow (incline waits); a pad disconnect mid-routine now pauses the routine instead of silently logging fake distance; `#hrm: 0` now also hides the heart-rate box with a real pad; ⏮/⏭ while paused no longer start the belt; "Delete all routines" really clears the cached file; pause/stop work again in Test Mode; the HR trend no longer carries stale state across sessions.
 - v1.1.3 2026-11-14 docs: troubleshooting connection problems with the heart monitor.
 - v1.1.2 2026-11-12 fix: Handling crashes of the bluetooth server of the phone.
