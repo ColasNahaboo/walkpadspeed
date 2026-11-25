@@ -15,7 +15,7 @@ A tiny, standalone single-file web app for cleaning and oiling a **Bluetooth wal
 
 The app only waits, counts, and stops. You control belt speed with the pad's own remote.
 
-![](lube-n-walk.jpeg)
+![](lube-n-walk-2.jpeg)
 
 ## What does it look like?
 

@@ -1,4 +1,4 @@
-#name: Colas
+ #name: Colas
 #rest-heart-rate: 70
 #max-heart-rate: 154
 #step-length: 0.47
@@ -26,40 +26,35 @@ Long Digestive
 3.8/Z0 25m
 3 2m
 
-Z2 40mn
-2.5 1m
-3.0 1m
-4.0 1m
-4.5 1m
-5.0/Z2 33m
-3.5 2m
-2.9 1m
+Z2 by intervals
+2.6 1m warmup1
+3.1 1m warmup2
+3.6 1m warmup3
+5.0/Z2 25m walk1
+0 6m rest1
+5.0/Z2 20m walk2
+0 8m rest2
+5.0/Z2 15m walk3
+3.6 1m cooldown1
+3.1 1m cooldown2
+2.6 1m cooldown3
 
-Z2 1h
-2.6 1m
-3.0 1m
-3.4 1m
-3.8 1m
-4.2 1m
-4.6 1m
-5.0/Z2 50m
-3.5 2m
-2.9 2m
-
-Japan IWT 24mn Fixed // Fixed speeds
+Japan IWT 22mn Fixed // Fixed speeds
 3 2m long strides
-3.6 2m stretch calves
+3.6 1m stretch calves
+4.0 1m warmup
 6 3m Fast 1/5
 3.4 3m Slow 1/5 
 6 3m Fast 2/5
 3.4 3m Slow 2/5 
 6 3m Fast 3/5
-3.4 3m Slow 3/5 
-3 2m cooldow
+3.4 2m Slow 3/5 
+3 1m cooldow
 
-Japan IWT 38mn Fixed // Fixed speeds
+Japan IWT 28mn Fixed // Fixed speeds
 3 2m long strides
-3.6 2m stretch calves
+3.6 1m stretch calves
+4.0 1m warmup
 6 3m Fast 1/5
 3.4 3m Slow 1/5 
 6 3m Fast 2/5
@@ -68,98 +63,7 @@ Japan IWT 38mn Fixed // Fixed speeds
 3.4 3m Slow 3/5 
 6 3m Fast 4/5
 3.4 3m Slow 4/5 
-6 3m Fast 5/5
-3.4 3m Slow 5/5 
-3 4m cooldown
-
-Japan IWT 38mn Zones // With HR Zones, with a short fixed 6 seconds to set speed before trying to keep in Zone
-3 2m long strides
-3.6 2m stretch calves
-6 6 Up 1/5
-6/Z4 174 Fast 1/5
-3.8 6 Down 1/5
-3.8/Z1 174 Slow 1/5
-6 6 Up 2/5
-6/Z4 174 Fast 2/5
-3.8 6 Down 2/5
-3.8/Z1 174 Slow 2/5
-6 6 Up 3/5
-6/Z4 174 Fast 3/5
-3.8 6 Down 3/5
-3.8/Z1 174 Slow 3/5
-6 6 Up 4/5
-6/Z4 174 Fast 4/5
-3.8 6 Down 4/5
-3.8/Z1 174 Slow 4/5
-6 6 Up 5/5
-6/Z4 174 Fast 5/5
-3.8 6 Down 5/5
-3.8/Z1 174 Slow 5/5
-3 4m cooldown
-
-Cardio max sprint
-2.0 30 warmup // gradual
-2.5 30
-3.0 1m
-3.5 1m
-4.0 1m
-5.0 1m
-6.0 2m
-3.8 1m
-6.0 17m sprint, stop it anytime and continue to cooldown
-4.0 1m cooldown
-3.5 1m
-3.0 2m
-2.5 1m
-
-Cardio 40mn Zone-adjusted intervals
-2.0 30 7mn gradual warmup
-2.5 30 -
-3.0 1m -
-3.5 1m -
-4.0 1m -
-4.5 1m -
-55.0 1m -
-5.5 1m -
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-6.0>Z4 2m work
-4.0 1m mandatory rest 
-4.0>Z2 1m rest
-3.5 2m 5mn gradual cooldown
-3.0 2m -
-2.5 1m -
+3 1m cooldown
 
 # TEST MODES
 
