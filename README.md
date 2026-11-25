@@ -15,6 +15,7 @@
 - **Allow to Design your own routines** (aka "routines") as a simple text file with a list of speeds and durations, and optionally incline changes. Walkpadspeed has an open design, it does not jail you behing cumbersome interfaces or proprietary protocoles or APIs.
 - **Auto-adjust the speed** of the trackpad to keep your heart rate in a specific zone.
 - **Pause, resume, or stop** at any time, from the app or from your walkpad's own physical remote.
+- **Timed breaks in your routines** Walking pads life can be greatly extended if you avoid overheating them. A simple rule is to always stop them for 5 to 10mn every 20 to 30mn of use. This keeps all the health walking benefits while saving the pad.
 - **Nudge the whole workout faster or slower** on the fly, without restarting it. Nice to follow the same routine, but at a different pace depending on how you feel this day.
 - **(Re)Start the routine at any step** if you want to change to a different routine mid-workout, or mistakenly quit the routine.
 - **Try it out in "Test Mode"** with no walkpad at all, to see how everything works first.
@@ -78,7 +79,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
     To express a speed in miles per hour, just append **mph** to it.\
     - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted so that your heart rate stays in the chosen zone (it learns your heart-rate response to speed changes as the session progresses, ignoring the first 5 warm-up minutes). E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
     - **speed>Zone** The pad is set to speed until either the Zone or the duration is reached. E.g: `5.5>Z2 2m` is a way to force a brisk 5.5 km/h pace getting into Zone 2 at the end of the warmup, without overdoing it and entering Zone 3.
-    - **0 (break)** A step at speed `0` is a **timed break**: the belt stops (motor cool-down) but the routine timers keep running normally, so the whole schedule stays predictable. The break shows as a blue segment in the progress bars, the status line counts down when you must get back on the pad, and a double beep warns you `#warn-at` seconds before it ends. E.g: `0 5m CoolDown`.
+    - **0 (break)** A step at speed `0` is a **timed break**: the belt stops (motor cool-down) but the routine timers keep running normally, so the whole schedule stays predictable. The break shows as a blue segment in the progress bars, the status line counts down when you must get back on the pad, and a double beep warns you `#warn-at` seconds before it ends (default: 10 seconds). E.g: `0 5m CoolDown`.
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
   - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
