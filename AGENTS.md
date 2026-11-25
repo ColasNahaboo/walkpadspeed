@@ -51,6 +51,7 @@ HIIT
 
 **Step line token rules:**
 - Speed: plain km/h, `Xmph` (converted to km/h on parse), or `X/Zn` (zone-targeted — see below)
+- Speed `0`: a **timed break** (motor cool-down). `buildRoutineSteps` flags it `isBreak` and keeps speed 0 (bypasses the `speedMinThreshold` floor). Entering it sends FTMS Pause `0x08/0x02` (speed-0 fallback) via `pauseForBreak()`; the clock, timers, progress and session log keep running normally (0 km segment). Leaving it sends START `0x07` then the speed (pads ignore Set Target Speed while paused) — the `beltPausedForBreak` flag drives this. A break as first step skips the start sequence. Manual RESUME during a break re-issues the break pause instead of starting the motor. `0/Zn` combos drop the zone.
 - Incline: optional `X%` token between speed and duration
 - Duration: seconds, or `Xm`/`Xmn` for minutes (normalized to seconds internally; displayed as `Xm` if round)
 - Label: remaining tokens, joined with `_` in packed format
@@ -61,7 +62,7 @@ HIIT
 
 ### Metadata globals (set by `parseMetadata(text)`)
 
-`metaName`, `metaBirthYear`, `metaAge` (derived from `#birth:`; feeds the `220 - age` max-HR default), `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when neither BLE speed-range characteristic is readable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.62)
+`metaName`, `metaBirthYear`, `metaAge` (derived from `#birth:`; feeds the `220 - age` max-HR default), `metaWeight`, `metaRestHeartRate`, `metaMaxHeartRate`, `metaSpeedUnit`, `metaFileVersion`, `metaIncline`, `metaMaxSpeed` (optional cap when neither BLE speed-range characteristic is readable; default 12), `metaMinSpeed` (optional floor when the pad's BLE min is unreadable; default null), `metaHRM` (set to 0 by `#hrm: 0` to hide the HR metric UI; default 1), `metaStepLength` (step length in meters at 3 km/h; default 0.62), `metaWarnAt` (seconds before a timed break ends to play the double-beep warning; default 10, 0 disables)
 
 `parseMetadata` is called both in the manager (on file load) and in `initDriverMode` (re-parses from `localStorage` cache since page navigation resets JS globals).
 
@@ -984,3 +985,37 @@ mid-routine stops the belt. `test/lifecycle.test.cjs` covers idle hide/show,
 hide mid-routine (belt/clock frozen, RESUME shown), no auto-resume, RESUME, STOP;
 it waits on `routineInterval !== null` because the start path awaits the belt
 spin-up before the clock begins.
+
+---
+
+### Session 2026-11-25: timed break steps (v1.2.1-dev.1)
+
+`0 5m CoolDown` — a step at speed 0 is a motor cool-down break. The belt is
+stopped with FTMS Pause (`pauseForBreak()`, speed-0 fallback) but the routine
+clock, timers, global progress and session log keep running normally (unlike a
+manual pause), so the day's schedule stays predictable. Leaving the break sends
+START (`0x07`) before the next step's speed — pads ignore Set Target Speed
+while paused — driven by the `beltPausedForBreak` flag in `enterStepSpeed()`
+(which also handles the break entry and the first-step-is-a-break case, where
+the start sequence is skipped). Manual RESUME during a break re-issues the
+break pause instead of starting the motor. `#warn-at: N` (default 10, 0
+disables) plays a double beep (`playWarnBeep()`) N s before the break ends;
+the end-of-step single beep still fires at 1 s.
+
+Visual: break segments are blue (`#007aff`) in both the global progress bar and
+the per-step bar, and breaks are excluded from the `speedToColor` min/max
+normalization (a 0 would drag `minSpeed` down and wash out every other step's
+color). The step-jump list shows `BREAK` instead of `0.0 km/h`. `buildRoutineSteps`
+flags `isBreak` when the parsed speed is exactly 0, bypassing the
+`speedMinThreshold` floor; `0/Zn` zone suffixes are dropped as nonsensical.
+Session log needs no change: a 0-speed segment logs 0 km and skips step counting.
+
+Also fixed on the way: a clock tick awaiting `enterStepSpeed()` during a step
+transition, then reading `currentRoutineSteps[currentStepIndex].name` after a
+STOP had reset the state, threw `Cannot read properties of undefined` — the
+tick now bails when the routine went inactive during the await.
+
+Tests: `test/break.test.cjs` (20 checks: parsing, `#warn-at`, BREAK list,
+pause opcode, clock-through-break, START+speed after, blue bar + untouched
+ramp); fixture gained a `Break Test` routine. Test-mode pad mock now zeroes
+`currentLiveSpeed` on a Stop/Pause opcode write.

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>walkpadspeed</title>
     <style>
-      #version:after {content: "v1.2.0";}
+      #version:after {content: "v1.2.1-dev.1";}
       :root {
           --hrm-pillar-width:      5px;
           --hrm-pillar-color:      #ffe566;   /* neon athletic yellow */
@@ -1164,6 +1164,7 @@
       let bleMaxIncline = null;     // max inclination % reported by pad
       let metaMaxSpeed = null;      // #max-speed override from routines file
       let metaMinSpeed = null;      // #min-speed override from routines file
+      let metaWarnAt = 10;          // #warn-at: seconds before a break ends to play the warning beep (0 disables)
       let maxSpeedLimit = DEFAULT_MAX_SPEED;
       let speedMinThreshold = DEFAULT_MIN_SPEED;
       let exportLogsUrl = null;     // #export-logs-url for POSTing session logs
@@ -1225,6 +1226,7 @@
 
       let routineInterval = null;
       let stepTransitioning = false; // a step change is awaiting BLE commands — clock ticks skip
+      let beltPausedForBreak = false; // the belt is stopped by a timed break step, not a manual pause
       let ignoreSpeedTimer = 0;      // timer that re-enables remote-state detection
       let currentRoutineSteps = [];
       let currentStepIndex = 0;
@@ -1380,6 +1382,12 @@
           } catch (e) {
               console.error("Audio cue failed: ", e);
           }
+      }
+
+      // Distinct double-beep cue: the break ends in #warn-at seconds.
+      function playWarnBeep() {
+          playBeep();
+          setTimeout(playBeep, 250);
       }
 
       /* FTMS Treadmill Data (0x2ACD). Instantaneous speed is a mandatory field,
@@ -2492,10 +2500,66 @@
          speed reset when you transition into a zone-targeted step while
          already comfortably inside that zone. */
 
+      // Timed break step (speed 0): stop the belt with the FTMS Pause opcode
+      // while the routine clock keeps running. Unlike a manual pause this must
+      // not freeze the timer — the pad is merely cooling down. currentTargetSpeed
+      // drops to 0, which also keeps the remote-pause detector inert (it only
+      // arms while a non-zero speed is expected).
+      async function pauseForBreak() {
+          ignoreSpeedChanges = true;
+          cancelRemotePauseDebounce();
+          const res = await sendControlCommand(
+              Uint8Array.of(FTMS_OP_STOP_PAUSE, FTMS_STOP_PAUSE_PAUSE), 'break pause');
+          if (res === null || res !== FTMS_RESULT_SUCCESS) {
+              await sendControlCommand(
+                  Uint8Array.of(FTMS_OP_SET_SPEED, 0x00, 0x00), 'break pause (speed 0 fallback)');
+          }
+          currentTargetSpeed = 0;
+          beltPausedForBreak = true;
+          updateStatus('Break — belt stopped, timer running.');
+          scheduleIgnoreSpeedRelease(2000);
+      }
+
       async function enterStepSpeed(step, isInitialStart) {
           const inclineToSend = (step.incline !== undefined && step.incline !== null) ? step.incline : metaIncline;
           trace(`STEP ${currentStepIndex + 1}/${currentRoutineSteps.length} "${step.name}" ` +
                 `speed=${step.speed} incline=${inclineToSend} initial=${!!isInitialStart}`);
+
+          if (step.isBreak) {
+              // A break as the very first step needs no start sequence: the pad
+              // is already idle, and starting the motor just to stop it again
+              // would only make it beep.
+              if (isInitialStart) {
+                  currentTargetSpeed = 0;
+                  beltPausedForBreak = true; // the end-of-break path sends START first
+                  updateStatus('Break — belt stopped, timer running.');
+                  return true;
+              }
+              await pauseForBreak();
+              return true;
+          }
+
+          // Leaving a break: many pads ignore Set Target Speed while paused,
+          // so restart first, then send the speed — the manual-resume sequence.
+          if (beltPausedForBreak) {
+              beltPausedForBreak = false;
+              const startRes = await sendControlCommand(
+                  Uint8Array.of(FTMS_OP_START_RESUME), 'break end');
+              if (startRes !== null && startRes !== FTMS_RESULT_SUCCESS) {
+                  updateStatus(`Break-end start refused (${ftmsResultName(startRes)}).`);
+              }
+              await new Promise(resolve => setTimeout(resolve, spinUpTime));
+              await sendSpeed(step.speed);
+              if (inclineToSend !== undefined && inclineToSend !== null) {
+                  await new Promise(resolve => setTimeout(resolve, 400));
+                  const inclineSent = await sendIncline(inclineToSend);
+                  if (inclineSent) {
+                      verifyInclineApplied(inclineToSend);
+                      reassertSpeedAfterIncline(inclineToSend);
+                  }
+              }
+              return true;
+          }
 
           // Initial start has its own sequence: the pad only accepts a target
           // incline once the machine is started, and it suspends the belt while
@@ -2950,6 +3014,7 @@
           routineTotalDuration = routineTotalDurationGet(routineRawCached);
           lastValidRoutineLabel = '';
           ignoreSpeedChanges = false;
+          beltPausedForBreak = false;
           lastInclineCommand = null;
           if (remotePauseDebounce) {
               clearTimeout(remotePauseDebounce);
@@ -3041,31 +3106,38 @@
                   /* ★★★ Re-acquire wake lock on every resume ★★★ */
                   await requestWakeLock();
 
-                  const resumeResult = await sendControlCommand(
-                      Uint8Array.of(FTMS_OP_START_RESUME), 'resume');
-                  if (resumeResult !== null && resumeResult !== FTMS_RESULT_SUCCESS) {
-                      updateStatus(`Resume refused (${ftmsResultName(resumeResult)}).`);
-                  }
+                  const resumingStep = currentRoutineSteps[currentStepIndex];
+                  if (resumingStep?.isBreak) {
+                      // RESUME during a timed break: the routine continues its
+                      // break — the belt must stay stopped, so re-issue the
+                      // break pause instead of starting the motor.
+                      await pauseForBreak();
+                  } else {
+                      const resumeResult = await sendControlCommand(
+                          Uint8Array.of(FTMS_OP_START_RESUME), 'resume');
+                      if (resumeResult !== null && resumeResult !== FTMS_RESULT_SUCCESS) {
+                          updateStatus(`Resume refused (${ftmsResultName(resumeResult)}).`);
+                      }
 
-                  await new Promise(resolve => setTimeout(resolve, spinUpTime));
+                      await new Promise(resolve => setTimeout(resolve, spinUpTime));
 
-                  if (currentTargetSpeed > 0) {
-                      await sendSpeed(currentTargetSpeed);
-                  }
-                  // The W60 drops back to 0 % when it stops, so a resume after a
-                  // stop/step-jump must re-apply the step's incline.
-                  const resumeIncline = currentStepIncline();
-                  if (resumeIncline !== null &&
-                      (currentLiveIncline === null ||
-                       Math.abs(currentLiveIncline - resumeIncline) > 0.6)) {
-                      await sendIncline(resumeIncline);
+                      if (currentTargetSpeed > 0) {
+                          await sendSpeed(currentTargetSpeed);
+                      }
+                      // The W60 drops back to 0 % when it stops, so a resume after a
+                      // stop/step-jump must re-apply the step's incline.
+                      const resumeIncline = currentStepIncline();
+                      if (resumeIncline !== null &&
+                          (currentLiveIncline === null ||
+                           Math.abs(currentLiveIncline - resumeIncline) > 0.6)) {
+                          await sendIncline(resumeIncline);
+                      }
                   }
 
                   recordSessionState();
                   if (isRoutineActive && !routineInterval) {
                       startClockLoop();
                   }
-                  const resumingStep = currentRoutineSteps[currentStepIndex];
                   if (resumingStep?.targetZone !== null && !resumingStep?.zoneTerminate && hrmConnected()) {
                       startHrmZoneControl(resumingStep.targetZone);
                   }
@@ -3140,6 +3212,14 @@
 
               secondsLeftInStep--;
 
+              // Break step: countdown status + warning beep before the pad must
+              // be re-mounted (the end-of-step beep at 1 s still fires).
+              const tickStep = currentRoutineSteps[currentStepIndex];
+              if (tickStep.isBreak && secondsLeftInStep >= 0) {
+                  if (metaWarnAt > 0 && secondsLeftInStep === metaWarnAt) playWarnBeep();
+                  updateStatus(`Break — back on the pad in ${minutesSeconds(secondsLeftInStep)}`);
+              }
+
               // Zone-terminated step: end early when target HR zone is reached
               if (secondsLeftInStep >= 0) {
                   const step = currentRoutineSteps[currentStepIndex];
@@ -3176,6 +3256,9 @@
                   } finally {
                       stepTransitioning = false;
                   }
+                  // STOP during the await above resets the routine (empties the
+                  // step list); the UI update below would read undefined.
+                  if (!isRoutineActive || currentRoutineSteps.length === 0) return;
               }
 
               const percentRemaining = totalStepDuration > 0
@@ -3283,6 +3366,7 @@
           metaRestHeartRate = null; metaMaxHeartRate = null; metaHRM = 1; metaDebug = 0;
           metaSpeedUnit = null; metaFileVersion = null; metaIncline = null;
           metaMaxSpeed = null; metaMinSpeed = null; metaStepLength = DEFAULT_STEP_LENGTH; exportLogsUrl = null;
+          metaWarnAt = 10;
 
           const metaRegex = /^#([a-z][a-z0-9-]*)\s*:\s*(.+)$/i;
           for (const line of text.split('\n')) {
@@ -3304,6 +3388,11 @@
                   case 'incline':          metaIncline        = parseFloat(val);   break;
                   case 'max-speed':        metaMaxSpeed       = parseFloat(val);   break;
                   case 'min-speed':        metaMinSpeed       = parseFloat(val);   break;
+                  case 'warn-at': {
+                      const w = parseInt(val, 10);
+                      metaWarnAt = isNaN(w) || w < 0 ? 10 : w;
+                      break;
+                  }
                   case 'step-length':      metaStepLength     = parseFloat(val);   break;
                   case 'hrm':              metaHRM            = parseInt(val, 10); break;
                   case 'debug':            metaDebug          = parseInt(val, 10); break;
@@ -3378,10 +3467,13 @@
               const speedStr = parts[0];
               const szMatch = speedStr.match(/^(\d+(?:\.\d+)?)(>?Z([0-5]))?$/i);
               const rawSpeed = szMatch ? parseFloat(szMatch[1]) : parseFloat(speedStr);
-              const speed = Math.max(rawSpeed, speedMinThreshold);
-              const targetZone = (szMatch && szMatch[3] !== undefined)
+              // A step at speed 0 is a timed break (motor cool-down): it must
+              // keep its 0 speed instead of being floored to the pad minimum.
+              const isBreak = rawSpeed === 0;
+              const speed = isBreak ? 0 : Math.max(rawSpeed, speedMinThreshold);
+              const targetZone = (szMatch && szMatch[3] !== undefined && !isBreak)
                   ? parseInt(szMatch[3], 10) : null;
-              const zoneTerminate = szMatch && szMatch[2] && szMatch[2].startsWith('>');
+              const zoneTerminate = !isBreak && szMatch && szMatch[2] && szMatch[2].startsWith('>');
               let durationPart = parts[1];
               if (!durationPart) return null; // malformed packed step — no duration token
               let incline = previousIncline;
@@ -3414,6 +3506,7 @@
                   incline,
                   targetZone,
                   zoneTerminate,
+                  isBreak,
                   name: stepName,
                   setName
               };
@@ -3447,7 +3540,9 @@
           const greenThreshold = isLongStep ? 90 : 50;
           const orangeThreshold = isLongStep ? 30 : 20;
 
-          if (progressValue > greenThreshold) {
+          if (currentRoutineSteps[currentStepIndex].isBreak) {
+              bar.style.backgroundColor = '#007aff';
+          } else if (progressValue > greenThreshold) {
               bar.style.backgroundColor = '#30d158';
           } else if (progressValue > orangeThreshold) {
               bar.style.backgroundColor = '#ff9f0a';
@@ -3480,15 +3575,19 @@
 
           minSpeed = Infinity;
           maxSpeed = 0;
-          if (steps.length >= 10) {
-              for (let i = 1; i < steps.length - 1; i++) {
-                  if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
-                  if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+          // Break steps (speed 0) are painted blue and excluded from the
+          // min/max normalization: a 0 would drag minSpeed down and wash out
+          // the color ramp of every other step.
+          const rampSteps = steps.filter(s => !s.isBreak);
+          if (rampSteps.length >= 10) {
+              for (let i = 1; i < rampSteps.length - 1; i++) {
+                  if (rampSteps[i].speed < minSpeed) minSpeed = rampSteps[i].speed;
+                  if (rampSteps[i].speed > maxSpeed) maxSpeed = rampSteps[i].speed;
               }
           } else {
-              for (let i = 0; i < steps.length; i++) {
-                  if (steps[i].speed < minSpeed) minSpeed = steps[i].speed;
-                  if (steps[i].speed > maxSpeed) maxSpeed = steps[i].speed;
+              for (let i = 0; i < rampSteps.length; i++) {
+                  if (rampSteps[i].speed < minSpeed) minSpeed = rampSteps[i].speed;
+                  if (rampSteps[i].speed > maxSpeed) maxSpeed = rampSteps[i].speed;
               }
           }
 
@@ -3515,7 +3614,7 @@
               const seg = document.createElement('div');
               seg.className = 'global-progress-segment';
               seg.style.width = `${(step.duration / routineTotalDuration) * 100}%`;
-              seg.style.backgroundColor = speedToColor(step.speed);
+              seg.style.backgroundColor = step.isBreak ? '#007aff' : speedToColor(step.speed);
               container.appendChild(seg);
           });
 
@@ -3577,7 +3676,10 @@
                   incline = `${step.incline}% `;
               }
               const zoneSep = step.zoneTerminate ? '>' : '/';
-              meta.innerHTML = `<span>${incline}${step.speed.toFixed(1)}${step.targetZone !== null ? `${zoneSep}Z${step.targetZone}` : ''} km/h</span><span>${minutesSeconds(step.duration)}</span>`;
+              const speedPart = step.isBreak
+                  ? 'BREAK'
+                  : `${step.speed.toFixed(1)}${step.targetZone !== null ? `${zoneSep}Z${step.targetZone}` : ''} km/h`;
+              meta.innerHTML = `<span>${incline}${speedPart}</span><span>${minutesSeconds(step.duration)}</span>`;
 
               row.appendChild(btn);
               row.appendChild(meta);
@@ -5255,10 +5357,15 @@ Climb with Inclines // For walkpads with automatic incline settings
                           // Control-point commands arrive as Uint8Array; real
                           // writeValue accepts any BufferSource, so accept both.
                           const ab = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
-                          if (buffer.byteLength === 3 && new DataView(ab).getUint8(0) === 0x02) {
+                          const bytes = new Uint8Array(ab);
+                          if (bytes.length === 3 && bytes[0] === 0x02) {
                               const rawSpeed = new DataView(ab).getUint16(1, true);
                               currentLiveSpeed = rawSpeed / 100;
                               document.getElementById('liveSpeed').innerText = (rawSpeed / 100).toFixed(1);
+                          } else if (bytes.length === 2 && bytes[0] === 0x08 && bytes[1] !== 0x03) {
+                              // Stop or Pause: the belt comes to a standstill.
+                              currentLiveSpeed = 0;
+                              document.getElementById('liveSpeed').innerText = '0.0';
                           }
                       }
                   };

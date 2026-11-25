@@ -78,6 +78,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
     To express a speed in miles per hour, just append **mph** to it.\
     - **speed/Zone** If you are using a Heart Rate Monitor, the speed is ignored, and the pad speed will be progressively dynamically adjusted so that your heart rate stays in the chosen zone (it learns your heart-rate response to speed changes as the session progresses, ignoring the first 5 warm-up minutes). E.g: `4.2/Z2 10m`, `3mph/Z4 1m`, `3.0/Z0 120`
     - **speed>Zone** The pad is set to speed until either the Zone or the duration is reached. E.g: `5.5>Z2 2m` is a way to force a brisk 5.5 km/h pace getting into Zone 2 at the end of the warmup, without overdoing it and entering Zone 3.
+    - **0 (break)** A step at speed `0` is a **timed break**: the belt stops (motor cool-down) but the routine timers keep running normally, so the whole schedule stays predictable. The break shows as a blue segment in the progress bars, the status line counts down when you must get back on the pad, and a double beep warns you `#warn-at` seconds before it ends. E.g: `0 5m CoolDown`.
   - **incline** (optional) a percent of incline as an integer postfixed by `%`.
   - **duration** of the step, a number (integer) of seconds. Can also be expressed in minutes if immediatelly followed by `mn` or `m`.
   - **name** (optional) You can optionally add a label after the duration, to name that step (e.g. "Warmup").
@@ -93,6 +94,7 @@ Routines ("routines") are written in a plain text file you create yourself (in a
   - `#min-speed:` normally the minimum speed of the pad is read over Bluetooth. If the pad does not publish it, you can set it via this metadata, e.g: `#min-speed: 1.2`. Default is `1.0`.
   - `#incline:` a fixed incline percentage, applied when the routine starts and kept by every step that does not specify its own `X%` token, e.g. `#incline: 9`. It is displayed and logged like any other incline.
   - `#step-length:` the length in meters of one of your steps at 3 km/h. Measure it by walking on your pad at 3.0 km/h, and counting the number `N` of your steps done in 30 seconds. Your step length is then `25 / N`. E.g. for 42 steps counted, enter `#step-length: 0.60`. Note that your step length on a walking pad may differ from your natural step length when walking outside. Walkpadspeed with then adjust the actual step length to use in the session log, as it changes with the speed by the formula: `steplen-at-3kmh * (speed / 3)^0.42`. Defaults to `0.62`.
+  - `#warn-at:` seconds before the end of a timed break (`0` speed step) that a double beep warns you to get back on the pad. E.g. `#warn-at: 10`. Default is `10`; `0` disables the warning.
   - `#export-logs-url:` provides an optional URL of a web server that the application will POST to the log of a session after termination of a routine. See [Auto export of logs](#auto-export-of-logs).
   - `#debug:` set it to `1` to record a timestamped Bluetooth trace of the session in the player view. Default: `0` (no trace at all). See [Debugging](#debugging).
 
